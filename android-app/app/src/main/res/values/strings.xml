@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">DiffusionLab</string>
+    <string name="tab_generate">Generate</string>
+    <string name="tab_edit">Edit</string>
+    <string name="tab_upscale">Upscale</string>
+    <string name="tab_gallery">Gallery</string>
+    <string name="tab_models">Models</string>
+    <string name="prompt_hint">Describe the image you want to create...</string>
+    <string name="generate_button">Generate</string>
+    <string name="inpaint_button">Inpaint</string>
+    <string name="upscale_button">Upscale</string>
+    <string name="steps_label">Steps</string>
+    <string name="guidance_label">Guidance Scale</string>
+    <string name="seed_label">Seed</string>
+    <string name="brush_size_label">Brush Size</string>
+    <string name="feather_label">Feather</string>
+    <string name="edge_label">Edge</string>
+    <string name="denoise_label">Denoise</string>
+    <string name="auto_mask_button">Auto-Mask</string>
+    <string name="clear_mask_button">Clear Mask</string>
+    <string name="premium_title">Unlock Premium</string>
+    <string name="premium_description">Get unlimited generations, inpainting, upscaling, S-Pen tools, and more.</string>
+    <string name="premium_price">$6.99</string>
+    <string name="model_download_title">Download Models</string>
+    <string name="model_download_description">Models will be downloaded on first launch. Wi-Fi recommended.</string>
+    <string name="notification_channel_download">Model Downloads</string>
+    <string name="notification_channel_generation">Image Generation</string>
+</resources>

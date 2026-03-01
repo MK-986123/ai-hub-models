@@ -1,0 +1,137 @@
+{
+  "version": 1,
+  "models": [
+    {
+      "id": "text_encoder",
+      "display_name": "CLIP Text Encoder",
+      "role": "text_encoder",
+      "file_name": "text_encoder.onnx",
+      "file_size_bytes": 178257920,
+      "description": "CLIP ViT-L/14 text encoder for Stable Diffusion v1.5. Converts text prompts to 768-dim embeddings.",
+      "is_premium": false,
+      "is_required": true,
+      "input_spec": {
+        "input_ids": [1, 77]
+      },
+      "output_spec": {
+        "text_embeddings": [1, 77, 768]
+      }
+    },
+    {
+      "id": "unet",
+      "display_name": "U-Net Denoiser",
+      "role": "unet",
+      "file_name": "unet.onnx",
+      "file_size_bytes": 471859200,
+      "description": "UNet2DConditionModel (865M params, w8a16 quantized). Core denoising network for Stable Diffusion.",
+      "is_premium": false,
+      "is_required": true,
+      "input_spec": {
+        "latent": [1, 4, 64, 64],
+        "timestep": [1, 1],
+        "text_emb": [1, 77, 768]
+      },
+      "output_spec": {
+        "noise_pred": [1, 4, 64, 64]
+      }
+    },
+    {
+      "id": "vae_decoder",
+      "display_name": "VAE Decoder",
+      "role": "vae_decoder",
+      "file_name": "vae_decoder.onnx",
+      "file_size_bytes": 47185920,
+      "description": "AutoencoderKL decoder (83M params, w8a16). Decodes latent space to 512x512 RGB images.",
+      "is_premium": false,
+      "is_required": true,
+      "input_spec": {
+        "latent": [1, 4, 64, 64]
+      },
+      "output_spec": {
+        "image": [1, 3, 512, 512]
+      }
+    },
+    {
+      "id": "real_esrgan",
+      "display_name": "Real-ESRGAN 4x",
+      "role": "upscaler",
+      "file_name": "real_esrgan_x4plus.onnx",
+      "file_size_bytes": 17510400,
+      "description": "Real-ESRGAN x4plus (16.7M params, w8a8 quantized). High quality 4x upscaling. ~25ms on NPU.",
+      "is_premium": true,
+      "is_required": false,
+      "input_spec": {
+        "input": [1, 3, 128, 128]
+      },
+      "output_spec": {
+        "output": [1, 3, 512, 512]
+      }
+    },
+    {
+      "id": "xlsr",
+      "display_name": "XLSR (Fast Upscale)",
+      "role": "upscaler",
+      "file_name": "xlsr.onnx",
+      "file_size_bytes": 117760,
+      "description": "Ultra-lightweight upscaler (28K params, 115KB). Supports 2x/3x/4x. ~3ms on NPU.",
+      "is_premium": false,
+      "is_required": false,
+      "input_spec": {
+        "input": [1, 3, -1, -1]
+      },
+      "output_spec": {
+        "output": [1, 3, -1, -1]
+      }
+    },
+    {
+      "id": "lama",
+      "display_name": "LaMa Inpainter",
+      "role": "inpainter",
+      "file_name": "lama_dilated.onnx",
+      "file_size_bytes": 182452224,
+      "description": "LaMa-Dilated inpainting (45.6M params). High quality with Fourier convolutions. 512x512 input.",
+      "is_premium": true,
+      "is_required": false,
+      "input_spec": {
+        "image": [1, 3, 512, 512],
+        "mask": [1, 1, 512, 512]
+      },
+      "output_spec": {
+        "output": [1, 3, 512, 512]
+      }
+    },
+    {
+      "id": "aotgan",
+      "display_name": "AOT-GAN (Fast Inpaint)",
+      "role": "inpainter",
+      "file_name": "aotgan.onnx",
+      "file_size_bytes": 60817408,
+      "description": "AOT-GAN fast inpainting (15.2M params). Good for quick edits. 512x512 input.",
+      "is_premium": true,
+      "is_required": false,
+      "input_spec": {
+        "image": [1, 3, 512, 512],
+        "mask": [1, 1, 512, 512]
+      },
+      "output_spec": {
+        "output": [1, 3, 512, 512]
+      }
+    },
+    {
+      "id": "fastsam",
+      "display_name": "FastSAM-S",
+      "role": "segmenter",
+      "file_name": "fastsam_s.onnx",
+      "file_size_bytes": 47185920,
+      "description": "Fast Segment Anything for auto-masking (11.8M params). ~10-15ms on NPU. 640x640 input.",
+      "is_premium": true,
+      "is_required": false,
+      "input_spec": {
+        "image": [1, 3, 640, 640]
+      },
+      "output_spec": {
+        "masks": [1, -1, 160, 160]
+      }
+    }
+  ]
+}
