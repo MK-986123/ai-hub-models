@@ -24,3 +24,11 @@ class FCN_ResNet50(DeepLabV3Model):
         model = tv_models.segmentation.fcn_resnet50(weights=weights)
         model.aux_classifier = None
         return cls(model)
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        return ["coco_voc_seg"]
+
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "coco_voc_seg"
