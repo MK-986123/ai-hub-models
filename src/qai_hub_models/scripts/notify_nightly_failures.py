@@ -122,6 +122,12 @@ def main() -> None:
         args.workflow_failures, args.workflow_failure_urls
     )
 
+    # Load test summary if available (shared by both issues)
+    test_summary = None
+    summary_path = Path("build/nightly-test-results/summary.md")
+    if summary_path.exists():
+        test_summary = summary_path.read_text()
+
     # Workbench issue
     failed_aihub_jobs = load_failed_jobs_json(args.failed_jobs_json)
     if workbench_failures:
@@ -131,6 +137,7 @@ def main() -> None:
             today=today,
             failures=workbench_failures,
             failed_aihub_jobs=failed_aihub_jobs or None,
+            test_summary=test_summary,
             run_url=args.run_url,
             repository=args.repository,
             ref_name=args.ref_name,
@@ -146,6 +153,7 @@ def main() -> None:
             "general_issue.j2",
             today=today,
             failures=general_failures,
+            test_summary=test_summary,
             run_url=args.run_url,
             repository=args.repository,
             ref_name=args.ref_name,

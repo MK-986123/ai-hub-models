@@ -6,6 +6,11 @@ Date: {{ today }}
 {% for f in failures -%}
 - [{{ f.name }}]({{ f.url }})
 {% endfor %}
+{% if test_summary %}
+## Test Summary
+
+{{ test_summary }}
+{% endif %}
 
 ## Links
 - [View Workflow Run]({{ run_url }})

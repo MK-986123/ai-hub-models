@@ -13,6 +13,12 @@ Date: {{ today }}
 - **{{ name }}**: {{ url }}
 {% endfor %}
 {%- endif %}
+{% if test_summary %}
+
+## Test Summary
+
+{{ test_summary }}
+{% endif %}
 
 ## Links
 - [View Workflow Run]({{ run_url }})
