@@ -4,9 +4,12 @@
 # ---------------------------------------------------------------------
 
 import importlib.util
+import os
 import sys
+import tempfile
 import types
 from pathlib import Path
+from unittest.mock import patch
 
 # changes.py lives in scripts/tasks/ outside the installed package.
 _REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -187,3 +190,52 @@ def test_aimet_onnx_utils_change_detects_sd() -> None:
         ["src/qai_hub_models/utils/quantization_aimet_onnx.py"]
     )
     assert "stable_diffusion_v1_5" in models
+
+
+# ── get_ci_test_models: code-gen.yaml detection ──────────────────────
+
+get_ci_test_models = _changes.get_ci_test_models
+get_changed_files_in_package = _changes.get_changed_files_in_package
+
+
+def _run_get_ci_test_models_with_changed_files(changed_files_content: str) -> set[str]:
+    """
+    Helper that runs get_ci_test_models with a fake changed-files file.
+
+    Simulates the CI environment where build/changed-qaihm-files.txt
+    is pre-populated with the list of changed files.
+    """
+    # Clear the lru_caches so previous test state doesn't leak
+    get_changed_files_in_package.cache_clear()
+    _changes.get_affected_files.cache_clear()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        build_dir = os.path.join(tmpdir, "build")
+        os.makedirs(build_dir)
+        changed_file = os.path.join(build_dir, "changed-qaihm-files.txt")
+        with open(changed_file, "w") as f:
+            f.write(changed_files_content)
+
+        with (
+            patch.object(_changes, "on_github", return_value=True),
+            patch.object(_changes, "REPO_ROOT", tmpdir),
+        ):
+            result = get_ci_test_models()
+
+    # Clean up caches after test
+    get_changed_files_in_package.cache_clear()
+    _changes.get_affected_files.cache_clear()
+    return result
+
+
+def test_codegen_yaml_change_detects_model() -> None:
+    """
+    Changing only a model's code-gen.yaml should detect that model.
+
+    This was the bug in issue #19031: code-gen.yaml changes were never
+    fed into get_ci_test_models because get_changed_files_in_package
+    was only called with suffix='.py' and suffix='requirements.txt'.
+    """
+    changed_files = "src/qai_hub_models/models/cvt/code-gen.yaml\n"
+    models = _run_get_ci_test_models_with_changed_files(changed_files)
+    assert "cvt" in models

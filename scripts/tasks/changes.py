@@ -157,6 +157,8 @@ def get_affected_files(changed_files: Iterable[str]) -> set[str]:
     while len(changed_files) > 0:
         # Pop off stack
         curr_file = changed_files.pop()
+        if not curr_file.endswith(".py"):
+            continue
         if curr_file in MANUAL_EDGES:
             dependent_files = set(MANUAL_EDGES[curr_file])
         else:
@@ -231,7 +233,7 @@ def resolve_affected_models(
     return changed_models
 
 
-@functools.lru_cache(maxsize=2)  # Size 2 for `.py` and `code-gen.yaml`
+@functools.lru_cache(maxsize=3)
 def get_changed_files_in_package(
     prefix: str | None = None,
     suffix: str | None = None,
@@ -278,6 +280,7 @@ def get_ci_test_models(
     """
     files = list(get_changed_files_in_package(suffix="requirements.txt"))
     files.extend(get_changed_files_in_package(suffix=".py"))
+    files.extend(get_changed_files_in_package(suffix="code-gen.yaml"))
     return resolve_affected_models(
         files,
         include_model,
