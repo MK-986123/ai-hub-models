@@ -38,11 +38,6 @@ precisions:
   float:
     components:
       StateTransformer:
-        universal_assets:
-          tflite:
-            model_id: mnjexvjxm
-            tool_versions:
-              litert: 1.4.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:

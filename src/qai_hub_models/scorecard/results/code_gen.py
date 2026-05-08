@@ -436,18 +436,6 @@ def remove_perf_failures(
             component,
             component_details,
         ) in perf_precision_components.components.items():
-            device_assets: dict[
-                ScorecardDevice, dict[ScorecardProfilePath, QAIHMModelPerf.AssetDetails]
-            ] = {}
-            for device, asset_by_path in component_details.device_assets.items():
-                path_assets = {
-                    path: copy.deepcopy(asset_by_path[path])
-                    for path in asset_by_path
-                    if path.runtime not in runtimes_with_failures
-                }
-                if path_assets:
-                    device_assets[device] = path_assets
-
             performance_metrics: dict[
                 ScorecardDevice,
                 dict[ScorecardProfilePath, QAIHMModelPerf.PerformanceDetails],
@@ -467,15 +455,8 @@ def remove_perf_failures(
                         if details := yaml.devices.get(device.reference_device_name):
                             supported_chipsets.add(details.chipset)
 
-            universal_assets = {
-                path: copy.deepcopy(component_details.universal_assets[path])
-                for path in component_details.universal_assets
-                if path.runtime not in runtimes_with_failures
-            }
-            if device_assets or performance_metrics or universal_assets:
+            if performance_metrics:
                 components[component] = QAIHMModelPerf.ComponentDetails(
-                    universal_assets=universal_assets,
-                    device_assets=device_assets,
                     performance_metrics=performance_metrics,
                 )
 

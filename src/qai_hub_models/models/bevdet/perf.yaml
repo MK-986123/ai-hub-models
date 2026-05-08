@@ -54,15 +54,6 @@ precisions:
   float:
     components:
       BEVDet:
-        universal_assets:
-          tflite:
-            model_id: mn401l5vq
-            tool_versions:
-              litert: 1.4.3
-          onnx:
-            model_id: mnzlv12zm
-            tool_versions:
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:
@@ -369,11 +360,6 @@ precisions:
   w8a16_mixed_fp16:
     components:
       BEVDet:
-        universal_assets:
-          onnx:
-            model_id: mqyo3vyxm
-            tool_versions:
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             onnx:

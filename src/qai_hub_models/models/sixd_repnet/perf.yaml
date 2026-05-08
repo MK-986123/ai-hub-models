@@ -54,21 +54,6 @@ precisions:
   float:
     components:
       face_detector:
-        universal_assets:
-          tflite:
-            model_id: mqvl4zvem
-            tool_versions:
-              qairt: 2.45.0.260326154327
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mqyo31yxm
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mnzlvo7pm
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:
@@ -603,21 +588,6 @@ precisions:
                 qairt: 2.42.0.251225135753_193295
                 onnx_runtime: 1.24.3
       pose_estimator:
-        universal_assets:
-          tflite:
-            model_id: mnjexv2dm
-            tool_versions:
-              qairt: 2.45.0.260326154327
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mq35ejzrm
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mqyo317xm
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:

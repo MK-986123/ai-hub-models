@@ -53,8 +53,6 @@ def test_perf_yaml() -> None:
                 for component_detail in precision_perf.components.values():
                     for device in component_detail.performance_metrics:
                         _validate_device(device)
-                    for device in component_detail.device_assets:
-                        _validate_device(device)
 
                 # If there is 1 component, make sure it matches the model name.
                 if len(precision_perf.components) == 1:

@@ -61,19 +61,6 @@ precisions:
   float:
     components:
       EyeGaze:
-        universal_assets:
-          tflite:
-            model_id: mqyo2xjvm
-            tool_versions:
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mqeeo4wyq
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mm5y6536n
-            tool_versions:
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:
@@ -588,11 +575,6 @@ precisions:
   w8a16:
     components:
       EyeGaze:
-        universal_assets:
-          onnx:
-            model_id: mq2wjgvlq
-            tool_versions:
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             onnx:

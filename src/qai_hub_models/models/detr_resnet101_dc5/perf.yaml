@@ -54,16 +54,6 @@ precisions:
   float:
     components:
       DETR-ResNet101-DC5:
-        universal_assets:
-          qnn_dlc:
-            model_id: mqyo3779m
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mq35ekkkm
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             qnn_dlc:

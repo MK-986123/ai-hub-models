@@ -54,19 +54,6 @@ precisions:
   float:
     components:
       CREStereo:
-        universal_assets:
-          tflite:
-            model_id: mn01x33zm
-            tool_versions:
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mmdeyg30q
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mq2w4x7lq
-            tool_versions:
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:

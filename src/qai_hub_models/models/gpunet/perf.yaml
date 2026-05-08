@@ -61,21 +61,6 @@ precisions:
   float:
     components:
       GPUNet:
-        universal_assets:
-          tflite:
-            model_id: mngz1rrrm
-            tool_versions:
-              qairt: 2.45.0.260326154327
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mmdey913q
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mnol3v1kn
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:
@@ -612,16 +597,6 @@ precisions:
   w8a16:
     components:
       GPUNet:
-        universal_assets:
-          qnn_dlc:
-            model_id: mnzlvorpm
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mqeex88kq
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             qnn_dlc:
@@ -1084,21 +1059,6 @@ precisions:
   w8a8:
     components:
       GPUNet:
-        universal_assets:
-          tflite:
-            model_id: mn401xxwq
-            tool_versions:
-              qairt: 2.45.0.260326154327
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mn01x6lzm
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mnol3vvkn
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:

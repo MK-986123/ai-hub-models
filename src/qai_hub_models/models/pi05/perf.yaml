@@ -9,27 +9,6 @@ precisions:
   float:
     components:
       vit:
-        device_assets:
-          Samsung Galaxy S25:
-            qnn_context_binary:
-              model_id: mnw95k1wm
-              tool_versions:
-                qairt: 2.41.0.251128145156_191518
-            precompiled_qnn_onnx:
-              model_id: mnzk7d6on
-              tool_versions:
-                qairt: 2.37.1.250807093845_124904
-                onnx_runtime: 1.23.0
-          Dragonwing Q-8750:
-            qnn_context_binary:
-              model_id: mnw95k1wm
-              tool_versions:
-                qairt: 2.41.0.251128145156_191518
-            precompiled_qnn_onnx:
-              model_id: mnzk7d6on
-              tool_versions:
-                qairt: 2.37.1.250807093845_124904
-                onnx_runtime: 1.23.0
         performance_metrics:
           Samsung Galaxy S25:
             qnn_context_binary:
@@ -88,27 +67,6 @@ precisions:
                 qairt: 2.37.1.250807093845_124904
                 onnx_runtime: 1.23.0
       token_emb:
-        device_assets:
-          Samsung Galaxy S25:
-            qnn_context_binary:
-              model_id: mngl40d6q
-              tool_versions:
-                qairt: 2.41.0.251128145156_191518
-            precompiled_qnn_onnx:
-              model_id: mnw95kxxm
-              tool_versions:
-                qairt: 2.37.1.250807093845_124904
-                onnx_runtime: 1.23.0
-          Dragonwing Q-8750:
-            qnn_context_binary:
-              model_id: mngl40d6q
-              tool_versions:
-                qairt: 2.41.0.251128145156_191518
-            precompiled_qnn_onnx:
-              model_id: mnw95kxxm
-              tool_versions:
-                qairt: 2.37.1.250807093845_124904
-                onnx_runtime: 1.23.0
         performance_metrics:
           Samsung Galaxy S25:
             qnn_context_binary:
@@ -167,27 +125,6 @@ precisions:
                 qairt: 2.37.1.250807093845_124904
                 onnx_runtime: 1.23.0
       action_expert:
-        device_assets:
-          Samsung Galaxy S25:
-            qnn_context_binary:
-              model_id: mno81k0gq
-              tool_versions:
-                qairt: 2.41.0.251128145156_191518
-            precompiled_qnn_onnx:
-              model_id: mno81kjvq
-              tool_versions:
-                qairt: 2.37.1.250807093845_124904
-                onnx_runtime: 1.23.0
-          Dragonwing Q-8750:
-            qnn_context_binary:
-              model_id: mno81k0gq
-              tool_versions:
-                qairt: 2.41.0.251128145156_191518
-            precompiled_qnn_onnx:
-              model_id: mno81kjvq
-              tool_versions:
-                qairt: 2.37.1.250807093845_124904
-                onnx_runtime: 1.23.0
         performance_metrics:
           Samsung Galaxy S25:
             qnn_context_binary:
@@ -246,27 +183,6 @@ precisions:
                 qairt: 2.37.1.250807093845_124904
                 onnx_runtime: 1.23.0
       backbone0_6:
-        device_assets:
-          Samsung Galaxy S25:
-            qnn_context_binary:
-              model_id: mqvrvgk0m
-              tool_versions:
-                qairt: 2.41.0.251128145156_191518
-            precompiled_qnn_onnx:
-              model_id: mnl2l9pwq
-              tool_versions:
-                qairt: 2.37.1.250807093845_124904
-                onnx_runtime: 1.23.0
-          Dragonwing Q-8750:
-            qnn_context_binary:
-              model_id: mqvrvgk0m
-              tool_versions:
-                qairt: 2.41.0.251128145156_191518
-            precompiled_qnn_onnx:
-              model_id: mnl2l9pwq
-              tool_versions:
-                qairt: 2.37.1.250807093845_124904
-                onnx_runtime: 1.23.0
         performance_metrics:
           Samsung Galaxy S25:
             qnn_context_binary:
@@ -325,27 +241,6 @@ precisions:
                 qairt: 2.37.1.250807093845_124904
                 onnx_runtime: 1.23.0
       backbone6_12:
-        device_assets:
-          Samsung Galaxy S25:
-            qnn_context_binary:
-              model_id: mn4yk32zn
-              tool_versions:
-                qairt: 2.41.0.251128145156_191518
-            precompiled_qnn_onnx:
-              model_id: mngl407eq
-              tool_versions:
-                qairt: 2.37.1.250807093845_124904
-                onnx_runtime: 1.23.0
-          Dragonwing Q-8750:
-            qnn_context_binary:
-              model_id: mn4yk32zn
-              tool_versions:
-                qairt: 2.41.0.251128145156_191518
-            precompiled_qnn_onnx:
-              model_id: mngl407eq
-              tool_versions:
-                qairt: 2.37.1.250807093845_124904
-                onnx_runtime: 1.23.0
         performance_metrics:
           Samsung Galaxy S25:
             qnn_context_binary:
@@ -404,27 +299,6 @@ precisions:
                 qairt: 2.37.1.250807093845_124904
                 onnx_runtime: 1.23.0
       backbone12_18:
-        device_assets:
-          Samsung Galaxy S25:
-            qnn_context_binary:
-              model_id: mmx806gjn
-              tool_versions:
-                qairt: 2.41.0.251128145156_191518
-            precompiled_qnn_onnx:
-              model_id: mm6253jvn
-              tool_versions:
-                qairt: 2.37.1.250807093845_124904
-                onnx_runtime: 1.23.0
-          Dragonwing Q-8750:
-            qnn_context_binary:
-              model_id: mmx806gjn
-              tool_versions:
-                qairt: 2.41.0.251128145156_191518
-            precompiled_qnn_onnx:
-              model_id: mm6253jvn
-              tool_versions:
-                qairt: 2.37.1.250807093845_124904
-                onnx_runtime: 1.23.0
         performance_metrics:
           Samsung Galaxy S25:
             qnn_context_binary:

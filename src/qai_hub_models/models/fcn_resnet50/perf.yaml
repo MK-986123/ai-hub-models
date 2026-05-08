@@ -61,21 +61,6 @@ precisions:
   float:
     components:
       FCN-ResNet50:
-        universal_assets:
-          tflite:
-            model_id: mm5y6512n
-            tool_versions:
-              qairt: 2.45.0.260326154327
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mn40w60rq
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mqvl0w10m
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:
@@ -612,21 +597,6 @@ precisions:
   w8a8:
     components:
       FCN-ResNet50:
-        universal_assets:
-          tflite:
-            model_id: mnzl3g5om
-            tool_versions:
-              qairt: 2.45.0.260326154327
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mn726ywjm
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mqplgrllm
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:

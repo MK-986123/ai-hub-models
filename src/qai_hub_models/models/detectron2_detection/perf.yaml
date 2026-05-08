@@ -61,21 +61,6 @@ precisions:
   float:
     components:
       proposal_generator:
-        universal_assets:
-          tflite:
-            model_id: mqeexv8vq
-            tool_versions:
-              qairt: 2.45.0.260326154327
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mnlevdxwq
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mq35ek46m
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             qnn_dlc:
@@ -470,20 +455,6 @@ precisions:
                 qairt: 2.42.0.251225135753_193295
                 onnx_runtime: 1.24.3
       roi_head:
-        universal_assets:
-          tflite:
-            model_id: mq35ekj6m
-            tool_versions:
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mmxl7yejm
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mn72l7evm
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             qnn_dlc:
@@ -880,16 +851,6 @@ precisions:
   w8a16:
     components:
       proposal_generator:
-        universal_assets:
-          qnn_dlc:
-            model_id: mn01xvlzm
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mmdeyv9wq
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             qnn_dlc:
@@ -1337,16 +1298,6 @@ precisions:
                 qairt: 2.42.0.251225135753_193295
                 onnx_runtime: 1.24.3
       roi_head:
-        universal_assets:
-          qnn_dlc:
-            model_id: mn4015kwq
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mmxl7y3jm
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             qnn_dlc:
@@ -1796,21 +1747,6 @@ precisions:
   w8a8:
     components:
       proposal_generator:
-        universal_assets:
-          tflite:
-            model_id: mq99prz2q
-            tool_versions:
-              qairt: 2.45.0.260326154327
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mnwle0gpm
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mm67vyevq
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:
@@ -2468,21 +2404,6 @@ precisions:
                 qairt: 2.42.0.251225135753_193295
                 onnx_runtime: 1.24.3
       roi_head:
-        universal_assets:
-          tflite:
-            model_id: mmrl6y42m
-            tool_versions:
-              qairt: 2.45.0.260326154327
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mqplz5vjm
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mqvl45xxm
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:

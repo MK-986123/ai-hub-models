@@ -61,21 +61,6 @@ precisions:
   float:
     components:
       Real-ESRGAN-x4plus:
-        universal_assets:
-          tflite:
-            model_id: mm5y6l94n
-            tool_versions:
-              qairt: 2.45.0.260326154327
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mnlewp5jq
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mn01rwo3m
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:
@@ -612,21 +597,6 @@ precisions:
   w8a8:
     components:
       Real-ESRGAN-x4plus:
-        universal_assets:
-          tflite:
-            model_id: mngz3786m
-            tool_versions:
-              qairt: 2.45.0.260326154327
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mn1d3l6vn
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mm5y6l14n
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:

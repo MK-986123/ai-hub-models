@@ -54,21 +54,6 @@ precisions:
   float:
     components:
       Depth-Anything-V3:
-        universal_assets:
-          tflite:
-            model_id: mq2w48xwq
-            tool_versions:
-              qairt: 2.45.0.260326154327
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mq8rk2zjn
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mqvl45zxm
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:

@@ -61,21 +61,6 @@ precisions:
   float:
     components:
       FFNet-122NS-LowRes:
-        universal_assets:
-          tflite:
-            model_id: mq2wjg9wq
-            tool_versions:
-              qairt: 2.45.0.260326154327
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mnlew05wq
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mnjep6dxm
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:
@@ -612,21 +597,6 @@ precisions:
   w8a8:
     components:
       FFNet-122NS-LowRes:
-        universal_assets:
-          tflite:
-            model_id: mn01rkz8m
-            tool_versions:
-              qairt: 2.45.0.260326154327
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mmrld8rrm
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mqkel5exq
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:

@@ -53,21 +53,6 @@ precisions:
   float:
     components:
       EfficientNet-V2-s:
-        universal_assets:
-          tflite:
-            model_id: mn1dz6yvn
-            tool_versions:
-              qairt: 2.45.0.260326154327
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mqplz50vm
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mn4015e7q
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:
@@ -464,16 +449,6 @@ precisions:
   w8a16:
     components:
       EfficientNet-V2-s:
-        universal_assets:
-          qnn_dlc:
-            model_id: mqeexv94q
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mnlevd5eq
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             qnn_dlc:

@@ -61,21 +61,6 @@ precisions:
   float:
     components:
       yolo_2d_detection:
-        universal_assets:
-          tflite:
-            model_id: mq99pw5lq
-            tool_versions:
-              qairt: 2.45.0.260326154327
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mn1dzkrvn
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mmdey92vq
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:
@@ -610,21 +595,6 @@ precisions:
                 qairt: 2.42.0.251225135753_193295
                 onnx_runtime: 1.24.3
       vgg_3d_detection:
-        universal_assets:
-          tflite:
-            model_id: mn1dzkopn
-            tool_versions:
-              qairt: 2.45.0.260326154327
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mqplzdwom
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mqkekg6wq
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:
@@ -1161,16 +1131,6 @@ precisions:
   w8a16:
     components:
       yolo_2d_detection:
-        universal_assets:
-          qnn_dlc:
-            model_id: mm5ydjo6n
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mmrl6er6m
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             qnn_dlc:
@@ -1631,16 +1591,6 @@ precisions:
                 qairt: 2.42.0.251225135753_193295
                 onnx_runtime: 1.24.3
       vgg_3d_detection:
-        universal_assets:
-          qnn_dlc:
-            model_id: mqyo31z5m
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mm67vwddq
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             qnn_dlc:

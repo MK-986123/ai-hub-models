@@ -53,21 +53,6 @@ precisions:
   float:
     components:
       PSPNet:
-        universal_assets:
-          tflite:
-            model_id: mngz323rm
-            tool_versions:
-              qairt: 2.45.0.260326154327
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mqplgkdgm
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mqeeoy75q
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:
@@ -464,21 +449,6 @@ precisions:
   w8a8:
     components:
       PSPNet:
-        universal_assets:
-          tflite:
-            model_id: mmrldx7rm
-            tool_versions:
-              qairt: 2.45.0.260326154327
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mm5y6l92n
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mn726zyvm
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:

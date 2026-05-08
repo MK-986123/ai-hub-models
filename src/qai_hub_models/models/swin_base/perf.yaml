@@ -61,21 +61,6 @@ precisions:
   float:
     components:
       Swin-Base:
-        universal_assets:
-          tflite:
-            model_id: mqvl4xrlm
-            tool_versions:
-              qairt: 2.45.0.260326154327
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mq2w4l0dq
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mn1dzev4n
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:
@@ -598,16 +583,6 @@ precisions:
   w8a16:
     components:
       Swin-Base:
-        universal_assets:
-          qnn_dlc:
-            model_id: mqplzx30m
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mqkek31kq
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             qnn_dlc:

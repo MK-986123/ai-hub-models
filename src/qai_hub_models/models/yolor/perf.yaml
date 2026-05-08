@@ -61,12 +61,6 @@ precisions:
   float:
     components:
       Yolo-R:
-        universal_assets:
-          onnx:
-            model_id: mmdeyy6oq
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             onnx:
@@ -206,16 +200,6 @@ precisions:
   w8a16:
     components:
       Yolo-R:
-        universal_assets:
-          qnn_dlc:
-            model_id: mnzlvvgom
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mnol33l9n
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             qnn_dlc:

@@ -61,21 +61,6 @@ precisions:
   float:
     components:
       SESR-M5:
-        universal_assets:
-          tflite:
-            model_id: mqplz3pvm
-            tool_versions:
-              qairt: 2.45.0.260326154327
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mm5yde2kn
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mq35e6yrm
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:
@@ -612,21 +597,6 @@ precisions:
   w8a8:
     components:
       SESR-M5:
-        universal_assets:
-          tflite:
-            model_id: mnjex41dm
-            tool_versions:
-              qairt: 2.45.0.260326154327
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mn72lx98m
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mnwle863m
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:

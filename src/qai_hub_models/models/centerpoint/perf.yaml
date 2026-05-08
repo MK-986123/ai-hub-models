@@ -46,15 +46,6 @@ precisions:
   float:
     components:
       CenterPoint:
-        universal_assets:
-          tflite:
-            model_id: mm67vk46q
-            tool_versions:
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mq2w41z0q
-            tool_versions:
-              qairt: 2.45.0.260326154327
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:

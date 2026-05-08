@@ -185,17 +185,24 @@ def main() -> None:
                             if len(precision_data["components"]) > 1
                             else "model"
                         )
-                        for runtime_type in ["tflite", "qnn_dlc", "onnx"]:
-                            if runtime_type in submodel_data["universal_assets"]:
-                                details[precision_str][details_key] = (
-                                    get_model_size_and_parameters(
-                                        hub.get_model(
-                                            submodel_data["universal_assets"][
-                                                runtime_type
-                                            ]
+                        # Get model from first available profile job
+                        found = False
+                        for device_data in submodel_data.get(
+                            "performance_metrics", {}
+                        ).values():
+                            for runtime_data in device_data.values():
+                                if job_id := runtime_data.get("job_id"):
+                                    try:
+                                        job = hub.get_job(job_id)
+                                        details[precision_str][details_key] = (
+                                            get_model_size_and_parameters(job)
                                         )
-                                    )
-                                )
+                                        found = True
+                                    except Exception:
+                                        continue
+                                if found:
+                                    break
+                            if found:
                                 break
 
             if (model_dir / "info.yaml").exists():

@@ -61,21 +61,6 @@ precisions:
   float:
     components:
       Lightweight-Face-Detection:
-        universal_assets:
-          tflite:
-            model_id: mngz3xl6m
-            tool_versions:
-              qairt: 2.45.0.260326154327
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mn01rky3m
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mnolz28gn
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:
@@ -612,16 +597,6 @@ precisions:
   w8a16:
     components:
       Lightweight-Face-Detection:
-        universal_assets:
-          qnn_dlc:
-            model_id: mn40w6yrq
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mm5y6576n
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             qnn_dlc:
@@ -1084,16 +1059,6 @@ precisions:
   w8a16_mixed_int16:
     components:
       Lightweight-Face-Detection:
-        universal_assets:
-          qnn_dlc:
-            model_id: mngz3xk6m
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mm5y6574n
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             qnn_dlc:
@@ -1515,21 +1480,6 @@ precisions:
   w8a8:
     components:
       Lightweight-Face-Detection:
-        universal_assets:
-          tflite:
-            model_id: mqkel50xq
-            tool_versions:
-              qairt: 2.45.0.260326154327
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mqvl0wy0m
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mq35vlylm
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:

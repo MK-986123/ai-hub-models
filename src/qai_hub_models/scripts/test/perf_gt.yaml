@@ -22,15 +22,6 @@ precisions:
   float:
     components:
       decoder:
-        universal_assets:
-          tflite:
-            model_id: m0q9wd4rm
-            tool_versions:
-              tflite: 2.15.0
-          onnx:
-            model_id: mkqpd0woq
-            tool_versions:
-              onnx_runtime: 1.18.0
         performance_metrics:
           Samsung Galaxy S24:
             tflite:
@@ -61,15 +52,6 @@ precisions:
               tool_versions:
                 onnx_runtime: 1.18.0
       encoder:
-        universal_assets:
-          tflite:
-            model_id: mpn74pd4n
-            tool_versions:
-              tflite: 2.15.0
-          onnx:
-            model_id: m1q8z1w3q
-            tool_versions:
-              onnx_runtime: 1.18.0
         performance_metrics:
           Samsung Galaxy S24:
             tflite:

@@ -11,7 +11,7 @@ from typing import Generic, TypeVar
 
 from qai_hub import CompileJob, LinkJob, QuantizeJob
 
-from qai_hub_models.configs.perf_yaml import QAIHMModelPerf, ToolVersions
+from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
 from qai_hub_models.models.common import Precision
 from qai_hub_models.scorecard import (
     ScorecardCompilePath,
@@ -430,46 +430,6 @@ class ModelPrecisionPerfSummary(
     device_summary_type = DevicePerfSummary
     scorecard_job_type = ProfileScorecardJob
 
-    def get_target_assets(
-        self,
-        include_unpublished_runtimes: bool = True,
-        exclude_form_factors: Iterable[ScorecardDevice.FormFactor] = [],
-        component: str | None = None,
-    ) -> tuple[
-        dict[ScorecardProfilePath, QAIHMModelPerf.AssetDetails],
-        dict[ScorecardDevice, dict[ScorecardProfilePath, QAIHMModelPerf.AssetDetails]],
-    ]:
-        universal_assets: dict[ScorecardProfilePath, QAIHMModelPerf.AssetDetails] = {}
-        device_assets: dict[
-            ScorecardDevice, dict[ScorecardProfilePath, QAIHMModelPerf.AssetDetails]
-        ] = {}
-        asset_tool_versions: dict[ScorecardProfilePath, ToolVersions] = {}
-        for runs_per_device in self.runs_per_component_device[
-            component or self.model_id
-        ].values():
-            if runs_per_device.device.form_factor in exclude_form_factors:
-                continue
-            for path, path_run in runs_per_device.run_per_path.items():
-                if not path_run.success:
-                    continue
-                if not include_unpublished_runtimes and not path.is_published:
-                    continue
-                if path.compile_path.is_universal:
-                    if path not in universal_assets:
-                        universal_assets[path] = (
-                            QAIHMModelPerf.AssetDetails.from_hub_job(path_run.job)
-                        )
-                else:
-                    if runs_per_device.device not in device_assets:
-                        device_assets[runs_per_device.device] = {}
-                    device_assets[runs_per_device.device][path] = (
-                        QAIHMModelPerf.AssetDetails.from_hub_job(path_run.job)
-                    )
-                if path not in asset_tool_versions:
-                    asset_tool_versions[path] = ToolVersions.from_job(path_run.job)
-
-        return universal_assets, device_assets
-
     def get_perf_card(
         self,
         include_failed_jobs: bool = True,
@@ -498,12 +458,6 @@ class ModelPrecisionPerfSummary(
 
             component_name = (
                 component_id if component_id != self.model_id else (model_name or "")
-            )
-            (
-                universal_assets,
-                device_assets,
-            ) = self.get_target_assets(
-                include_unpublished_runtimes, exclude_form_factors, component_id
             )
 
             # Determine original precision
@@ -550,8 +504,6 @@ class ModelPrecisionPerfSummary(
                 precision=get_precision(summary_per_device)
                 if include_precision
                 else None,
-                universal_assets=universal_assets,
-                device_assets=device_assets,
                 performance_metrics=component_perf_card,
             )
 
@@ -588,23 +540,6 @@ class ModelPrecisionPerfSummary(
                     # Remove the device entirely if all runtimes were removed.
                     if not component.performance_metrics[device]:
                         component.performance_metrics.pop(device)
-                        if device in component.device_assets:
-                            component.device_assets.pop(device)
-
-            # Remove universal assets for runtimes that were entirely removed
-            # because they aren't supported by all components.
-            for component in components.values():
-                universal_runtimes = dict.fromkeys(component.universal_assets, False)
-                for runtime_dict in component.performance_metrics.values():
-                    for runtime in runtime_dict:
-                        if runtime in universal_runtimes:
-                            universal_runtimes[runtime] = True
-                    if all(universal_runtimes.values()):
-                        break
-
-                for runtime, runtime_exists in universal_runtimes.items():
-                    if not runtime_exists:
-                        component.universal_assets.pop(runtime)
 
         # Remove components with no jobs.
         component_names = list(components.keys())

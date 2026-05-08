@@ -61,21 +61,6 @@ precisions:
   float:
     components:
       palm_detector:
-        universal_assets:
-          tflite:
-            model_id: mqyo3679m
-            tool_versions:
-              qairt: 2.45.0.260326154327
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mn01xl6zm
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mqplzvdjm
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:
@@ -610,21 +595,6 @@ precisions:
                 qairt: 2.42.0.251225135753_193295
                 onnx_runtime: 1.24.3
       hand_landmark_detector:
-        universal_assets:
-          tflite:
-            model_id: mm5yd4eyn
-            tool_versions:
-              qairt: 2.45.0.260326154327
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mqeexd8kq
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mm67vee5q
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:
@@ -1159,21 +1129,6 @@ precisions:
                 qairt: 2.42.0.251225135753_193295
                 onnx_runtime: 1.24.3
       canned_gesture_classifier:
-        universal_assets:
-          tflite:
-            model_id: mnjexlvym
-            tool_versions:
-              qairt: 2.45.0.260326154327
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mmrl6432m
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mqkek3gkq
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:
@@ -1710,21 +1665,6 @@ precisions:
   w8a8:
     components:
       palm_detector:
-        universal_assets:
-          tflite:
-            model_id: mm5yd4jyn
-            tool_versions:
-              qairt: 2.45.0.260326154327
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mq2w4ll7q
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mqplzvxjm
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:
@@ -2371,21 +2311,6 @@ precisions:
                 qairt: 2.42.0.251225135753_193295
                 onnx_runtime: 1.24.3
       hand_landmark_detector:
-        universal_assets:
-          tflite:
-            model_id: mnlev3x3q
-            tool_versions:
-              qairt: 2.45.0.260326154327
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mqplzvvjm
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mq8rkeypn
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:
@@ -3041,21 +2966,6 @@ precisions:
                 qairt: 2.42.0.251225135753_193295
                 onnx_runtime: 1.24.3
       canned_gesture_classifier:
-        universal_assets:
-          tflite:
-            model_id: mq35e44km
-            tool_versions:
-              qairt: 2.45.0.260326154327
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mq8rke2vn
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mnzlvr2pm
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:

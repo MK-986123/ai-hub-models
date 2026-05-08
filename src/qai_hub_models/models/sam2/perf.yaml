@@ -53,16 +53,6 @@ precisions:
   float:
     components:
       encoder:
-        universal_assets:
-          qnn_dlc:
-            model_id: mqyo334rm
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mqplzzk0m
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             qnn_dlc:
@@ -275,16 +265,6 @@ precisions:
               tool_versions:
                 qairt: 2.45.0.260326154327
       decoder:
-        universal_assets:
-          qnn_dlc:
-            model_id: mn01xx28m
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mn1dzz18n
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             qnn_dlc:
@@ -499,11 +479,6 @@ precisions:
   w8a8:
     components:
       encoder:
-        universal_assets:
-          qnn_dlc:
-            model_id: mqkekvgkq
-            tool_versions:
-              qairt: 2.45.0.260326154327
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             qnn_dlc:
@@ -716,11 +691,6 @@ precisions:
               tool_versions:
                 qairt: 2.45.0.260326154327
       decoder:
-        universal_assets:
-          qnn_dlc:
-            model_id: mq2w41vdq
-            tool_versions:
-              qairt: 2.45.0.260326154327
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             qnn_dlc:

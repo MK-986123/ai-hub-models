@@ -9,11 +9,8 @@ import copy
 import os
 from collections.abc import Callable
 from pathlib import Path
-from typing import cast
 
-import qai_hub as hub
 from pydantic import Field
-from qai_hub.client import JobType
 from qai_hub_models_cli.proto import perf_pb2
 from qai_hub_models_cli.proto.shared import range_pb2
 
@@ -104,38 +101,10 @@ class QAIHMModelPerf(BaseQAIHMConfig):
             list[QAIHMModelPerf.PerformanceDetails.LLMMetricsPerContextLength] | None
         ) = None
 
-    class AssetDetails(BaseQAIHMConfig):
-        model_id: str
-        tool_versions: ToolVersions = Field(default_factory=ToolVersions)
-
-        @staticmethod
-        def from_hub_job(job: hub.Job) -> QAIHMModelPerf.AssetDetails:
-            """Extract asset details from the given compile or profile job."""
-            if job._job_type == JobType.COMPILE:
-                job = cast(hub.CompileJob, job)
-                assert job.get_status().success, (
-                    f"Cannot extract asset details from failed compile job {job.job_id}"
-                )
-                model_id = cast(hub.Model, job.get_target_model()).model_id
-            elif job._job_type == JobType.PROFILE:
-                job = cast(hub.ProfileJob, job)
-                model_id = job.model.model_id
-            else:
-                raise NotImplementedError(f"Unsupported job type {job.job_type}")
-            return QAIHMModelPerf.AssetDetails(
-                model_id=model_id, tool_versions=ToolVersions.from_job(job)
-            )
-
     class ComponentDetails(BaseQAIHMConfig):
         precision: Precision | None = (
             None  # Used to clarify each component's precision when a component model is mixed precision
         )
-        universal_assets: dict[ScorecardProfilePath, QAIHMModelPerf.AssetDetails] = (
-            Field(default_factory=dict)
-        )
-        device_assets: dict[
-            ScorecardDevice, dict[ScorecardProfilePath, QAIHMModelPerf.AssetDetails]
-        ] = Field(default_factory=dict)
         performance_metrics: dict[
             ScorecardDevice,
             dict[ScorecardProfilePath, QAIHMModelPerf.PerformanceDetails],
@@ -180,7 +149,6 @@ class QAIHMModelPerf(BaseQAIHMConfig):
         for precision_details in self.precisions.values():
             for component in precision_details.components.values():
                 existing_devices = {str(d): d for d in component.performance_metrics}
-                existing_asset_devices = {str(d): d for d in component.device_assets}
 
                 for unsupported_name, similar_names in mapping.items():
                     if unsupported_name in existing_devices:
@@ -194,14 +162,6 @@ class QAIHMModelPerf(BaseQAIHMConfig):
                             ] = copy.copy(
                                 component.performance_metrics[existing_devices[name]]
                             )
-                            if name in existing_asset_devices:
-                                component.device_assets[
-                                    similar_device_objs[unsupported_name]
-                                ] = copy.copy(
-                                    component.device_assets[
-                                        existing_asset_devices[name]
-                                    ]
-                                )
                             placed.add(unsupported_name)
                             break
 

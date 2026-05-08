@@ -54,21 +54,6 @@ precisions:
   float:
     components:
       hand_detector:
-        universal_assets:
-          tflite:
-            model_id: mn401vvwq
-            tool_versions:
-              qairt: 2.45.0.260326154327
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mn401vkwq
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mq2w4l17q
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:
@@ -603,21 +588,6 @@ precisions:
                 qairt: 2.42.0.251225135753_193295
                 onnx_runtime: 1.24.3
       hand_landmark_detector:
-        universal_assets:
-          tflite:
-            model_id: mnwleg8pm
-            tool_versions:
-              qairt: 2.45.0.260326154327
-              litert: 1.4.3
-          qnn_dlc:
-            model_id: mngz1w1em
-            tool_versions:
-              qairt: 2.45.0.260326154327
-          onnx:
-            model_id: mqeexd7vq
-            tool_versions:
-              qairt: 2.42.0.251225135753_193295
-              onnx_runtime: 1.24.3
         performance_metrics:
           Dragonwing IQ-9075 EVK:
             tflite:
