@@ -5,7 +5,9 @@
 from __future__ import annotations
 
 import argparse
+from typing import cast
 
+from packaging.version import Version
 from qai_hub_models_cli.cli import (
     _run_fetch as _cli_run_fetch,
 )
@@ -24,7 +26,10 @@ def _run_fetch(args: argparse.Namespace) -> None:
     """
     # If user provided an explicit version, or this is not a dev install,
     # use the standard public S3 fetch path.
-    if args.qaihm_version != __version__ or "dev" not in __version__:
+    if (
+        not cast(Version, args.qaihm_version).is_devrelease
+        or not Version(__version__).is_devrelease
+    ):
         _cli_run_fetch(args)
         return
 
@@ -47,7 +52,7 @@ def _run_fetch(args: argparse.Namespace) -> None:
         runtime_or_path=runtime,
         precision=precision,
         device_or_chipset=args.chipset,
-        output_folder=args.output,
+        output_folder=args.output_dir,
         verbose=not args.quiet,
     )
     if args.extract:
