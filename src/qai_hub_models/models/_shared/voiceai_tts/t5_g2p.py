@@ -13,6 +13,7 @@ from typing_extensions import Self
 
 from qai_hub_models.models._shared.common import replace_module_recursively
 from qai_hub_models.models._shared.voiceai_tts.t5_attention import T5AttentionMod
+from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec, TensorSpec
 
@@ -113,6 +114,10 @@ class T5Encoder(BaseModel):
     def from_pretrained(cls) -> Self:
         t5model = T5ForConditionalGeneration.from_pretrained(CHARSIU_MODEL_ID).eval()
         return cls(t5model)
+
+    @staticmethod
+    def component_precision() -> Precision:
+        return Precision.w8a16
 
 
 class T5Decoder(BaseModel):
@@ -285,3 +290,7 @@ class T5Decoder(BaseModel):
     def from_pretrained(cls) -> Self:
         t5model = T5ForConditionalGeneration.from_pretrained(CHARSIU_MODEL_ID).eval()
         return cls(t5model, MAX_NUM_INPUT_IDS)
+
+    @staticmethod
+    def component_precision() -> Precision:
+        return Precision.w8a16

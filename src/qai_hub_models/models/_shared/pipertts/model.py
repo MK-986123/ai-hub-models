@@ -53,6 +53,11 @@ hf_models = {
     TTSLanguage.ENGLISH: "https://huggingface.co/datasets/rhasspy/piper-checkpoints/resolve/main/en/en_US/kusal/medium/epoch%3D2652-step%3D1953828.ckpt",
     TTSLanguage.GERMAN: "https://huggingface.co/datasets/rhasspy/piper-checkpoints/resolve/main/de/de_DE/thorsten/medium/epoch%3D3135-step%3D2702056.ckpt",
 }
+SPEED = {
+    TTSLanguage.ITALIAN: 0.85,
+    TTSLanguage.ENGLISH: 1.0,
+    TTSLanguage.GERMAN: 1.075,
+}
 
 
 @lru_cache(maxsize=1)
@@ -134,9 +139,6 @@ class Encoder(BaseModel):
         device: Device | None = None,
         context_graph_name: str | None = None,
     ) -> str:
-        other_compile_options += " -O2 "
-        if target_runtime.qairt_version_changes_compilation:
-            other_compile_options += " --quantize_io --qairt_version 2.43 "
         compile_options = super().get_hub_compile_options(
             target_runtime,
             precision,
@@ -147,6 +149,10 @@ class Encoder(BaseModel):
         if target_runtime != TargetRuntime.ONNX:
             compile_options += " --truncate_64bit_tensors --truncate_64bit_io "
         return compile_options
+
+    @staticmethod
+    def component_precision() -> Precision:
+        return Precision.float
 
 
 class SDP(BaseModel):
@@ -251,8 +257,6 @@ class SDP(BaseModel):
         device: Device | None = None,
         context_graph_name: str | None = None,
     ) -> str:
-        if target_runtime.qairt_version_changes_compilation:
-            other_compile_options += " --quantize_io  "
         return super().get_hub_compile_options(
             target_runtime,
             precision,
@@ -260,6 +264,10 @@ class SDP(BaseModel):
             device,
             context_graph_name="sdp",
         )
+
+    @staticmethod
+    def component_precision() -> Precision:
+        return Precision.w8a16
 
 
 class Flow(BaseModel):
@@ -339,8 +347,6 @@ class Flow(BaseModel):
         device: Device | None = None,
         context_graph_name: str | None = None,
     ) -> str:
-        if target_runtime.qairt_version_changes_compilation:
-            other_compile_options += " --quantize_io  "
         return super().get_hub_compile_options(
             target_runtime,
             precision,
@@ -348,6 +354,11 @@ class Flow(BaseModel):
             device,
             context_graph_name="flow",
         )
+
+    @staticmethod
+    def component_precision() -> Precision:
+        # If w8a16, the audio will be noisy and noise intensity is proportional to the number of calibration samples.
+        return Precision.float
 
 
 class Decoder(BaseModel):
@@ -405,6 +416,10 @@ class Decoder(BaseModel):
             context_graph_name="decoder",
         )
 
+    @staticmethod
+    def component_precision() -> Precision:
+        return Precision.w8a16
+
 
 class PiperTTS(PretrainedCollectionModel):
     def __init__(
@@ -434,7 +449,7 @@ class PiperTTS(PretrainedCollectionModel):
         model_g = get_model(cls.get_language())
         return cls(
             Encoder(model_g),
-            SDP(model_g),
+            SDP(model_g, SPEED[cls.get_language()]),
             Flow(model_g),
             Decoder(model_g),
             T5Encoder.from_pretrained(),

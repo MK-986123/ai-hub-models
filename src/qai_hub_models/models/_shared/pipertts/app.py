@@ -50,7 +50,7 @@ from qai_hub_models.utils.qai_hub_helpers import make_hub_dataset_entries
 DEFAULT_TEXTS = {
     TTSLanguage.ITALIAN: "Mi fa piacere che lei sia venuto, spero che resteremo amici.",
     TTSLanguage.GERMAN: "Es wäre besser, wenn du zuerst mit deinem Chef sprichst, bevor du eine Entscheidung triffst.",
-    TTSLanguage.ENGLISH: "English is a West Germanic language of the Indo-European language family.",
+    TTSLanguage.ENGLISH: "Effective teamwork relies on clear communication, mutual respect, and shared goals. When team members collaborate openly and support one another, productivity increases and innovative solutions emerge.",
     TTSLanguage.CHINESE: "中文是中国的语言文字。特指汉族的语言文字, 即汉语和汉字",
 }
 LANGUAGE_MAP_ph = {
@@ -324,7 +324,15 @@ class PiperTTSApp(CollectionAppProtocol):
         )
         num_samples = num_samples or dataset.default_samples_per_job()
         num_samples = (int(num_samples) // batch_size) * batch_size
-        print(f"Loading {num_samples} calibration samples.")
+        if component_name == "sdp":
+            speed = 1.0 / model.scale  # type: ignore[operator, unused-ignore]
+            print(
+                f"\nLoading \033[38;5;206m{num_samples}\033[0m calibration samples for \033[38;5;206m{language_} {component_name}\033[0m component. speed_adjustment = \033[38;5;206m{speed:.3f}\033[0m"
+            )
+        else:
+            print(
+                f"\nLoading \033[38;5;206m{num_samples}\033[0m calibration samples for \033[38;5;206m{language_} {component_name}\033[0m component."
+            )
         torch_dataset = sample_dataset(dataset, num_samples)
         dataloader = DataLoader(torch_dataset, batch_size=batch_size)
 

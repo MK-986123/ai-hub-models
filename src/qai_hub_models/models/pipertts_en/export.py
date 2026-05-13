@@ -314,7 +314,7 @@ def download_model(
 def export_model(
     device: hub.Device,
     components: list[str] | None = None,
-    precision: Precision = Precision.w8a16,
+    precision: Precision = Precision.mixed_with_float,
     num_calibration_samples: int | None = None,
     quantized_model_id: dict[str, str] | None = None,
     skip_compiling: bool = False,
@@ -323,7 +323,7 @@ def export_model(
     skip_downloading: bool = False,
     skip_summary: bool = False,
     output_dir: str | None = None,
-    target_runtime: TargetRuntime = TargetRuntime.QNN_CONTEXT_BINARY,
+    target_runtime: TargetRuntime = TargetRuntime.VOICE_AI,
     compile_options: str = "",
     quantize_options: str = "",
     profile_options: str = "",
@@ -630,7 +630,14 @@ def main() -> None:
     warnings.filterwarnings("ignore")
     if not check_unpublished_model_warning():
         return
-    supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {}
+    supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
+        Precision.mixed_with_float: [
+            TargetRuntime.VOICE_AI,
+        ],
+        Precision.float: [
+            TargetRuntime.VOICE_AI,
+        ],
+    }
 
     parser = export_parser(
         model_cls=Model,
