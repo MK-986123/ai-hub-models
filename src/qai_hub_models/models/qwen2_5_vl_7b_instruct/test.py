@@ -13,6 +13,7 @@ import torch
 from qai_hub_models.models._shared.llm import test
 from qai_hub_models.models._shared.llm.evaluate import evaluate
 from qai_hub_models.models._shared.llm.model import (
+    DEFAULT_CONTEXT_LENGTH,
     DEFAULT_EXPORT_CONTEXT_LENGTHS,
     DEFAULT_EXPORT_SEQUENCE_LENGTHS,
     LLM_QNN,
@@ -30,7 +31,6 @@ from qai_hub_models.models.qwen2_5_vl_7b_instruct import (
 )
 from qai_hub_models.models.qwen2_5_vl_7b_instruct.export import export_model
 from qai_hub_models.models.qwen2_5_vl_7b_instruct.model import (
-    DEFAULT_CONTEXT_LENGTH,
     DEFAULT_IMAGE_HEIGHT,
     DEFAULT_IMAGE_WIDTH,
     HF_REPO_NAME,

@@ -4,9 +4,11 @@
 # ---------------------------------------------------------------------
 
 
-from qai_hub_models.models._shared.segmentation.app import (  # noqa: F401
+from qai_hub_models.models._shared.segmentation.app import (
     SegmentationApp as App,
 )
 
-from .model import MODEL_ASSET_VERSION, MODEL_ID  # noqa: F401
-from .model import PSPNet as Model  # noqa: F401
+from .model import MODEL_ASSET_VERSION, MODEL_ID
+from .model import PSPNet as Model
+
+__all__ = ["MODEL_ASSET_VERSION", "MODEL_ID", "App", "Model"]

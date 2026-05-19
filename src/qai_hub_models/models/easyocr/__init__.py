@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-from .app import EasyOCRApp as App  # noqa: F401
-from .model import MODEL_ID  # noqa: F401
-from .model import EasyOCR as Model  # noqa: F401
+from .app import EasyOCRApp as App
+from .model import MODEL_ID
+from .model import EasyOCR as Model
+
+__all__ = ["MODEL_ID", "App", "Model"]

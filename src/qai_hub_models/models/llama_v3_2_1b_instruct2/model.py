@@ -33,6 +33,7 @@ import numpy as np
 import onnx
 import onnxruntime
 import torch
+from qai_hub.client import Device
 from transformers import AutoConfig, AutoTokenizer
 from typing_extensions import Self
 
@@ -61,13 +62,12 @@ from qai_hub_models.models.common import (
     Precision,
     SampleInputsType,
     SourceModelFormat,
+    TargetRuntime,
 )
 from qai_hub_models.utils.base_model import (
     CollectionModel,
-    Device,
     MultiGraphBaseModel,
     MultiGraphPretrainedCollectionModel,
-    TargetRuntime,
 )
 from qai_hub_models.utils.checkpoint import CheckpointType
 from qai_hub_models.utils.export_result import MultiGraphGroup

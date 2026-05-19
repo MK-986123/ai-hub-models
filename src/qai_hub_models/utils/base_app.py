@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from typing import Protocol, TypeVar, runtime_checkable
 
 import torch
-from qai_hub.client import DatasetEntries
+from qai_hub.public_rest_api import DatasetEntries
 
 from qai_hub_models.utils.base_model import PretrainedCollectionModel
 from qai_hub_models.utils.input_spec import InputSpec

@@ -17,13 +17,13 @@ from qai_hub_models.models.phi_3_5_mini_instruct_recipe import (
 )
 from qai_hub_models.models.phi_3_5_mini_instruct_recipe.export import (
     DEFAULT_EXPORT_DEVICE,
-    NUM_SPLITS,
 )
 from qai_hub_models.models.phi_3_5_mini_instruct_recipe.export import (
     main as export_main,
 )
 from qai_hub_models.models.phi_3_5_mini_instruct_recipe.model import (
     DEFAULT_PRECISION,
+    NUM_SPLITS,
 )
 from qai_hub_models.utils.model_cache import CacheMode
 

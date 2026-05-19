@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-from .app import CenterNetPoseApp as App  # noqa: F401
-from .model import MODEL_ID  # noqa: F401
-from .model import CenterNetPose as Model  # noqa: F401
+from .app import CenterNetPoseApp as App
+from .model import MODEL_ID
+from .model import CenterNetPose as Model
+
+__all__ = ["MODEL_ID", "App", "Model"]

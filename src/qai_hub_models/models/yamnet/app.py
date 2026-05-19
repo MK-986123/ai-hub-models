@@ -13,12 +13,12 @@ import resampy
 import soundfile as sf
 import torch
 
+from qai_hub_models.models.protocols import ExecutableModelProtocol
 from qai_hub_models.models.yamnet.model import (
     MODEL_ASSET_VERSION,
     MODEL_ID,
 )
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
-from qai_hub_models.utils.evaluate import ExecutableModelProtocol
 
 SAMPLE_RATE = 16000
 CHUNK_LENGTH = 0.98

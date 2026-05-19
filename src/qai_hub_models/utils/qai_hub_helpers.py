@@ -19,7 +19,8 @@ import numpy as np
 import onnx
 import qai_hub as hub
 import torch
-from qai_hub.client import DatasetEntries, Device
+from qai_hub.client import Device
+from qai_hub.public_rest_api import DatasetEntries
 
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.utils.asset_loaders import qaihm_temp_dir

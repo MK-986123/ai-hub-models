@@ -9,7 +9,7 @@ import os
 from abc import ABC, abstractmethod
 
 import torch
-from qai_hub.client import DatasetEntries
+from qai_hub.public_rest_api import DatasetEntries
 
 from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
 from qai_hub_models.models._shared.controlnet.model import ControlNetBase

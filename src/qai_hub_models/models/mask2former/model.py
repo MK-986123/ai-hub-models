@@ -11,7 +11,10 @@ from torch import nn
 from torch.nn import functional as F
 from transformers.models.mask2former.modeling_mask2former import (
     Mask2FormerForUniversalSegmentation,
+    Mask2FormerMaskPredictor,
+    Mask2FormerPixelDecoderEncoderMultiscaleDeformableAttention,
 )
+from transformers.models.swin.modeling_swin import SwinLayer, SwinSelfAttention
 from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
@@ -19,17 +22,17 @@ from qai_hub_models.evaluators.panoptic_segmentation_evaluator import (
     PanopticSegmentationEvaluator,
 )
 from qai_hub_models.models._shared.common import replace_module_recursively
+from qai_hub_models.models.common import (
+    Precision,
+    TargetRuntime,
+)
 from qai_hub_models.models.mask2former.model_patches import (
-    Mask2FormerMaskPredictor,
-    Mask2FormerPixelDecoderEncoderMultiscaleDeformableAttention,
     PatchedMask2FormerMaskPredictor,
     PatchedMask2FormerPixelDecoderEncoderMultiscaleDeformableAttention,
     PatchedSwinLayer,
     PatchedSwinSelfAttention,
-    SwinLayer,
-    SwinSelfAttention,
 )
-from qai_hub_models.utils.base_model import BaseModel, Precision, TargetRuntime
+from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.image_processing import normalize_image_torchvision
 from qai_hub_models.utils.input_spec import (
     ColorFormat,

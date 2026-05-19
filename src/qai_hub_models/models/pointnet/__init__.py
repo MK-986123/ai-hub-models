@@ -4,6 +4,8 @@
 # ---------------------------------------------------------------------
 
 
-from .app import PointNetApp as App  # noqa: F401
-from .model import MODEL_ID  # noqa: F401
-from .model import Pointnet as Model  # noqa: F401
+from .app import PointNetApp as App
+from .model import MODEL_ID
+from .model import Pointnet as Model
+
+__all__ = ["MODEL_ID", "App", "Model"]

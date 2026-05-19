@@ -12,6 +12,7 @@ from qai_hub_models.models._shared.imagenet_classifier.model import (
     MODEL_ID,
     ImagenetClassifier,
 )
+from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.utils.args import (
     demo_model_from_cli_args,
     get_model_cli_parser,
@@ -23,7 +24,6 @@ from qai_hub_models.utils.asset_loaders import (
     load_image,
     load_json,
 )
-from qai_hub_models.utils.base_model import TargetRuntime
 
 IMAGENET_LABELS_ASSET = CachedWebModelAsset(
     "https://raw.githubusercontent.com/anishathalye/imagenet-simple-labels/master/imagenet-simple-labels.json",

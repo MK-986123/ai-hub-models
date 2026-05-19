@@ -33,17 +33,17 @@ from qai_hub_models.scorecard.results.chipset_helpers import (
 )
 from qai_hub_models.scorecard.results.scorecard_job import (
     CompileScorecardJob,
+    InferenceScorecardJob,
+    LinkScorecardJob,
     ProfileScorecardJob,
+    QuantizeScorecardJob,
 )
 from qai_hub_models.scorecard.results.yaml import (
     CompileScorecardJobYaml,
-    InferenceScorecardJob,
     InferenceScorecardJobYaml,
-    LinkScorecardJob,
     LinkScorecardJobYaml,
     PreQDQCompileScorecardJobYaml,
     ProfileScorecardJobYaml,
-    QuantizeScorecardJob,
     QuantizeScorecardJobYaml,
 )
 from qai_hub_models.scorecard.static.model_config import ScorecardModelConfig

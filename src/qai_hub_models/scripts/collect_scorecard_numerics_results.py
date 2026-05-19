@@ -12,6 +12,7 @@ from pathlib import Path
 import pandas as pd
 
 from qai_hub_models.configs.info_yaml import QAIHMModelInfo
+from qai_hub_models.configs.numerics_yaml import QAIHMModelNumerics
 from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
 from qai_hub_models.scorecard.artifacts import ScorecardArtifact
 from qai_hub_models.scorecard.envvars import (
@@ -22,7 +23,6 @@ from qai_hub_models.scorecard.envvars import (
     EnabledPathsEnvvar,
     EnabledPrecisionsEnvvar,
     SpecialModelSetting,
-    get_default_hub_deployment,
 )
 from qai_hub_models.scorecard.results.code_gen import (
     remove_numerics_failures,
@@ -34,9 +34,11 @@ from qai_hub_models.scorecard.results.numerics_diff import NumericsDiff
 from qai_hub_models.scorecard.static.list_models import (
     validate_and_split_enabled_models,
 )
-from qai_hub_models.utils.hub_clients import deployment_is_prod
+from qai_hub_models.utils.hub_clients import (
+    deployment_is_prod,
+    get_default_hub_deployment,
+)
 from qai_hub_models.utils.numerics_yaml import (
-    QAIHMModelNumerics,
     create_numerics_yaml,
     get_chipset_registry,
 )

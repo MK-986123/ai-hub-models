@@ -8,6 +8,7 @@ import argparse
 from pathlib import Path
 
 from qai_hub_models.configs.info_yaml import QAIHMModelInfo
+from qai_hub_models.configs.release_assets_yaml import QAIHMModelReleaseAssets
 from qai_hub_models.scorecard.artifacts import ScorecardArtifact
 from qai_hub_models.scorecard.envvars import (
     ArtifactsDirEnvvar,
@@ -17,7 +18,6 @@ from qai_hub_models.scorecard.envvars import (
     EnabledPathsEnvvar,
     EnabledPrecisionsEnvvar,
     SpecialModelSetting,
-    get_default_hub_deployment,
 )
 from qai_hub_models.scorecard.results.code_gen import (
     remove_asset_failures,
@@ -27,7 +27,7 @@ from qai_hub_models.scorecard.results.yaml import ScorecardAssetYaml
 from qai_hub_models.scorecard.static.list_models import (
     validate_and_split_enabled_models,
 )
-from qai_hub_models.utils.testing_export_eval import QAIHMModelReleaseAssets
+from qai_hub_models.utils.hub_clients import get_default_hub_deployment
 
 
 def parse_args() -> argparse.Namespace:

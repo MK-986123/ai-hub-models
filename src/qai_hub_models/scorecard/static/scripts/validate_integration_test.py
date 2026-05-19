@@ -9,7 +9,7 @@ import traceback
 from copy import deepcopy
 
 import pandas as pd
-from junitparser import Error, Failure, JUnitXml, TestCase, TestSuite
+from junitparser.junitparser import Error, Failure, JUnitXml, TestCase, TestSuite
 
 from qai_hub_models.scorecard.artifacts import ScorecardArtifact
 from qai_hub_models.scorecard.device import DEFAULT_SCORECARD_DEVICE

@@ -40,19 +40,21 @@ from qai_hub_models.models._shared.qwen2.model import (
     Qwen2Base_QNN,
     QwenPositionProcessor,
 )
-from qai_hub_models.utils.base_model import Precision
 from qai_hub_models.utils.onnx.helpers import ONNXBundle
 
 if TYPE_CHECKING:
     from aimet_onnx.quantsim import QuantizationSimModel
 
     from qai_hub_models.utils.input_spec import InputSpec
-    from qai_hub_models.utils.qai_hub_helpers import DatasetEntries
+
+from qai_hub.public_rest_api import DatasetEntries
 
 from qai_hub_models.models._shared.llm._utils import (
     _apply_int8_kv_cache_tying_and_lm_head,
     _get_kv_io_map,
 )
+from qai_hub_models.models.common import Precision
+from qai_hub_models.utils.system_info import has_recommended_memory
 
 logger = logging.getLogger(__name__)
 
@@ -262,10 +264,7 @@ class Qwen2VLTextBase(Qwen2Base):
 
         Overrides parent to load from full VLM checkpoint and extract text model.
         """
-        from qai_hub_models.models._shared.llm.model import (
-            get_tokenizer,
-            has_recommended_memory,
-        )
+        from qai_hub_models.models._shared.llm.model import get_tokenizer
 
         # Initialize nn.Module first to set up 'training' attribute
         torch.nn.Module.__init__(self)

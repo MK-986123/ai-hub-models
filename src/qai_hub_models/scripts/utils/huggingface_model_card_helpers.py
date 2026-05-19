@@ -19,10 +19,8 @@ from qai_hub_models.configs.info_yaml import QAIHMModelInfo
 from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
 from qai_hub_models.configs.release_assets_yaml import QAIHMModelReleaseAssets
 from qai_hub_models.models.common import Precision
-from qai_hub_models.scorecard.device import (
-    ScorecardDevice,
-    ScorecardProfilePath,
-)
+from qai_hub_models.scorecard.device import ScorecardDevice
+from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
 from qai_hub_models.scorecard.results.chipset_helpers import WEBSITE_CHIPSET_ORDER
 from qai_hub_models.scripts.generate_model_readme import get_shared_template_args
 from qai_hub_models.utils.asset_loaders import (

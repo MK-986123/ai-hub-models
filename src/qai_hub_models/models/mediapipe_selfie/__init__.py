@@ -4,8 +4,10 @@
 # ---------------------------------------------------------------------
 
 from qai_hub_models.models._shared.selfie_segmentation.app import (
-    SelfieSegmentationApp as App,  # noqa: F401
+    SelfieSegmentationApp as App,
 )
 
-from .model import MODEL_ID  # noqa: F401
-from .model import MediapipeSelfie as Model  # noqa: F401
+from .model import MODEL_ID
+from .model import MediapipeSelfie as Model
+
+__all__ = ["MODEL_ID", "App", "Model"]

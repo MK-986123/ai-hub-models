@@ -18,7 +18,7 @@ ALWAYS_DISPLAY_VAR = "QAIHM_ALWAYS_DISPLAY_OUTPUT"
 
 def is_running_in_notebook() -> bool:
     try:
-        from IPython import get_ipython
+        from IPython.core.getipython import get_ipython
 
         if "IPKernelApp" not in get_ipython().config:  # pragma: no cover
             return False

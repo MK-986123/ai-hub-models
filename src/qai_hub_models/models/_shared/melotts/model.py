@@ -45,12 +45,14 @@ from qai_hub_models.models._shared.voiceai_tts.t5_g2p import (
 from qai_hub_models.models._shared.voiceai_tts.t5_g2p import (
     T5Encoder as _T5EncoderBase,
 )
-from qai_hub_models.models.common import SampleInputsType
+from qai_hub_models.models.common import (
+    Precision,
+    SampleInputsType,
+    TargetRuntime,
+)
 from qai_hub_models.utils.base_model import (
     BaseModel,
-    Precision,
     PretrainedCollectionModel,
-    TargetRuntime,
 )
 from qai_hub_models.utils.input_spec import InputSpec, TensorSpec
 

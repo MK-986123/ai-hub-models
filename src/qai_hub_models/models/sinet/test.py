@@ -6,9 +6,13 @@
 from qai_hub_models.models._shared.selfie_segmentation.test import (
     selfie_model_and_app_test_e2e,
 )
-from qai_hub_models.models.sinet.demo import INPUT_IMAGE_ADDRESS
 from qai_hub_models.models.sinet.demo import main as demo_main
-from qai_hub_models.models.sinet.model import MODEL_ASSET_VERSION, MODEL_ID, SINet
+from qai_hub_models.models.sinet.model import (
+    INPUT_IMAGE_ADDRESS,
+    MODEL_ASSET_VERSION,
+    MODEL_ID,
+    SINet,
+)
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 from qai_hub_models.utils.testing import skip_clone_repo_check
 

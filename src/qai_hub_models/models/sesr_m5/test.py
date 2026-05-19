@@ -6,7 +6,7 @@
 import numpy as np
 
 from qai_hub_models.models._shared.super_resolution.app import SuperResolutionApp
-from qai_hub_models.models._shared.super_resolution.demo import IMAGE_ADDRESS
+from qai_hub_models.models._shared.super_resolution.model import IMAGE_ADDRESS
 from qai_hub_models.models.sesr_m5.demo import main as demo_main
 from qai_hub_models.models.sesr_m5.model import MODEL_ASSET_VERSION, MODEL_ID, SESR_M5
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image

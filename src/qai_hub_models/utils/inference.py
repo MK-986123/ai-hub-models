@@ -17,10 +17,14 @@ import qai_hub as hub
 import torch
 from qai_hub.public_rest_api import DatasetEntries
 
+from qai_hub_models.models.common import (
+    SourceModelFormat,
+    TargetRuntime,
+)
 from qai_hub_models.models.protocols import ExecutableModelProtocol
 from qai_hub_models.utils.aimet.aimet_dummy_model import AimetEncodingLoaderMixin
 from qai_hub_models.utils.asset_loaders import ModelZooAssetConfig, VersionType
-from qai_hub_models.utils.base_model import BaseModel, SourceModelFormat, TargetRuntime
+from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.qai_hub_helpers import (
     _AIHUB_NAME,

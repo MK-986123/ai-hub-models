@@ -18,9 +18,13 @@ from qai_hub_models.extern.mmpose import patch_mmpose_no_build_deps
 from qai_hub_models.models._shared.mmpose.silence import (
     set_mmpose_inferencer_show_progress,
 )
-from qai_hub_models.models.common import SampleInputsType
+from qai_hub_models.models.common import (
+    Precision,
+    SampleInputsType,
+    TargetRuntime,
+)
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_numpy
-from qai_hub_models.utils.base_model import BaseModel, Precision, TargetRuntime
+from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import (
     ColorFormat,
     ImageMetadata,

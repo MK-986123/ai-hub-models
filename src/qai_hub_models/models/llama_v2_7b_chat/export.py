@@ -13,16 +13,18 @@ from typing import Any, cast
 
 import qai_hub as hub
 
-from qai_hub_models.models.common import Precision
+from qai_hub_models.models.common import (
+    Precision,
+    TargetRuntime,
+)
 from qai_hub_models.models.llama_v2_7b_chat import Model
 from qai_hub_models.models.llama_v2_7b_chat.model import MODEL_ASSET_VERSION, MODEL_ID
 from qai_hub_models.utils import model_cache
 from qai_hub_models.utils.args import (
     export_parser,
-    get_input_spec_kwargs,
     get_model_kwargs,
 )
-from qai_hub_models.utils.base_model import TargetRuntime
+from qai_hub_models.utils.base_model import get_input_spec_kwargs
 from qai_hub_models.utils.compare import torch_inference
 from qai_hub_models.utils.export_result import (
     ExportResult,

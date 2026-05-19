@@ -5,7 +5,7 @@
 import types
 from contextlib import contextmanager
 
-from qai_hub_models.utils.bounding_box_processing import nms as torchvision_nms
+from torchvision.ops import nms as torchvision_nms
 
 
 @contextmanager

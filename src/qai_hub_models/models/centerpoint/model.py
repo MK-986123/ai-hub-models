@@ -18,15 +18,15 @@ from qai_hub_models.models.centerpoint.external_repos.centerpoint.det3d.models i
 from qai_hub_models.models.centerpoint.external_repos.centerpoint.det3d.torchie import (
     Config,
 )
+from qai_hub_models.models.common import (
+    Precision,
+    TargetRuntime,
+)
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     load_torch,
 )
-from qai_hub_models.utils.base_model import (
-    BaseModel,
-    Precision,
-    TargetRuntime,
-)
+from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec, IoType, TensorSpec
 
 MODEL_ID = __name__.split(".")[-2]

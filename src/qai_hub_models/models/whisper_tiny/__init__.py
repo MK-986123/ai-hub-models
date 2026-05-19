@@ -3,9 +3,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-from qai_hub_models.models._shared.hf_whisper.app import (  # noqa: F401
+from qai_hub_models.models._shared.hf_whisper.app import (
     HfWhisperApp as App,
 )
 
-from .model import MODEL_ID  # noqa: F401
-from .model import WhisperTiny as Model  # noqa: F401
+from .model import MODEL_ID
+from .model import WhisperTiny as Model
+
+__all__ = ["MODEL_ID", "App", "Model"]

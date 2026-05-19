@@ -59,3 +59,8 @@ check-style-mismatch = true
 ignore_missing_imports = true
 warn_unused_ignores = true
 exclude = '.*_pb2\.py$'  # Tells mypy to ignore .py protobuf files in favor of the .pyi stubs.
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models_cli.*"
+check_untyped_defs = true
+implicit_reexport = false

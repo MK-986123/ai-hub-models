@@ -6,10 +6,8 @@
 from qai_hub.public_api_pb2 import Framework
 
 from qai_hub_models.models.common import InferenceEngine, QAIRTVersion
-from qai_hub_models.scorecard.path_compile import (
-    QAIRTVersionEnvvar,
-    ScorecardCompilePath,
-)
+from qai_hub_models.scorecard.envvars import QAIRTVersionEnvvar
+from qai_hub_models.scorecard.path_compile import ScorecardCompilePath
 from qai_hub_models.test.test_models.test_common import reset_hub_frameworks_patches
 from qai_hub_models.utils.set_env import set_temp_env
 

@@ -11,8 +11,8 @@ from typing import cast
 import numpy as np
 import torch
 from transformers import TrOCRProcessor, VisionEncoderDecoderModel
+from transformers.modeling_utils import PreTrainedModel
 from transformers.models.trocr.modeling_trocr import (
-    PreTrainedModel,
     TrOCRAttention,
     TrOCRForCausalLM,
 )

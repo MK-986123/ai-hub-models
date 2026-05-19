@@ -7,9 +7,9 @@ import numpy as np
 from skimage import io
 
 from qai_hub_models.models.facemap_3dmm.app import FaceMap_3DMMApp
-from qai_hub_models.models.facemap_3dmm.demo import INPUT_IMAGE_PATH
 from qai_hub_models.models.facemap_3dmm.demo import facemap_3dmm_demo as demo_main
 from qai_hub_models.models.facemap_3dmm.model import (
+    INPUT_IMAGE_PATH,
     MODEL_ASSET_VERSION,
     MODEL_ID,
     FaceMap_3DMM,

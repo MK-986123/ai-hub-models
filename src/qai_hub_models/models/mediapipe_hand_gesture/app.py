@@ -12,7 +12,7 @@ import cv2
 import numpy as np
 import torch
 from PIL.Image import Image
-from qai_hub.client import DatasetEntries
+from qai_hub.public_rest_api import DatasetEntries
 
 from qai_hub_models.datasets import get_dataset_from_name
 from qai_hub_models.datasets.common import DatasetSplit

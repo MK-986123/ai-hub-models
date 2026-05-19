@@ -12,12 +12,10 @@ from prettytable import PrettyTable
 from qai_hub_models.configs.code_gen_yaml import QAIHMModelCodeGen
 from qai_hub_models.configs.devices_and_chipsets_yaml import DevicesAndChipsetsYaml
 from qai_hub_models.configs.info_yaml import NumericsAccuracyBenchmark
-from qai_hub_models.configs.numerics_yaml import (
-    QAIHMModelNumerics,
-    ScorecardProfilePath,
-)
+from qai_hub_models.configs.numerics_yaml import QAIHMModelNumerics
 from qai_hub_models.models.common import Precision
 from qai_hub_models.scorecard.device import ScorecardDevice
+from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
 
 
 class NumericsDiff:

@@ -14,7 +14,6 @@ import qai_hub as hub
 import torch
 
 from qai_hub_models.models.centernet_3d import MODEL_ID, Model
-from qai_hub_models.models.centernet_3d import export as model_export_module
 from qai_hub_models.models.centernet_3d.export import (
     compile_model,
     export_model,
@@ -403,5 +402,5 @@ def cached_torch_trace_for_export() -> Generator[pytest.MonkeyPatch, None, None]
             assert isinstance(model, hub.Model)
             return model
 
-        mp.setattr(model_export_module.torch.jit, "trace", _cached_torch_trace)
+        mp.setattr(torch.jit, "trace", _cached_torch_trace)
         yield mp

@@ -15,7 +15,9 @@ from qai_hub_models.configs.model_disable_reasons import (
     ModelDisableReasons,
     ModelDisableReasonsMapping,
 )
+from qai_hub_models.configs.numerics_yaml import QAIHMModelNumerics
 from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
+from qai_hub_models.configs.release_assets_yaml import QAIHMModelReleaseAssets
 from qai_hub_models.models.common import Precision
 from qai_hub_models.scorecard import (
     ScorecardDevice,
@@ -34,8 +36,6 @@ from qai_hub_models.scorecard.results.numerics_diff import (
 from qai_hub_models.scorecard.results.scorecard_summary import (
     ScorecardExportTestSummary,
 )
-from qai_hub_models.utils.numerics_yaml import QAIHMModelNumerics
-from qai_hub_models.utils.testing_export_eval import QAIHMModelReleaseAssets
 
 # Maximum acceptable inference time (milliseconds).
 # Above this inference time, a model will not be published.

@@ -5,14 +5,14 @@
 
 
 import numpy as np
-import qai_hub as hub
+from qai_hub.public_rest_api import DatasetEntries
 
 from qai_hub_models.utils.input_spec import InputSpec
 
 
 def _transpose_channel(
     io_names: list[str],
-    inputs: hub.client.DatasetEntries,
+    inputs: DatasetEntries,
     first_to_last: bool,
 ) -> dict[str, list[np.ndarray]]:
     target = {}
@@ -46,14 +46,14 @@ def _transpose_channel(
 
 def transpose_channel_first_to_last(
     io_names: list[str],
-    sample_inputs: hub.client.DatasetEntries,
+    sample_inputs: DatasetEntries,
 ) -> dict[str, list[np.ndarray]]:
     return _transpose_channel(io_names, sample_inputs, True)
 
 
 def transpose_channel_last_to_first(
     io_names: list[str],
-    job_outputs: hub.client.DatasetEntries,
+    job_outputs: DatasetEntries,
 ) -> dict[str, list[np.ndarray]]:
     return _transpose_channel(io_names, job_outputs, False)
 

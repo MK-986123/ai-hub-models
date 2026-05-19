@@ -17,9 +17,11 @@ from qai_hub_models.configs.model_disable_reasons import ModelDisableReasonsMapp
 from qai_hub_models.models.common import Precision
 from qai_hub_models.scorecard.device import ScorecardDevice
 from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
-from qai_hub_models.scorecard.results.code_gen import ScorecardExportTestSummary
 from qai_hub_models.scorecard.results.scorecard_job import ScorecardJobTypeVar
-from qai_hub_models.scorecard.results.scorecard_summary import ScorecardJobSummary
+from qai_hub_models.scorecard.results.scorecard_summary import (
+    ScorecardExportTestSummary,
+    ScorecardJobSummary,
+)
 from qai_hub_models.utils.path_helpers import get_git_branch
 
 MAX_ERROR_LENGTH = 250

@@ -35,7 +35,6 @@ from qai_hub_models.models.common import (
 )
 from qai_hub_models.utils.args import (
     get_export_model_name,
-    get_input_spec_kwargs,
     get_model_kwargs,
 )
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG
@@ -65,6 +64,7 @@ from qai_hub_models.models._shared.llm.model import (
 from qai_hub_models.utils.args import (
     export_parser,
 )
+from qai_hub_models.utils.base_model import get_input_spec_kwargs
 
 VALID_TARGET_RUNTIMES = Literal[TargetRuntime.GENIE]
 

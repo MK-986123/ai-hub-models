@@ -21,11 +21,11 @@ from tabulate import tabulate
 from qai_hub_models.configs.devices_and_chipsets_yaml import (
     DeviceDetailsYaml,
     DevicesAndChipsetsYaml,
-    ScorecardDevice,
 )
 from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
 from qai_hub_models.configs.tool_versions import ToolVersions
-from qai_hub_models.utils.base_model import TargetRuntime
+from qai_hub_models.models.common import TargetRuntime
+from qai_hub_models.scorecard.device import ScorecardDevice
 from qai_hub_models.utils.compare import METRICS_FUNCTIONS, generate_comparison_metrics
 
 _INFO_DASH = "-" * 60

@@ -14,13 +14,15 @@ from torchvision.models.detection.image_list import ImageList
 from torchvision.ops import poolers
 from typing_extensions import Self
 
-from qai_hub_models.models.common import Precision
+from qai_hub_models.models.common import (
+    Precision,
+    TargetRuntime,
+)
 from qai_hub_models.models.maskrcnn.model_patches import _onnx_merge_levels_optimized
 from qai_hub_models.utils.base_model import (
     BaseModel,
     CollectionModel,
     PretrainedCollectionModel,
-    TargetRuntime,
 )
 from qai_hub_models.utils.image_processing import normalize_image_torchvision
 from qai_hub_models.utils.input_spec import (

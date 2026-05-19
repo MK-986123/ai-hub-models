@@ -9,7 +9,7 @@ from typing import cast
 
 from typing_extensions import Self
 from ultralytics.models import YOLOE as ultralytics_YOLOE
-from ultralytics.nn.modules.head import BNContrastiveHead
+from ultralytics.nn.modules.block import BNContrastiveHead
 from ultralytics.nn.tasks import SegmentationModel
 
 from qai_hub_models.models._shared.common import replace_module_recursively

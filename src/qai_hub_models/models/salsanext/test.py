@@ -6,9 +6,9 @@
 import numpy as np
 
 from qai_hub_models.models.salsanext.app import SalsaNextApp
-from qai_hub_models.models.salsanext.demo import INPUT_LIDAR_ADDRESS
 from qai_hub_models.models.salsanext.demo import main as demo_main
 from qai_hub_models.models.salsanext.model import (
+    INPUT_LIDAR_ADDRESS,
     MODEL_ASSET_VERSION,
     MODEL_ID,
     SalsaNext,

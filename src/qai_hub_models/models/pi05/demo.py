@@ -17,7 +17,10 @@ from lerobot.processor import PolicyProcessorPipeline
 from lerobot.utils.constants import ACTION
 from torch.utils.data import DataLoader
 
-from qai_hub_models.models.common import Precision
+from qai_hub_models.models.common import (
+    Precision,
+    TargetRuntime,
+)
 from qai_hub_models.models.pi05 import MODEL_ID, Model
 from qai_hub_models.models.pi05.app import Pi05App, Pi05AppConfig
 from qai_hub_models.utils.args import (
@@ -26,7 +29,6 @@ from qai_hub_models.utils.args import (
     get_on_device_demo_parser,
     validate_on_device_demo_args,
 )
-from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.evaluate import EvalMode
 
 DATASET_REPO_ID: str = "HuggingFaceVLA/libero"

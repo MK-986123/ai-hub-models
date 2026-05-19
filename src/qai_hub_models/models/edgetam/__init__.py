@@ -4,7 +4,9 @@
 # ---------------------------------------------------------------------
 
 
-from qai_hub_models.models._shared.sam2.app import SAM2App as App  # noqa: F401
+from qai_hub_models.models._shared.sam2.app import SAM2App as App
 
-from .model import MODEL_ID  # noqa: F401
-from .model import EdgeTAM as Model  # noqa: F401
+from .model import MODEL_ID
+from .model import EdgeTAM as Model
+
+__all__ = ["MODEL_ID", "App", "Model"]

@@ -20,12 +20,10 @@ from qai_hub_models.models.common import (
 from qai_hub_models.scorecard.envvars import (
     DeploymentEnvvar,
     EnabledPathsEnvvar,
+    QAIRTVersionEnvvar,
     SpecialPathSetting,
 )
-from qai_hub_models.scorecard.path_compile import (
-    QAIRTVersionEnvvar,
-    ScorecardCompilePath,
-)
+from qai_hub_models.scorecard.path_compile import ScorecardCompilePath
 from qai_hub_models.utils.base_config import EnumListWithParseableAll
 from qai_hub_models.utils.hub_clients import (
     default_hub_client_as,

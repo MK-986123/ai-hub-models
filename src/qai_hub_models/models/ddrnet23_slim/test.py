@@ -7,9 +7,9 @@ import numpy as np
 import pytest
 
 from qai_hub_models.models._shared.segmentation.app import SegmentationApp
-from qai_hub_models.models.ddrnet23_slim.demo import INPUT_IMAGE_ADDRESS
 from qai_hub_models.models.ddrnet23_slim.demo import main as demo_main
 from qai_hub_models.models.ddrnet23_slim.model import (
+    INPUT_IMAGE_ADDRESS,
     MODEL_ASSET_VERSION,
     MODEL_ID,
     DDRNet,

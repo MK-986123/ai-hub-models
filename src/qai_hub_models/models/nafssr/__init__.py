@@ -2,7 +2,9 @@
 # Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-from qai_hub_models.models.nafssr.app import NAFSSRApp as App  # noqa: F401
+from qai_hub_models.models.nafssr.app import NAFSSRApp as App
 
-from .model import MODEL_ID  # noqa: F401
-from .model import NAFSSR as Model  # noqa: F401
+from .model import MODEL_ID
+from .model import NAFSSR as Model
+
+__all__ = ["MODEL_ID", "App", "Model"]

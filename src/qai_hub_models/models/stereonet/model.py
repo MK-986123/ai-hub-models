@@ -13,9 +13,13 @@ from stereonet.model import StereoNet as StereoNetModel
 from torch import nn
 from typing_extensions import Self
 
+from qai_hub_models.models.common import (
+    Precision,
+    TargetRuntime,
+)
 from qai_hub_models.models.stereonet.model_patch import CostVolumeOptimized
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
-from qai_hub_models.utils.base_model import BaseModel, Precision, TargetRuntime
+from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec, IoType, TensorSpec
 
 MODEL_ID = __name__.split(".")[-2]

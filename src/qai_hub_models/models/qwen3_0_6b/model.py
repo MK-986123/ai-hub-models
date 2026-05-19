@@ -13,12 +13,12 @@ from typing_extensions import Self
 
 from qai_hub_models.models._shared.llm.common import LLMIOType
 from qai_hub_models.models._shared.llm.model import (
+    DEFAULT_CONTEXT_LENGTH,
+    DEFAULT_SEQUENCE_LENGTH,
     LLMBase,
     determine_precision_from_checkpoint,
 )
 from qai_hub_models.models._shared.qwen3.model import (
-    DEFAULT_CONTEXT_LENGTH,
-    DEFAULT_SEQUENCE_LENGTH,
     Qwen3Base,
     Qwen3Base_AIMETOnnx,
     Qwen3Base_QNN,

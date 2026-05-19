@@ -22,7 +22,10 @@ from typing import Any, TypeVar
 import qai_hub as hub
 from numpydoc.docscrape import FunctionDoc
 
-from qai_hub_models.models.common import Precision
+from qai_hub_models.models.common import (
+    Precision,
+    TargetRuntime,
+)
 from qai_hub_models.models.protocols import (
     FromPrecompiledTypeVar,
     FromPretrainedProtocol,
@@ -33,7 +36,6 @@ from qai_hub_models.utils.base_model import (
     BasePrecompiledModel,
     CollectionModel,
     HubModel,
-    TargetRuntime,
     get_input_spec_kwargs,
     get_input_spec_params,
 )

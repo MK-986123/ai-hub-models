@@ -7,12 +7,12 @@ from __future__ import annotations
 
 import os
 
+from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.base_model import (
     BasePrecompiledModel,
     CollectionModel,
     PrecompiledCollectionModel,
-    TargetRuntime,
 )
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.llm_helpers import get_kv_cache_names

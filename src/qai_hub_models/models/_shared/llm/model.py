@@ -39,7 +39,7 @@ import qai_hub as hub
 import torch
 from onnx.external_data_helper import load_external_data_for_model
 from packaging.version import Version
-from qai_hub.client import DatasetEntries, Device
+from qai_hub.client import Device
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -74,6 +74,7 @@ except ImportError:
         pass
 
 
+from qai_hub.public_rest_api import DatasetEntries
 from typing_extensions import Self
 
 from qai_hub_models.models._shared.llm.common import (
@@ -86,10 +87,15 @@ from qai_hub_models.models._shared.llm.sha_dynamic_kvcache import (
     SHADynamicCacheNewValueOnly,
 )
 from qai_hub_models.models._shared.llm.split_onnx_utils.utils import split_onnx
-from qai_hub_models.models.common import SampleInputsType, SourceModelFormat
+from qai_hub_models.models.common import (
+    Precision,
+    SampleInputsType,
+    SourceModelFormat,
+    TargetRuntime,
+)
 from qai_hub_models.utils.aimet.config_loader import get_aimet_config_path
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
-from qai_hub_models.utils.base_model import BaseModel, Precision, TargetRuntime
+from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.llm_helpers import (
     create_genie_config,

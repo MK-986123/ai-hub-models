@@ -14,7 +14,7 @@ from pathlib import Path
 
 from qai_hub.client import JobType
 
-from qai_hub_models.configs.info_yaml import QAIHMModelCodeGen
+from qai_hub_models.configs.code_gen_yaml import QAIHMModelCodeGen
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.scorecard.device import ScorecardDevice, cs_universal
 from qai_hub_models.scorecard.envvars import (
@@ -34,11 +34,9 @@ from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
 from qai_hub_models.scorecard.static.list_models import (
     validate_and_split_enabled_models,
 )
+from qai_hub_models.scorecard.static.model_config import ScorecardModelConfig
 from qai_hub_models.scorecard.static.model_exec import (
     get_static_model_test_parameterizations,
-)
-from qai_hub_models.scorecard.static.scripts.sync_model_assets import (
-    ScorecardModelConfig,
 )
 from qai_hub_models.scripts.run_codegen import _extract_runtime_and_precision_options
 from qai_hub_models.utils.collection_model_helpers import get_components

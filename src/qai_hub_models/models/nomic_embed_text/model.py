@@ -15,11 +15,12 @@ from unittest import mock
 import torch
 import torch.nn.functional as F
 from torch import nn
-from transformers import AutoModel, dynamic_module_utils
+from transformers import AutoModel
+from transformers.utils.hub import HF_MODULES_CACHE
 from typing_extensions import Self
 
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.mteb_classification_evaluator import (
-    BaseEvaluator,
     NomicEmbedTextEvaluator,
 )
 from qai_hub_models.utils.asset_loaders import PathLike
@@ -49,7 +50,7 @@ def _patched_transformers_get_class_in_module(
         ]
     )
     module_spec = importlib.util.spec_from_file_location(
-        name, location=Path(dynamic_module_utils.HF_MODULES_CACHE) / module_path
+        name, location=Path(HF_MODULES_CACHE) / module_path
     )
     if not module_spec or not module_spec.loader:
         raise ValueError(f"Module spec not found for path {name}")

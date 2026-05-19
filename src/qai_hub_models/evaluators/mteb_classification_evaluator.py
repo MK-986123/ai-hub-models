@@ -15,8 +15,8 @@ from transformers import AutoTokenizer
 
 from qai_hub_models.datasets.amazon_counterfactual import (
     AmazonCounterfactualClassificationDataset,
-    DatasetSplit,
 )
+from qai_hub_models.datasets.common import DatasetSplit
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.metrics import ACCURACY_TOP1, MetricMetadata
 

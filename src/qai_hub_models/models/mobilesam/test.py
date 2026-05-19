@@ -9,6 +9,7 @@ from typing import cast
 import numpy as np
 import torch
 from mobile_sam import SamPredictor
+from mobile_sam.utils.onnx import SamOnnxModel
 from mobile_sam.utils.transforms import ResizeLongestSide
 
 from qai_hub_models.models._shared.sam.app import SAMApp, SAMInputImageLayout
@@ -18,7 +19,6 @@ from qai_hub_models.models.mobilesam.model import (
     SMALL_MODEL_TYPE,
     MobileSAM,
     MobileSAMLoader,
-    SamOnnxModel,
 )
 from qai_hub_models.utils.asset_loaders import load_image
 from qai_hub_models.utils.testing import assert_most_close

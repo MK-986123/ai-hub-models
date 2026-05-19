@@ -12,10 +12,10 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from PIL import Image
-from ultralytics.engine.results import Annotator, colors
 from ultralytics.models.fastsam.utils import adjust_bboxes_to_image_border
 from ultralytics.utils.metrics import box_iou
 from ultralytics.utils.ops import crop_mask
+from ultralytics.utils.plotting import Annotator, colors
 
 from qai_hub_models.utils.bounding_box_processing import batched_nms
 from qai_hub_models.utils.image_processing import (

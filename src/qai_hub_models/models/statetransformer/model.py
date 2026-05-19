@@ -13,12 +13,16 @@ import torch.nn.functional as F
 from qai_hub.client import Device
 from typing_extensions import Self
 
+from qai_hub_models.models.common import (
+    Precision,
+    TargetRuntime,
+)
 from qai_hub_models.models.statetransformer.external_repos.statetransformer.transformer4planning.models.backbone.str_base import (
     build_model_from_path,
 )
 from qai_hub_models.models.statetransformer.model_patch import custom_one_hot
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
-from qai_hub_models.utils.base_model import BaseModel, Precision, TargetRuntime
+from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec, IoType, TensorSpec
 
 MODEL_ID = __name__.split(".")[-2]

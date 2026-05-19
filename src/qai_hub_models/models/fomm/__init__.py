@@ -3,7 +3,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-from qai_hub_models.models.fomm.app import FOMMApp as App  # noqa: F401
+from qai_hub_models.models.fomm.app import FOMMApp as App
 
-from .model import FOMM as Model  # noqa: F401
-from .model import MODEL_ID  # noqa: F401
+from .model import FOMM as Model
+from .model import MODEL_ID
+
+__all__ = ["MODEL_ID", "App", "Model"]

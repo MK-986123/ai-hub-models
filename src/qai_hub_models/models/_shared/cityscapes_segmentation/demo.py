@@ -15,6 +15,7 @@ from qai_hub_models.models._shared.cityscapes_segmentation.model import (
     TEST_CITYSCAPES_LIKE_IMAGE_NAME,
     CityscapesSegmentor,
 )
+from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.utils.args import (
     demo_model_from_cli_args,
     get_model_cli_parser,
@@ -24,7 +25,6 @@ from qai_hub_models.utils.args import (
     validate_on_device_demo_args,
 )
 from qai_hub_models.utils.asset_loaders import load_image
-from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.display import display_or_save_image
 
 

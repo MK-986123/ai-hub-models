@@ -3,9 +3,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-from qai_hub_models.models._shared.segmentation.app import (  # noqa: F401
+from qai_hub_models.models._shared.segmentation.app import (
     SegmentationApp as App,
 )
 
-from .model import MODEL_ASSET_VERSION, MODEL_ID  # noqa: F401
-from .model import SegformerBase as Model  # noqa: F401
+from .model import MODEL_ASSET_VERSION, MODEL_ID
+from .model import SegformerBase as Model
+
+__all__ = ["MODEL_ASSET_VERSION", "MODEL_ID", "App", "Model"]

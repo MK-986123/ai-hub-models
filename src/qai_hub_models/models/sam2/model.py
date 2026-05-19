@@ -26,13 +26,15 @@ from qai_hub_models.models._shared.sam2.model import (
 from qai_hub_models.models._shared.sam2.model import (
     SAM2Loader as SAM2LoaderBase,
 )
+from qai_hub_models.models.common import (
+    Precision,
+    TargetRuntime,
+)
 from qai_hub_models.models.sam2.utils import copy_configs
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.base_model import (
     CollectionModel,
-    Precision,
     PretrainedCollectionModel,
-    TargetRuntime,
 )
 from qai_hub_models.utils.path_helpers import QAIHM_MODELS_ROOT
 

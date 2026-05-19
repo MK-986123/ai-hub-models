@@ -10,6 +10,8 @@
 
 from typing import TYPE_CHECKING
 
+__all__ = ["njit", "prange"]
+
 if TYPE_CHECKING:
     from numba import njit, prange
 else:

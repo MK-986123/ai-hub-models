@@ -18,8 +18,8 @@ from qai_hub_models.models._shared.stable_diffusion.model import StableDiffusion
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.checkpoint import CheckpointSpec, hf_repo_exists
 from qai_hub_models.utils.dataset_util import dataset_entries_to_dataloader
-from qai_hub_models.utils.inference import AIMETOnnxQuantizableMixin
 from qai_hub_models.utils.quantization import get_calibration_data
+from qai_hub_models.utils.quantization_aimet_onnx import AIMETOnnxQuantizableMixin
 
 
 def maybe_save_scheduler_config(

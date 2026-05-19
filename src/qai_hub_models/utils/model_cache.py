@@ -11,7 +11,7 @@ from pathlib import Path
 
 import qai_hub as hub
 from filelock import FileLock
-from onnx import __version__ as onnx_version
+from onnx.version import version as onnx_version
 from torch import __version__ as torch_version
 
 from qai_hub_models.utils.asset_loaders import ModelZooAssetConfig

@@ -19,6 +19,7 @@ from qai_hub_models.models._shared.llm import test
 from qai_hub_models.models._shared.llm.common import cleanup
 from qai_hub_models.models._shared.llm.evaluate import evaluate
 from qai_hub_models.models._shared.llm.export import export_model
+from qai_hub_models.models._shared.llm.model import DEFAULT_CONTEXT_LENGTH
 from qai_hub_models.models._shared.llm.perf_collection import (
     LLMPerfConfig,
     get_llm_perf_parametrization,
@@ -33,18 +34,15 @@ from qai_hub_models.models.llama_v3_8b_instruct import (
     QNN_Model,
 )
 from qai_hub_models.models.llama_v3_8b_instruct.demo import llama_3_chat_demo
-from qai_hub_models.models.llama_v3_8b_instruct.export import (
-    DEFAULT_EXPORT_DEVICE,
-    NUM_LAYERS_PER_SPLIT,
-    NUM_SPLITS,
-)
+from qai_hub_models.models.llama_v3_8b_instruct.export import DEFAULT_EXPORT_DEVICE
 from qai_hub_models.models.llama_v3_8b_instruct.export import main as export_main
 from qai_hub_models.models.llama_v3_8b_instruct.model import (
-    DEFAULT_CONTEXT_LENGTH,
     DEFAULT_EXPORT_CONTEXT_LENGTHS,
     DEFAULT_EXPORT_SEQUENCE_LENGTHS,
     DEFAULT_PRECISION,
     MODEL_ASSET_VERSION,
+    NUM_LAYERS_PER_SPLIT,
+    NUM_SPLITS,
 )
 from qai_hub_models.scorecard import (
     ScorecardCompilePath,

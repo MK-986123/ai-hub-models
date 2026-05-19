@@ -39,12 +39,12 @@ from qai_hub_models.models._shared.stable_diffusion.model_adaptation import (
     get_timestep_embedding,
     monkey_patch_model,
 )
+from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.utils.aimet.config_loader import get_aimet_config_path
 from qai_hub_models.utils.base_model import (
     BaseModel,
     IndependentComponentFromPretrainedMixin,
     PretrainedCollectionModel,
-    TargetRuntime,
 )
 from qai_hub_models.utils.checkpoint import (
     CheckpointSpec,

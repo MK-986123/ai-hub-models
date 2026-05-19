@@ -4,8 +4,10 @@
 # ---------------------------------------------------------------------
 
 from qai_hub_models.models._shared.imagenet_classifier.app import (
-    ImagenetClassifierApp as App,  # noqa: F401
+    ImagenetClassifierApp as App,
 )
 
-from .model import MODEL_ID  # noqa: F401
-from .model import EfficientViT as Model  # noqa: F401
+from .model import MODEL_ID
+from .model import EfficientViT as Model
+
+__all__ = ["MODEL_ID", "App", "Model"]

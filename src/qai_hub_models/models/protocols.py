@@ -24,7 +24,8 @@ from abc import abstractmethod
 from pathlib import Path
 from typing import Any, Generic, Protocol, TypeVar, runtime_checkable
 
-from qai_hub.client import DatasetEntries, Device
+from qai_hub.client import Device
+from qai_hub.public_rest_api import DatasetEntries
 
 from qai_hub_models.evaluators.base_evaluators import _DataLoader
 from qai_hub_models.models.common import (

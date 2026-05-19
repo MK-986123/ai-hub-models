@@ -20,12 +20,12 @@ from qai_hub_models.models._shared.llama.model import (
     DEFAULT_INPUT_SEQ_LEN,
     Llama2BundledModel,
 )
+from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.utils.args import (
     get_model_cli_parser,
     get_on_device_demo_parser,
     validate_on_device_demo_args,
 )
-from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.huggingface import has_model_access
 
 # Max output tokens to generate

@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-from .app import GKTApp as App  # noqa: F401
-from .model import GKT as Model  # noqa: F401
-from .model import MODEL_ID  # noqa: F401
+from .app import GKTApp as App
+from .model import GKT as Model
+from .model import MODEL_ID
+
+__all__ = ["MODEL_ID", "App", "Model"]

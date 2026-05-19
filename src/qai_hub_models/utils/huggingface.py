@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from huggingface_hub import HfApi
-from huggingface_hub.utils import GatedRepoError
+from huggingface_hub.errors import GatedRepoError
 
 
 def has_model_access(repo_name: str, repo_url: str | None = None) -> bool:

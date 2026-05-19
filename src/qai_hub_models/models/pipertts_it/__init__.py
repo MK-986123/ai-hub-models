@@ -4,8 +4,10 @@
 # ---------------------------------------------------------------------
 
 from qai_hub_models.models._shared.pipertts.app import (
-    PiperTTSApp as App,  # noqa: F401
+    PiperTTSApp as App,
 )
 
-from .model import MODEL_ID  # noqa: F401
-from .model import PiperTTS_IT as Model  # noqa: F401
+from .model import MODEL_ID
+from .model import PiperTTS_IT as Model
+
+__all__ = ["MODEL_ID", "App", "Model"]

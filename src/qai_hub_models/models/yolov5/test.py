@@ -13,13 +13,13 @@ from ultralytics.nn.tasks import DetectionModel
 from qai_hub_models.models._shared.ultralytics.detect_patches import (
     patch_ultralytics_detection_head,
 )
+from qai_hub_models.models._shared.yolo.model import yolo_detect_postprocess
 from qai_hub_models.models.yolov5.demo import IMAGE_ADDRESS
 from qai_hub_models.models.yolov5.demo import main as demo_main
 from qai_hub_models.models.yolov5.model import (
     DEFAULT_WEIGHTS,
     YoloV5,
 )
-from qai_hub_models.models.yolov10_det.model import yolo_detect_postprocess
 from qai_hub_models.utils.asset_loaders import load_image
 from qai_hub_models.utils.image_processing import preprocess_PIL_image
 from qai_hub_models.utils.testing import skip_clone_repo_check

@@ -12,11 +12,13 @@ from torch.nn import functional as F
 from typing_extensions import Self
 
 from qai_hub_models.models._shared.detectron2.model import Detectron2
-from qai_hub_models.models.common import Precision
+from qai_hub_models.models.common import (
+    Precision,
+    TargetRuntime,
+)
 from qai_hub_models.utils.base_model import (
     CollectionModel,
     PretrainedCollectionModel,
-    TargetRuntime,
 )
 from qai_hub_models.utils.input_spec import (
     BboxFormat,

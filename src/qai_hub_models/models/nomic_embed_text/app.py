@@ -11,7 +11,7 @@ from typing import Any, cast
 import torch
 from transformers import AutoTokenizer
 
-from qai_hub_models.utils.base_model import ExecutableModelProtocol
+from qai_hub_models.models.protocols import ExecutableModelProtocol
 
 
 class NomicEmbedTextApp:

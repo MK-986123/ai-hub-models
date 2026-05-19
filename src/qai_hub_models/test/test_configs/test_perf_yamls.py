@@ -6,11 +6,11 @@
 from qai_hub_models.configs.devices_and_chipsets_yaml import (
     SCORECARD_DEVICE_YAML_PATH,
     DevicesAndChipsetsYaml,
-    ScorecardDevice,
     load_similar_devices,
 )
 from qai_hub_models.configs.info_yaml import QAIHMModelInfo
 from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
+from qai_hub_models.scorecard.device import ScorecardDevice
 from qai_hub_models.utils.path_helpers import MODEL_IDS
 
 

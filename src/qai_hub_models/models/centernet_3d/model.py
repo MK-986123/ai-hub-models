@@ -12,7 +12,8 @@ import torch
 from torch import nn
 from typing_extensions import Self
 
-from qai_hub_models.evaluators.kitti_evaluator import BaseEvaluator, KittiEvaluator
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.kitti_evaluator import KittiEvaluator
 from qai_hub_models.models._shared.centernet.external_repos.centernet.src.lib.models.decode import (
     ddd_decode,
 )

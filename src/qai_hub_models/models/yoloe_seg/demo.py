@@ -8,6 +8,7 @@ from typing import Any
 
 from PIL import Image
 
+from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.models.yoloe_seg.app import (
     YoloESegmentationApp,
 )
@@ -28,7 +29,7 @@ from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     load_image,
 )
-from qai_hub_models.utils.base_model import BaseModel, TargetRuntime
+from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.display import display_or_save_image
 
 IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(

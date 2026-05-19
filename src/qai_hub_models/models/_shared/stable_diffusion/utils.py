@@ -14,9 +14,9 @@ import diffusers
 import numpy as np
 import onnx
 import torch
-from diffusers.utils import PIL_INTERPOLATION
+from diffusers.utils.pil_utils import PIL_INTERPOLATION
 from PIL import Image
-from qai_hub.client import DatasetEntries
+from qai_hub.public_rest_api import DatasetEntries
 from tqdm import tqdm
 from transformers import CLIPTokenizer
 

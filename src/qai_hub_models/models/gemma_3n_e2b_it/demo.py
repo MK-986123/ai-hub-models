@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from qai_hub_models.models._shared.llm.demo import llm_chat_demo
 from qai_hub_models.models._shared.llm.model import LLM_QNN, LLM_AIMETOnnx, LLMBase
+from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.models.gemma_3n_e2b_it import MODEL_ID, FP_Model, Model, QNN_Model
 from qai_hub_models.models.gemma_3n_e2b_it.model import (
     END_TOKENS,
@@ -14,7 +15,6 @@ from qai_hub_models.models.gemma_3n_e2b_it.model import (
     HF_REPO_URL,
     SUPPORTED_PRECISIONS,
 )
-from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.checkpoint import CheckpointSpec
 
 

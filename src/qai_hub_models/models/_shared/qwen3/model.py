@@ -43,8 +43,8 @@ from qai_hub_models.models._shared.qwen3.model_adaptations import (
     QCQwen3MLP,
     SHAQwen3Attention,
 )
+from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.aimet.encodings import propagate_memory_encodings
-from qai_hub_models.utils.base_model import Precision
 
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 1

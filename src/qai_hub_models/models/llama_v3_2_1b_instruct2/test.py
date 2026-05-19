@@ -17,26 +17,26 @@ from transformers import AutoConfig
 from qai_hub_models.configs.model_metadata import ModelMetadata
 from qai_hub_models.models._shared.llm import test
 from qai_hub_models.models._shared.llm.evaluate import evaluate
-from qai_hub_models.models._shared.llm.model import LLM_QNN
+from qai_hub_models.models._shared.llm.model import (
+    DEFAULT_CONTEXT_LENGTH,
+    DEFAULT_SEQUENCE_LENGTH,
+    LLM_QNN,
+)
 from qai_hub_models.models._shared.llm.perf_collection import (
     LLMPerfConfig,
     get_llm_perf_parametrization,
 )
 from qai_hub_models.models._shared.llm.test import CompileJobCache
 from qai_hub_models.models.common import Precision, TargetRuntime
-from qai_hub_models.models.llama_v3_2_1b_instruct2 import (
-    MODEL_ID,
-    Model,
-)
+from qai_hub_models.models.llama_v3_2_1b_instruct2 import Model
 from qai_hub_models.models.llama_v3_2_1b_instruct2.demo import llama_3_2_1b_chat_demo
 from qai_hub_models.models.llama_v3_2_1b_instruct2.export import (
     export_model,
 )
 from qai_hub_models.models.llama_v3_2_1b_instruct2.model import (
-    DEFAULT_CONTEXT_LENGTH,
-    DEFAULT_SEQUENCE_LENGTH,
     HF_REPO_NAME,
     MODEL_ASSET_VERSION,
+    MODEL_ID,
     NUM_SPLITS,
     FPSplitModelWrapper,
     Llama3_2_1B_PreSplit,

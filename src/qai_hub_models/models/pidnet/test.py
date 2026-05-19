@@ -7,9 +7,13 @@ import numpy as np
 import pytest
 
 from qai_hub_models.models._shared.segmentation.app import SegmentationApp
-from qai_hub_models.models.pidnet.demo import INPUT_IMAGE_ADDRESS
 from qai_hub_models.models.pidnet.demo import main as demo_main
-from qai_hub_models.models.pidnet.model import MODEL_ASSET_VERSION, MODEL_ID, PidNet
+from qai_hub_models.models.pidnet.model import (
+    INPUT_IMAGE_ADDRESS,
+    MODEL_ASSET_VERSION,
+    MODEL_ID,
+    PidNet,
+)
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 from qai_hub_models.utils.testing import assert_most_same, skip_clone_repo_check
 

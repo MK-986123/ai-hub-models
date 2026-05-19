@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 import torch
 import torch.nn.functional as F
-from ultralytics.nn.modules.head import BNContrastiveHead
+from ultralytics.nn.modules.block import BNContrastiveHead
 
 
 class BNContrastiveHeadInf(BNContrastiveHead):

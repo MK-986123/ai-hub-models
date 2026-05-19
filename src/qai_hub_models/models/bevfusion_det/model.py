@@ -12,15 +12,22 @@ from torchpack.utils.config import configs
 from typing_extensions import Self
 
 from qai_hub_models.extern.mmdet import patch_mmdet_no_build_deps
+
+with patch_mmdet_no_build_deps():
+    from mmdet.models.layers import PatchMerging
+
 from qai_hub_models.models.bevfusion_det.external_repos import EXTERNAL_REPO_PATHS
 from qai_hub_models.models.bevfusion_det.model_patch import (
-    PatchMerging,
     PatchMerging_forward_optimized,
     bev_pool,
     patched_centerhead_get_task_detections,
     patched_get_cam_feats,
     patched_lss_forward,
     patched_topk,
+)
+from qai_hub_models.models.common import (
+    Precision,
+    TargetRuntime,
 )
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
@@ -29,9 +36,7 @@ from qai_hub_models.utils.asset_loaders import (
 from qai_hub_models.utils.base_model import (
     BaseModel,
     CollectionModel,
-    Precision,
     PretrainedCollectionModel,
-    TargetRuntime,
 )
 from qai_hub_models.utils.bounding_box_processing_3d import (
     circle_nms as patched_circle_nms,

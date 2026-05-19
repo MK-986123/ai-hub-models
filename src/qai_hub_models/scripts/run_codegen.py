@@ -14,7 +14,8 @@ from typing import Any
 
 from jinja2 import Environment, FileSystemLoader
 
-from qai_hub_models.configs.info_yaml import QAIHMModelCodeGen, QAIHMModelInfo
+from qai_hub_models.configs.code_gen_yaml import QAIHMModelCodeGen
+from qai_hub_models.configs.info_yaml import QAIHMModelInfo
 from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.scripts.generate_global_readme import generate_global_readme
 from qai_hub_models.scripts.generate_model_readme import generate_and_write_model_readme

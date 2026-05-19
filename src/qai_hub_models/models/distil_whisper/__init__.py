@@ -4,8 +4,10 @@
 # ---------------------------------------------------------------------
 
 from qai_hub_models.models._shared.hf_whisper.app import (
-    HfWhisperApp as App,  # noqa: F401
+    HfWhisperApp as App,
 )
 
-from .model import MODEL_ID  # noqa: F401
-from .model import DistilWhisper as Model  # noqa: F401
+from .model import MODEL_ID
+from .model import DistilWhisper as Model
+
+__all__ = ["MODEL_ID", "App", "Model"]

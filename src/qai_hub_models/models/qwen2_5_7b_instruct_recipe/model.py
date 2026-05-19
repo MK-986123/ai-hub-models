@@ -14,6 +14,8 @@ from typing_extensions import Self
 from qai_hub_models.models._shared.llm.common import LLMIOType
 from qai_hub_models.models._shared.llm.model import (
     AIMET_ONNX_INSTALLED,
+    DEFAULT_CONTEXT_LENGTH,
+    DEFAULT_SEQUENCE_LENGTH,
     LLMBase,
     determine_precision_from_checkpoint,
 )
@@ -24,8 +26,6 @@ from qai_hub_models.models._shared.llm.model import (
     DEFAULT_EXPORT_SEQUENCE_LENGTHS as GLOBAL_DEFAULT_EXPORT_SEQUENCE_LENGTHS,
 )
 from qai_hub_models.models._shared.qwen2.model import (
-    DEFAULT_CONTEXT_LENGTH,
-    DEFAULT_SEQUENCE_LENGTH,
     Qwen2Base,
     Qwen2Base_AIMETOnnx,
     Qwen2Base_QNN,

@@ -11,7 +11,7 @@ from pathlib import Path
 from pprint import pformat
 
 import pytest
-from qai_hub.client import api as hub_api
+import qai_hub.public_rest_api as hub_api
 from qai_hub.hub import _global_client
 
 from qai_hub_models.scorecard.artifacts import ScorecardArtifact

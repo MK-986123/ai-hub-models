@@ -48,11 +48,16 @@ from qai_hub_models.models.{{ model_name }} import Model, MODEL_ID
 from qai_hub_models.models.{{ model_name }} import DEFAULT_PRECISION
 from qai_hub_models.utils.checkpoint import CheckpointType
 {%- endif %}
+{%- if is_collection_model %}
+from qai_hub_models.utils.args import get_component_input_spec_kwargs
+{%- else %}
+from qai_hub_models.utils.base_model import get_input_spec_kwargs
+{%- endif %}
+
 from qai_hub_models.utils.args import (
     export_parser,
     get_export_model_name,
     {%- if not is_precompiled %}
-    {{- "\n    get_component_input_spec_kwargs," if is_collection_model else "\n    get_input_spec_kwargs," }}
     get_model_kwargs,
     {%- endif %}
 )

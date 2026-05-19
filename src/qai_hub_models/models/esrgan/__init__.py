@@ -4,9 +4,11 @@
 # ---------------------------------------------------------------------
 
 
-from qai_hub_models.models._shared.super_resolution.app import (  # noqa: F401
+from qai_hub_models.models._shared.super_resolution.app import (
     SuperResolutionApp as App,
 )
 
-from .model import ESRGAN as Model  # noqa: F401
-from .model import MODEL_ID  # noqa: F401
+from .model import ESRGAN as Model
+from .model import MODEL_ID
+
+__all__ = ["MODEL_ID", "App", "Model"]

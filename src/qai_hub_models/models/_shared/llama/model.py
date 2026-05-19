@@ -16,17 +16,19 @@ from qai_hub.client import Device
 
 from qai_hub_models.models._shared.llm.common import LLMIOType
 from qai_hub_models.models.common import (
+    Precision,
     SampleInputsType,
     SourceModelFormat,
     TargetRuntime,
 )
+from qai_hub_models.models.protocols import FromPretrainedProtocol
 from qai_hub_models.utils.aimet.aimet_dummy_model import AimetEncodingLoaderMixin
 from qai_hub_models.utils.asset_loaders import (
     ASSET_CONFIG,
     CachedWebModelAsset,
     VersionType,
 )
-from qai_hub_models.utils.base_model import BaseModel, FromPretrainedProtocol, Precision
+from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec
 
 DEFAULT_INPUT_SEQ_LEN = 1024

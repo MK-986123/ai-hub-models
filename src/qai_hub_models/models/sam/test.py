@@ -9,6 +9,7 @@ from typing import cast
 import numpy as np
 import torch
 from segment_anything import SamPredictor
+from segment_anything.utils.onnx import SamOnnxModel
 from segment_anything.utils.transforms import ResizeLongestSide
 
 from qai_hub_models.models._shared.sam.app import SAMApp, SAMInputImageLayout
@@ -18,7 +19,6 @@ from qai_hub_models.models.sam.model import (
     BASE_MODEL_TYPE,
     SAM,
     SAMLoader,
-    SamOnnxModel,
 )
 from qai_hub_models.utils.asset_loaders import load_image
 from qai_hub_models.utils.testing import assert_most_close

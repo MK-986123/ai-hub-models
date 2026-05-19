@@ -3,7 +3,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-from qai_hub_models.models.yolov7.app import YoloV7DetectionApp as App  # noqa: F401
+from qai_hub_models.models.yolov7.app import YoloV7DetectionApp as App
 
-from .model import MODEL_ID  # noqa: F401
-from .model import YoloV7 as Model  # noqa: F401
+from .model import MODEL_ID
+from .model import YoloV7 as Model
+
+__all__ = ["MODEL_ID", "App", "Model"]

@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-from .app import ClipApp as App  # noqa: F401
-from .model import MODEL_ID  # noqa: F401
-from .model import OpenAIClip as Model  # noqa: F401
+from .app import ClipApp as App
+from .model import MODEL_ID
+from .model import OpenAIClip as Model
+
+__all__ = ["MODEL_ID", "App", "Model"]

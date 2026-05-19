@@ -4,6 +4,8 @@
 # ---------------------------------------------------------------------
 
 
-from .device import ScorecardDevice  # noqa: F401
-from .path_compile import ScorecardCompilePath  # noqa: F401
-from .path_profile import ScorecardProfilePath  # noqa: F401
+from .device import ScorecardDevice
+from .path_compile import ScorecardCompilePath
+from .path_profile import ScorecardProfilePath
+
+__all__ = ["ScorecardCompilePath", "ScorecardDevice", "ScorecardProfilePath"]

@@ -4,6 +4,8 @@
 # ---------------------------------------------------------------------
 
 
-from .app import ResNet34SSDApp as App  # noqa: F401
-from .model import MODEL_ID  # noqa: F401
-from .model import Resnet34SSD as Model  # noqa: F401
+from .app import ResNet34SSDApp as App
+from .model import MODEL_ID
+from .model import Resnet34SSD as Model
+
+__all__ = ["MODEL_ID", "App", "Model"]

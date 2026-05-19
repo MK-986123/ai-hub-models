@@ -15,12 +15,10 @@ from qai_hub_models.models._shared.llm.model import (
 )
 from qai_hub_models.models.common import Precision
 from qai_hub_models.models.qwen2_5_7b_instruct import MODEL_ID, Model
-from qai_hub_models.models.qwen2_5_7b_instruct.export import (
-    NUM_LAYERS_PER_SPLIT,
-    NUM_SPLITS,
-)
 from qai_hub_models.models.qwen2_5_7b_instruct.model import (
     MODEL_ASSET_VERSION,
+    NUM_LAYERS_PER_SPLIT,
+    NUM_SPLITS,
 )
 from qai_hub_models.scorecard import (
     ScorecardCompilePath,

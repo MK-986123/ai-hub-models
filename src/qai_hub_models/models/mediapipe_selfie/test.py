@@ -5,9 +5,9 @@
 from qai_hub_models.models._shared.selfie_segmentation.test import (
     selfie_model_and_app_test_e2e,
 )
-from qai_hub_models.models.mediapipe_selfie.demo import IMAGE_ADDRESS
 from qai_hub_models.models.mediapipe_selfie.demo import main as demo_main
 from qai_hub_models.models.mediapipe_selfie.model import (
+    IMAGE_ADDRESS,
     MODEL_ASSET_VERSION,
     MODEL_ID,
     MediapipeSelfie,

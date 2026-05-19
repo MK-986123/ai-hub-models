@@ -12,6 +12,10 @@ from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.mpigaze_evaluator import MPIIGazeEvaluator
+from qai_hub_models.models.common import (
+    Precision,
+    TargetRuntime,
+)
 from qai_hub_models.models.eyegaze.external_repos.gaze_estimation.models.eyenet import (
     EyeNet,
 )
@@ -19,7 +23,7 @@ from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     load_torch,
 )
-from qai_hub_models.utils.base_model import BaseModel, Precision, TargetRuntime
+from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec, IoType, TensorSpec
 
 MODEL_ID = __name__.split(".")[-2]

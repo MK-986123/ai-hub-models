@@ -91,6 +91,7 @@ follow_imports = "skip"
 module = "qai_hub_models.*"
 disable_error_code = ["type-abstract", "override", "method-assign"]
 check_untyped_defs = true
+implicit_reexport = false
 
 [[tool.mypy.overrides]]
 module = "qai_hub_models.models.*.conftest"
@@ -107,3 +108,11 @@ ignore_errors = true
 [[tool.mypy.overrides]]
 module = "qai_hub_models.models.llama_v2_7b_chat.modeling_llama"
 ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models.models.*.external_repos.*"
+implicit_reexport = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models.models._shared.*.external_repos.*"
+implicit_reexport = true

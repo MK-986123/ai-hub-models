@@ -19,7 +19,11 @@ from qai_hub_models.models._shared.centernet.external_repos.centernet.src.lib.mo
     get_pose_net,
 )
 from qai_hub_models.models._shared.centernet.model_patches import custom_dcn_forward
-from qai_hub_models.utils.base_model import BaseModel, Precision, TargetRuntime
+from qai_hub_models.models.common import (
+    Precision,
+    TargetRuntime,
+)
+from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import (
     ColorFormat,
     ImageMetadata,

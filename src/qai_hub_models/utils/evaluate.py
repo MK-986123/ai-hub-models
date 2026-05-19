@@ -30,11 +30,13 @@ from typing_extensions import Self
 
 from qai_hub_models.datasets import (
     DATASET_NAME_MAP,
-    BaseDataset,
-    DatasetSplit,
     get_dataset_from_name,
 )
-from qai_hub_models.datasets.common import get_folder_name
+from qai_hub_models.datasets.common import (
+    BaseDataset,
+    DatasetSplit,
+    get_folder_name,
+)
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.models.protocols import ExecutableModelProtocol
 from qai_hub_models.utils.asset_loaders import (

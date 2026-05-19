@@ -12,7 +12,8 @@ from typing import Any, Generic, TypeVar, cast
 import qai_hub as hub
 from qai_hub.public_rest_api import DatasetEntries
 
-from qai_hub_models.configs.perf_yaml import QAIHMModelPerf, ToolVersions
+from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
+from qai_hub_models.configs.tool_versions import ToolVersions
 from qai_hub_models.scorecard.execution_helpers import wait_for_prerequisite_job
 
 JobTypeVar = TypeVar(

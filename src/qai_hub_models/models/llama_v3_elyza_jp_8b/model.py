@@ -13,7 +13,7 @@ from typing import Any
 
 import numpy as np
 import torch
-from qai_hub.client import DatasetEntries
+from qai_hub.public_rest_api import DatasetEntries
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from typing_extensions import Self
@@ -21,8 +21,6 @@ from typing_extensions import Self
 from qai_hub_models.datasets import get_dataset_from_name
 from qai_hub_models.datasets.common import DatasetSplit
 from qai_hub_models.models._shared.llama3.model import (
-    DEFAULT_CONTEXT_LENGTH,
-    DEFAULT_SEQUENCE_LENGTH,
     Llama3Base,
     Llama3Base_AIMETOnnx,
     Llama3Base_QNN,
@@ -30,14 +28,16 @@ from qai_hub_models.models._shared.llama3.model import (
 from qai_hub_models.models._shared.llm.common import LLMIOType
 from qai_hub_models.models._shared.llm.generator import LLM_Generator
 from qai_hub_models.models._shared.llm.model import (
+    DEFAULT_CONTEXT_LENGTH,
+    DEFAULT_SEQUENCE_LENGTH,
+    LLMBase,
+    determine_precision_from_checkpoint,
+)
+from qai_hub_models.models._shared.llm.model import (
     DEFAULT_EXPORT_CONTEXT_LENGTHS as GLOBAL_DEFAULT_EXPORT_CONTEXT_LENGTHS,
 )
 from qai_hub_models.models._shared.llm.model import (
     DEFAULT_EXPORT_SEQUENCE_LENGTHS as GLOBAL_DEFAULT_EXPORT_SEQUENCE_LENGTHS,
-)
-from qai_hub_models.models._shared.llm.model import (
-    LLMBase,
-    determine_precision_from_checkpoint,
 )
 from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset

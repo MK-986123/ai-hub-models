@@ -12,11 +12,12 @@ from typing import Any
 import numpy as np
 import torch
 from PIL.Image import Image
-from qai_hub.client import DatasetEntries
+from qai_hub.public_rest_api import DatasetEntries
 from torch.utils.data import DataLoader
 from torchvision.transforms.functional import resize
 
-from qai_hub_models.datasets import DatasetSplit, get_dataset_from_name
+from qai_hub_models.datasets import get_dataset_from_name
+from qai_hub_models.datasets.common import DatasetSplit
 from qai_hub_models.models._shared.sam2.model_patches import mask_postprocessing
 from qai_hub_models.utils.base_model import PretrainedCollectionModel
 from qai_hub_models.utils.evaluate import sample_dataset

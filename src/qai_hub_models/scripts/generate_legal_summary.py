@@ -7,9 +7,9 @@ from __future__ import annotations
 import argparse
 import csv
 
+from qai_hub_models.configs._info_yaml_enums import MODEL_LICENSE
+from qai_hub_models.configs._info_yaml_llm_details import LLM_CALL_TO_ACTION
 from qai_hub_models.configs.info_yaml import (
-    LLM_CALL_TO_ACTION,
-    MODEL_LICENSE,
     MODEL_STATUS,
     QAIHMModelInfo,
 )

@@ -13,7 +13,11 @@ from transformers import AutoTokenizer
 from qai_hub_models.datasets.wikitext_masked import WikiTextMasked
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.maskedlm_evaluator import MaskedLMEvaluator
-from qai_hub_models.utils.base_model import BaseModel, Precision, TargetRuntime
+from qai_hub_models.models.common import (
+    Precision,
+    TargetRuntime,
+)
+from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec, TensorSpec
 
 MODEL_ID = __name__.split(".")[-2]

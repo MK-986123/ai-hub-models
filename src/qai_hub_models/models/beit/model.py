@@ -11,7 +11,10 @@ from transformers import BeitForImageClassification
 from typing_extensions import Self
 
 from qai_hub_models.models._shared.imagenet_classifier.model import ImagenetClassifier
-from qai_hub_models.utils.base_model import Precision, TargetRuntime
+from qai_hub_models.models.common import (
+    Precision,
+    TargetRuntime,
+)
 
 MODEL_ID = __name__.split(".")[-2]
 DEFAULT_WEIGHTS = "microsoft/beit-base-patch16-224"

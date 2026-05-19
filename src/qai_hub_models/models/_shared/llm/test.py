@@ -26,11 +26,11 @@ from qai_hub_models.models._shared.llm.model import (
     LLMBase,
 )
 from qai_hub_models.models._shared.llm.quantize import quantize
-from qai_hub_models.models._shared.llm.split_onnx_utils.utils import ONNXBundle
 from qai_hub_models.models.common import Precision, QAIRTVersion, TargetRuntime
 from qai_hub_models.scorecard import ScorecardDevice
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG
 from qai_hub_models.utils.model_cache import CacheMode
+from qai_hub_models.utils.onnx.helpers import ONNXBundle
 from qai_hub_models.utils.testing import patch_qai_hub
 
 GENIE_BUNDLES_ROOT = "genie_bundles"

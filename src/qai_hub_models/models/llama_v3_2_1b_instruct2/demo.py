@@ -8,9 +8,9 @@ from __future__ import annotations
 from qai_hub_models.models._shared.llama3.model import END_TOKENS
 from qai_hub_models.models._shared.llm.demo import llm_chat_demo
 from qai_hub_models.models._shared.llm.model import LLM_QNN, LLM_AIMETOnnx, LLMBase
-from qai_hub_models.models.llama_v3_2_1b_instruct2 import MODEL_ID
 from qai_hub_models.models.llama_v3_2_1b_instruct2.model import (
     HF_REPO_NAME,
+    MODEL_ID,
     SUPPORTED_PRECISIONS,
     Llama3_2_1B_PreSplit,
     QuantizedSplitModelWrapper,

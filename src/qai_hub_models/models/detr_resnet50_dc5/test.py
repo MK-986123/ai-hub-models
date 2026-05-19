@@ -6,9 +6,10 @@
 import pytest
 
 from qai_hub_models.models._shared.detr.app import DETRApp
-from qai_hub_models.models.detr_resnet50_dc5.demo import MODEL_ASSET_VERSION, MODEL_ID
 from qai_hub_models.models.detr_resnet50_dc5.demo import main as demo_main
 from qai_hub_models.models.detr_resnet50_dc5.model import (
+    MODEL_ASSET_VERSION,
+    MODEL_ID,
     DETRResNet50DC5,
 )
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image

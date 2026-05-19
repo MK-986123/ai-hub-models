@@ -16,9 +16,13 @@ from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.libri_speech_evaluator import LibriSpeechEvaluator
-from qai_hub_models.models.common import SampleInputsType
+from qai_hub_models.models.common import (
+    Precision,
+    SampleInputsType,
+    TargetRuntime,
+)
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_numpy
-from qai_hub_models.utils.base_model import BaseModel, Precision, TargetRuntime
+from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec, IoType, TensorSpec
 
 DEFAULT_WEIGHTS = "patrickvonplaten/wavlm-libri-clean-100h-base-plus"

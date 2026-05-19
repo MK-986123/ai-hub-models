@@ -3,9 +3,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-from qai_hub_models.models._shared.detr.app import DETRApp as App  # noqa: F401
-from qai_hub_models.models.deformable_detr.model import (  # noqa: F401
+from qai_hub_models.models._shared.detr.app import DETRApp as App
+from qai_hub_models.models.deformable_detr.model import (
     DeformableDETR as Model,
 )
 
-from .model import MODEL_ID  # noqa: F401
+from .model import MODEL_ID
+
+__all__ = ["MODEL_ID", "App", "Model"]

@@ -3,9 +3,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-from qai_hub_models.models._shared.sam.app import SAMApp as App  # noqa: F401
+from qai_hub_models.models._shared.sam.app import SAMApp as App
 
 # Use SamLarge as the default. This really needs to be split into multiple
 # directory like llama
-from .model import MODEL_ID  # noqa: F401
-from .model import SAM as Model  # noqa: F401
+from .model import MODEL_ID
+from .model import SAM as Model
+
+__all__ = ["MODEL_ID", "App", "Model"]

@@ -12,8 +12,12 @@ from qai_hub.client import Device
 from typing_extensions import Self
 
 from qai_hub_models.models.act.external_repos.act.detr.models.detr_vae import build
+from qai_hub_models.models.common import (
+    Precision,
+    TargetRuntime,
+)
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_torch
-from qai_hub_models.utils.base_model import BaseModel, Precision, TargetRuntime
+from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.image_processing import normalize_image_torchvision
 from qai_hub_models.utils.input_spec import (
     ColorFormat,

@@ -14,7 +14,7 @@ from lerobot.configs.types import FeatureType
 from lerobot.datasets.lerobot_dataset import LeRobotDataset
 from lerobot.policies.pi05 import PI05Policy
 from lerobot.policies.pi05.configuration_pi05 import PI05Config
-from qai_hub.client import DatasetEntries
+from qai_hub.public_rest_api import DatasetEntries
 
 from qai_hub_models.models.pi05.model import (
     DEFAULT_CHECKPOINT,

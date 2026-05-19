@@ -11,6 +11,10 @@ from qai_hub.client import Device
 from ruamel.yaml import YAML
 from torch import Tensor, nn
 
+from qai_hub_models.models.common import (
+    Precision,
+    TargetRuntime,
+)
 from qai_hub_models.models.zipformer.external_repos.icefall.egs.librispeech.ASR.pruned_transducer_stateless7_streaming.decoder import (
     Decoder,
 )
@@ -35,9 +39,7 @@ from qai_hub_models.models.zipformer.model_adaption import (
 from qai_hub_models.utils.base_model import (
     BaseModel,
     CollectionModel,
-    Precision,
     PretrainedCollectionModel,
-    TargetRuntime,
 )
 from qai_hub_models.utils.input_spec import InputSpec, IoType, TensorSpec
 

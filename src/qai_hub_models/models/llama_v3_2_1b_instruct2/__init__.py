@@ -11,7 +11,9 @@ This module provides:
 - Collection class for deploying the model as 3 splits
 """
 
-from .model import (  # noqa: F401
+from qai_hub_models.models._shared.llm.model import SplitForwardMixin
+
+from .model import (
     DEFAULT_PRECISION,
     HF_REPO_NAME,
     HIDDEN_SIZE,
@@ -31,7 +33,6 @@ from .model import (  # noqa: F401
     Llama3_2_1B_PreSplit,
     Llama3_2_1B_QuantizablePreSplit,
     QuantizedSplitModelWrapper,
-    SplitForwardMixin,
 )
 
 Model = Llama3_2_1B_Collection
@@ -41,6 +42,7 @@ __all__ = [
     "HF_REPO_NAME",
     "HIDDEN_SIZE",
     "MIN_MEMORY_RECOMMENDED",
+    "MODEL_ID",
     "NUM_ATTN_HEADS",
     "NUM_KEY_VALUE_HEADS",
     "NUM_LAYERS",
@@ -54,6 +56,7 @@ __all__ = [
     "Llama3_2_1B_PartBase",
     "Llama3_2_1B_PreSplit",
     "Llama3_2_1B_QuantizablePreSplit",
+    "Model",
     "QuantizedSplitModelWrapper",
     "SplitForwardMixin",
 ]

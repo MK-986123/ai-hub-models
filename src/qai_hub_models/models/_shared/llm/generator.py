@@ -16,7 +16,7 @@ import torch
 import transformers
 from transformers import PretrainedConfig
 from transformers.cache_utils import DynamicCache
-from transformers.generation import GenerationMixin
+from transformers.generation.utils import GenerationMixin
 from transformers.modeling_attn_mask_utils import AttentionMaskConverter
 from transformers.modeling_outputs import CausalLMOutputWithPast
 

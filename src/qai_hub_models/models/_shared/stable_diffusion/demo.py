@@ -26,7 +26,10 @@ from qai_hub_models.models._shared.stable_diffusion.model import (
     VaeDecoderBase,
 )
 from qai_hub_models.models._shared.stable_diffusion.utils import make_canny
-from qai_hub_models.models.common import Precision
+from qai_hub_models.models.common import (
+    Precision,
+    TargetRuntime,
+)
 from qai_hub_models.utils.args import (
     demo_model_components_from_cli_args,
     get_model_cli_parser,
@@ -34,7 +37,6 @@ from qai_hub_models.utils.args import (
     get_on_device_demo_parser,
     validate_on_device_demo_args,
 )
-from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.display import display_or_save_image, to_uint8
 from qai_hub_models.utils.evaluate import EvalMode
 

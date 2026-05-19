@@ -30,7 +30,10 @@ from qai_hub_models.models._shared.llm._utils import (
     _set_matmul_second_input_to_8b,
     _set_tensors_to_output_8b_sym,
 )
-from qai_hub_models.models.common import Precision
+from qai_hub_models.models.common import (
+    Precision,
+    TargetRuntime,
+)
 from qai_hub_models.models.pi05.model_adaptation import (
     GemmaMLPSplitLinear,
     SHAGemmaExpertAttention,
@@ -44,7 +47,6 @@ from qai_hub_models.utils.base_model import (
     CollectionModel,
     IndependentComponentFromPretrainedMixin,
     PretrainedCollectionModel,
-    TargetRuntime,
 )
 from qai_hub_models.utils.checkpoint import (
     CheckpointSpec,

@@ -22,10 +22,11 @@ from easyocr.utils import (
     group_text_box,
 )
 from PIL import Image
-from qai_hub.client import DatasetEntries
+from qai_hub.public_rest_api import DatasetEntries
 from torch.utils.data import DataLoader
 
-from qai_hub_models.datasets import DatasetSplit, get_dataset_from_name
+from qai_hub_models.datasets import get_dataset_from_name
+from qai_hub_models.datasets.common import DatasetSplit
 from qai_hub_models.utils.base_model import PretrainedCollectionModel
 from qai_hub_models.utils.draw import draw_box_from_corners, draw_box_from_xyxy
 from qai_hub_models.utils.evaluate import sample_dataset

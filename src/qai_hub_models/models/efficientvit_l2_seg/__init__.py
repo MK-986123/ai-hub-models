@@ -4,8 +4,10 @@
 # ---------------------------------------------------------------------
 
 from qai_hub_models.models._shared.cityscapes_segmentation.app import (
-    CityscapesSegmentationApp as App,  # noqa: F401
+    CityscapesSegmentationApp as App,
 )
 
-from .model import MODEL_ID  # noqa: F401
-from .model import EfficientViT as Model  # noqa: F401
+from .model import MODEL_ID
+from .model import EfficientViT as Model
+
+__all__ = ["MODEL_ID", "App", "Model"]

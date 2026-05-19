@@ -8,7 +8,7 @@ from __future__ import annotations
 import numpy as np
 import torch
 
-from qai_hub_models.models._shared.cityscapes_segmentation.demo import (
+from qai_hub_models.models._shared.cityscapes_segmentation.model import (
     TEST_CITYSCAPES_LIKE_IMAGE_ASSET,
 )
 from qai_hub_models.models._shared.ffnet.model import _load_ffnet_source_model

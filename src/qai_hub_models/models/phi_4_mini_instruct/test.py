@@ -15,15 +15,13 @@ from qai_hub_models.models.phi_4_mini_instruct import (
     MODEL_ID,
     Model,
 )
-from qai_hub_models.models.phi_4_mini_instruct.export import (
-    DEFAULT_EXPORT_DEVICE,
-    NUM_SPLITS,
-)
+from qai_hub_models.models.phi_4_mini_instruct.export import DEFAULT_EXPORT_DEVICE
 from qai_hub_models.models.phi_4_mini_instruct.export import (
     main as export_main,
 )
 from qai_hub_models.models.phi_4_mini_instruct.model import (
     DEFAULT_PRECISION,
+    NUM_SPLITS,
 )
 from qai_hub_models.utils.model_cache import CacheMode
 

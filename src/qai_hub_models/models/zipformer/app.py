@@ -12,11 +12,12 @@ import kaldi_native_fbank as knf
 import numpy as np
 import soundfile
 import torch
-from qai_hub.client import DatasetEntries
+from qai_hub.public_rest_api import DatasetEntries
 from torch import Tensor
 from torch.utils.data import DataLoader
 
-from qai_hub_models.datasets import DatasetSplit, get_dataset_from_name
+from qai_hub_models.datasets import get_dataset_from_name
+from qai_hub_models.datasets.common import DatasetSplit
 from qai_hub_models.models.zipformer.model import HfZipformer
 from qai_hub_models.utils.base_app import CollectionAppProtocol
 from qai_hub_models.utils.evaluate import sample_dataset

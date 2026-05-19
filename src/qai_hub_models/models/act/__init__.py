@@ -4,6 +4,8 @@
 # ---------------------------------------------------------------------
 
 
-from .app import ACTApp as App  # noqa: F401
-from .model import ACT as Model  # noqa: F401
-from .model import MODEL_ID  # noqa: F401
+from .app import ACTApp as App
+from .model import ACT as Model
+from .model import MODEL_ID
+
+__all__ = ["MODEL_ID", "App", "Model"]

@@ -4,11 +4,13 @@
 # ---------------------------------------------------------------------
 
 # isort: off
-from qai_hub_models.models.controlnet_canny.model import (  # noqa: F401
+from qai_hub_models.models.controlnet_canny.model import (
     MODEL_ID,
 )
-from qai_hub_models.models.controlnet_canny.model import (  # noqa: F401
+from qai_hub_models.models.controlnet_canny.model import (
     ControlNetCannyQuantized as Model,
 )
+
+__all__ = ["MODEL_ID", "Model"]
 
 # isort: on

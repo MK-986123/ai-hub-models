@@ -21,11 +21,15 @@ from qai_hub_models.models.common import Precision
 from qai_hub_models.scorecard.artifacts import ScorecardArtifact, ScorecardYamlFile
 from qai_hub_models.scorecard.device import ScorecardDevice
 from qai_hub_models.scorecard.errors import CachedScorecardJobError
-from qai_hub_models.scorecard.params import JobTypeVar, ScExportTestParams, ScJobParams
+from qai_hub_models.scorecard.params import (
+    ScExportTestParams,
+    ScJobParams,
+)
 from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
 from qai_hub_models.scorecard.results.scorecard_job import (
     CompileScorecardJob,
     InferenceScorecardJob,
+    JobTypeVar,
     LinkScorecardJob,
     ProfileScorecardJob,
     QuantizeScorecardJob,

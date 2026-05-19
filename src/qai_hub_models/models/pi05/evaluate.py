@@ -19,6 +19,7 @@ from lerobot.policies.pi05.modeling_pi05 import PI05Policy
 from lerobot.processor import PolicyProcessorPipeline
 from tqdm import tqdm
 
+from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.models.pi05 import Model
 from qai_hub_models.models.pi05.app import Pi05App, Pi05AppConfig
 from qai_hub_models.models.pi05.demo import (
@@ -41,7 +42,6 @@ from qai_hub_models.models.pi05.model import (
     Pi05PaliGemmaVisionQuantizable,
 )
 from qai_hub_models.models.pi05.quantize import MIXED_PRECISION_MAP
-from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.inference import OnDeviceModel
 from qai_hub_models.utils.qai_hub_helpers import assert_success_and_get_target_models
 

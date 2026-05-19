@@ -20,9 +20,11 @@ from unittest import mock
 import numpy as np
 import qai_hub as hub
 import torch
+from mypy_boto3_s3.service_resource import Bucket
 from typing_extensions import assert_never
 
 from qai_hub_models.configs.code_gen_yaml import QAIHMModelCodeGen
+from qai_hub_models.configs.release_assets_yaml import QAIHMModelReleaseAssets
 from qai_hub_models.configs.tool_versions import ToolVersions
 from qai_hub_models.datasets import DATASET_NAME_MAP
 from qai_hub_models.models.common import Precision, TargetRuntime
@@ -41,9 +43,10 @@ from qai_hub_models.scorecard.envvars import (
     S3ArtifactsDirEnvvar,
 )
 from qai_hub_models.scorecard.errors import CachedScorecardJobError
-from qai_hub_models.scorecard.params import (
+from qai_hub_models.scorecard.params import ScExportTestParams
+from qai_hub_models.scorecard.results.scorecard_job import (
     JobTypeVar,
-    ScExportTestParams,
+    ScorecardJobTypeVar,
 )
 from qai_hub_models.scorecard.results.yaml import (
     CompileScorecardJobYaml,
@@ -53,26 +56,23 @@ from qai_hub_models.scorecard.results.yaml import (
     LinkScorecardJobYaml,
     PreQDQCompileScorecardJobYaml,
     ProfileScorecardJobYaml,
-    QAIHMModelReleaseAssets,
     QuantizeScorecardJobYaml,
     ScorecardAssetYaml,
-    ScorecardJobTypeVar,
     ScorecardJobYaml,
     ToolVersionsByPathYaml,
 )
 from qai_hub_models.utils.asset_loaders import load_yaml
 from qai_hub_models.utils.aws import (
     QAIHM_PRIVATE_S3_BUCKET,
-    Bucket,
     get_qaihm_s3,
     s3_multipart_upload,
 )
-from qai_hub_models.utils.base_app import PretrainedCollectionModel
 from qai_hub_models.utils.base_model import (
     BaseModel,
     CollectionModel,
     MultiGraphBaseModel,
     MultiGraphPretrainedCollectionModel,
+    PretrainedCollectionModel,
 )
 from qai_hub_models.utils.evaluate import (
     DEFAULT_NUM_EVAL_SAMPLES,

@@ -5,6 +5,8 @@
 import argparse
 import threading
 
+from mypy_boto3_s3.service_resource import Bucket
+
 from qai_hub_models._version import __version__
 from qai_hub_models.configs.info_yaml import QAIHMModelInfo
 from qai_hub_models.configs.release_assets_yaml import QAIHMModelReleaseAssets
@@ -18,7 +20,6 @@ from qai_hub_models.utils.asset_loaders import ASSET_CONFIG
 from qai_hub_models.utils.aws import (
     QAIHM_PRIVATE_S3_BUCKET,
     QAIHM_PUBLIC_S3_BUCKET,
-    Bucket,
     get_qaihm_s3,
     s3_copy,
     s3_file_exists,

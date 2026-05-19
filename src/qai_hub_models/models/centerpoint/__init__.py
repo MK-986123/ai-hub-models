@@ -4,6 +4,8 @@
 # ---------------------------------------------------------------------
 
 
-from .app import CenterPointApp as App  # noqa: F401
-from .model import MODEL_ID  # noqa: F401
-from .model import CenterPoint as Model  # noqa: F401
+from .app import CenterPointApp as App
+from .model import MODEL_ID
+from .model import CenterPoint as Model
+
+__all__ = ["MODEL_ID", "App", "Model"]

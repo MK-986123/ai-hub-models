@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-from .app import DDColorApp as App  # noqa: F401
-from .model import MODEL_ID  # noqa: F401
-from .model import DDColor as Model  # noqa: F401
+from .app import DDColorApp as App
+from .model import MODEL_ID
+from .model import DDColor as Model
+
+__all__ = ["MODEL_ID", "App", "Model"]

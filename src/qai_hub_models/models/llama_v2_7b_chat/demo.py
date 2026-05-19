@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from qai_hub_models.models._shared.llama.demo import llama_chat_demo
 from qai_hub_models.models._shared.llama.model import Llama2BundledModel, LlamaMixin
+from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.models.llama_v2_7b_chat import MODEL_ID, Model
 from qai_hub_models.models.llama_v2_7b_chat.model import (
     DEFAULT_USER_PROMPT,
@@ -28,7 +29,6 @@ from qai_hub_models.models.llama_v2_7b_chat.model import (
     get_tokenizer,
     prepare_combined_attention_mask,
 )
-from qai_hub_models.utils.base_model import TargetRuntime
 
 
 def _get_model_class(

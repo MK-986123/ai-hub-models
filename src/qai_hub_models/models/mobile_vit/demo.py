@@ -9,6 +9,7 @@ import torch
 from qai_hub_models.models._shared.imagenet_classifier.test_utils import (
     TEST_IMAGENET_IMAGE,
 )
+from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.models.mobile_vit.app import MobileVITApp
 from qai_hub_models.models.mobile_vit.model import (
     MODEL_ASSET_VERSION,
@@ -26,7 +27,6 @@ from qai_hub_models.utils.asset_loaders import (
     load_image,
     load_json,
 )
-from qai_hub_models.utils.base_model import TargetRuntime
 
 IMAGENET_LABELS_ASSET = CachedWebModelAsset(
     "https://raw.githubusercontent.com/anishathalye/imagenet-simple-labels/master/imagenet-simple-labels.json",

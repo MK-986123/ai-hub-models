@@ -10,11 +10,11 @@ from unittest.mock import MagicMock
 import pytest
 
 from qai_hub_models.scorecard.device import DEFAULT_SCORECARD_DEVICE, cs_8_gen_3
-from qai_hub_models.scorecard.static.list_models import (
+from qai_hub_models.scorecard.static.list_models import get_all_static_models
+from qai_hub_models.scorecard.static.model_config import (
     DEFAULT_MODELS_DIR,
-    get_all_static_models,
+    ScorecardModelConfig,
 )
-from qai_hub_models.scorecard.static.model_config import ScorecardModelConfig
 from qai_hub_models.utils.asset_loaders import load_yaml
 
 TORCHSCRIPT_EXAMPLE_PATH = DEFAULT_MODELS_DIR / "_mobilenetv2_torchscript_example.yaml"

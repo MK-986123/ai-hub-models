@@ -13,11 +13,12 @@ import numpy as np
 import piper_phonemize
 import soundfile as sf
 import torch
-from qai_hub.client import DatasetEntries
+from qai_hub.public_rest_api import DatasetEntries
 from torch import Tensor
 from torch.utils.data import DataLoader
 
-from qai_hub_models.datasets import DatasetSplit, get_dataset_from_name
+from qai_hub_models.datasets import get_dataset_from_name
+from qai_hub_models.datasets.common import DatasetSplit
 from qai_hub_models.models._shared.pipertts.model import (
     DEC_SEQ_OVERLAP,
     DEFAULT_LENGTH_SCALE,

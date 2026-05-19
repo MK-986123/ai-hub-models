@@ -4,7 +4,9 @@
 # ---------------------------------------------------------------------
 
 
-from qai_hub_models.models.hrnet_pose.app import HRNetPoseApp as App  # noqa: F401
+from qai_hub_models.models.hrnet_pose.app import HRNetPoseApp as App
 
-from .model import MODEL_ID  # noqa: F401
-from .model import HRNetPose as Model  # noqa: F401
+from .model import MODEL_ID
+from .model import HRNetPose as Model
+
+__all__ = ["MODEL_ID", "App", "Model"]

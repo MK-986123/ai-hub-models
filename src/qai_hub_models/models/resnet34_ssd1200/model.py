@@ -12,7 +12,11 @@ from qai_hub.client import Device
 from qai_hub_models.models._shared.yolo.model import (
     Yolo,
 )
-from qai_hub_models.models.common import SampleInputsType
+from qai_hub_models.models.common import (
+    Precision,
+    SampleInputsType,
+    TargetRuntime,
+)
 from qai_hub_models.models.resnet34_ssd1200.external_repos.inference.vision.classification_and_detection.python.models.ssd_r34 import (
     SSD_R34,
 )
@@ -20,10 +24,6 @@ from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     load_image,
     load_torch,
-)
-from qai_hub_models.utils.base_model import (
-    Precision,
-    TargetRuntime,
 )
 from qai_hub_models.utils.image_processing import (
     app_to_net_image_inputs,
