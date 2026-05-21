@@ -86,8 +86,7 @@ class NASNet(ImagenetClassifier):
     def get_eval_dataset_classes(cls) -> list[type[BaseDataset]]:
         return [ImagenetNASNetDataset, ImagenetteDataset]
 
-    @staticmethod
-    def get_input_spec(batch_size: int = 1) -> InputSpec:
+    def get_input_spec(self, batch_size: int = 1) -> InputSpec:
         return {
             "image_tensor": TensorSpec(
                 shape=(batch_size, 3, NASNET_DIM, NASNET_DIM),

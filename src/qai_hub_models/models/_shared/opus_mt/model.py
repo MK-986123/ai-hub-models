@@ -88,10 +88,10 @@ class OpusMTEncoder(BaseModel):
             ),
         }
 
-    def get_output_names(self, num_layers: int = 6) -> list[str]:
+    def get_output_names(self) -> list[str]:
         """Returns the output names for the encoder."""
         output_names = []
-        for layer_idx in range(num_layers):
+        for layer_idx in range(len(self.encoder.decoder_layers)):
             output_names.append(f"block_{layer_idx}_cross_key_states")
             output_names.append(f"block_{layer_idx}_cross_value_states")
         return output_names
@@ -107,7 +107,10 @@ class OpusMTDecoder(BaseModel):
     def __init__(self, model: QcMarianDecoder) -> None:
         super().__init__()
         self.decoder = model
-        self.num_layers = 6  # OpusMT has 6 decoder layers
+        self.num_layers = len(model.layers)
+        attn = model.layers[0].self_attn
+        self.num_heads = attn.num_heads
+        self.attention_dim = attn.embed_dim
 
     @classmethod
     def from_pretrained(
@@ -143,17 +146,14 @@ class OpusMTDecoder(BaseModel):
             input_ids, encoder_attention_mask, position, *past_key_values
         )
 
-    def get_input_spec(
-        self,
-        num_layers: int = 6,
-        attention_dim: int = 512,
-        num_heads: int = 8,
-    ) -> InputSpec:
+    def get_input_spec(self) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type)). This can be
         used to submit profiling job on Qualcomm AI Hub.
         """
-        head_dim = attention_dim // num_heads
+        num_layers = self.num_layers
+        num_heads = self.num_heads
+        head_dim = self.attention_dim // num_heads
 
         specs: InputSpec = {
             "input_ids": TensorSpec(shape=(1, 1), dtype="int32"),
@@ -184,10 +184,10 @@ class OpusMTDecoder(BaseModel):
 
         return specs
 
-    def get_output_names(self, num_layers: int = 6) -> list[str]:
+    def get_output_names(self) -> list[str]:
         """Returns the output names for the decoder."""
         output_names = ["logits"]
-        for layer_idx in range(num_layers):
+        for layer_idx in range(self.num_layers):
             output_names.append(f"block_{layer_idx}_present_self_key_states")
             output_names.append(f"block_{layer_idx}_present_self_value_states")
         return output_names

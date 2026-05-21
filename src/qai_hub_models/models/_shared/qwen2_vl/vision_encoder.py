@@ -368,20 +368,15 @@ class Qwen2VLVisionEncoder(BaseModel):
 
     def get_input_spec(
         self,
-        image_height: int = 336,
-        image_width: int = 504,
         num_images: int = 1,
-        patch_size: int = 14,
-        temporal_patch_size: int = 2,
-        in_channels: int = 3,
     ) -> InputSpec:
         return self.get_static_input_spec(
-            image_height,
-            image_width,
+            self._image_height,
+            self._image_width,
             num_images,
-            patch_size,
-            temporal_patch_size,
-            in_channels,
+            self._patch_size,
+            self._temporal_patch_size,
+            self._in_channels,
         )
 
     @staticmethod

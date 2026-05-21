@@ -9,7 +9,7 @@ from __future__ import annotations
 import functools
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, cast
 
 import torch
 from hydra import initialize_config_dir
@@ -167,12 +167,6 @@ class SAM2Encoder(BaseModel, ABC):
             ),
         }
 
-    def _get_input_spec_for_instance(
-        self, batch_size: int = 1, num_points: int = 2, **kwargs: Any
-    ) -> InputSpec:
-        """Override for model.get_input_spec() when called on instances of this class."""
-        return self.get_input_spec(batch_size, num_points)
-
     @staticmethod
     def get_channel_last_inputs() -> list[str]:
         return ["image"]
@@ -277,61 +271,28 @@ class SAM2Decoder(BaseModel, ABC):
             high_res_features=[high_res_features1, high_res_features2],
         )
 
-    def _get_input_spec_for_instance(
+    def get_input_spec(
         self,
         num_points: int = 2,
-        **kwargs: Any,
     ) -> InputSpec:
-        """
-        Override for model.get_input_spec() when called on instances of this class.
-
-        The initializer for BaseModel will automatically override get_input_spec
-        with this function when the class is instantiated.
-        """
-        return self.__class__.get_input_spec(
-            num_points=num_points,
-            embed_dim=self.prompt_encoder_embed_dim,
-            image_embedding=self._bb_feat_sizes[2],
-            high_res_features2=self._bb_feat_sizes[1],
-            high_res_features1=self._bb_feat_sizes[0],
-            high_res_features1_dim=self.high_res_features1_dim,
-            high_res_features2_dim=self.high_res_features2_dim,
-        )
-
-    @staticmethod
-    def get_input_spec(
-        num_points: int = 2,
-        embed_dim: int = 256,
-        image_embedding: tuple = (64, 64),
-        high_res_features2: tuple = (128, 128),
-        high_res_features1: tuple = (256, 256),
-        high_res_features1_dim: int = 32,
-        high_res_features2_dim: int = 64,
-    ) -> InputSpec:
-        # Get the input specification ordered (name -> (shape, type)) pairs for this model.
-        #
-        # This can be used with the qai_hub python API to declare
-        # the model input specification upon submitting a profile job.
-
-        input_spec: InputSpec = {
+        return {
             "image_embeddings": TensorSpec(
-                shape=(1, embed_dim, *image_embedding),
+                shape=(1, self.prompt_encoder_embed_dim, *self._bb_feat_sizes[2]),
                 dtype="float32",
             ),
             "high_res_features1": TensorSpec(
-                shape=(1, high_res_features1_dim, *high_res_features1),
+                shape=(1, self.high_res_features1_dim, *self._bb_feat_sizes[0]),
                 dtype="float32",
             ),
             "high_res_features2": TensorSpec(
-                shape=(1, high_res_features2_dim, *high_res_features2),
+                shape=(1, self.high_res_features2_dim, *self._bb_feat_sizes[1]),
                 dtype="float32",
             ),
             "sparse_embedding": TensorSpec(
-                shape=(1, num_points + 1, embed_dim),
+                shape=(1, num_points + 1, self.prompt_encoder_embed_dim),
                 dtype="float32",
             ),
         }
-        return input_spec
 
     def get_channel_last_inputs(self) -> list[str]:
         return ["image_embeddings", "high_res_features1", "high_res_features2"]

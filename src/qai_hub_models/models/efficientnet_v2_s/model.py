@@ -82,8 +82,7 @@ class EfficientNetV2s(ImagenetClassifier):
     def get_eval_dataset_classes(cls) -> list[type[BaseDataset]]:
         return [ImagenetEfficientNetV2SDataset, ImagenetteDataset]
 
-    @staticmethod
-    def get_input_spec(batch_size: int = 1) -> InputSpec:
+    def get_input_spec(self, batch_size: int = 1) -> InputSpec:
         return {
             "image_tensor": TensorSpec(
                 shape=(batch_size, 3, EFFICIENTNET_V2_S_DIM, EFFICIENTNET_V2_S_DIM),

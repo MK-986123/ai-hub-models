@@ -67,12 +67,10 @@ class Midas(DepthEstimationModel):
     def get_input_spec(
         self,
         batch_size: int = 1,
-        height: int = DEFAULT_HEIGHT,
-        width: int = DEFAULT_WIDTH,
     ) -> InputSpec:
         return {
             "image": TensorSpec(
-                shape=(batch_size, 3, height, width),
+                shape=(batch_size, 3, self.height, self.width),
                 dtype="float32",
                 io_type=IoType.IMAGE,
                 value_range=(0.0, 1.0),

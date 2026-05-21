@@ -204,15 +204,9 @@ class MobileSAMDecoder(BaseModel):
         self,
         has_mask_input: bool = False,
         num_of_points: int = 1,
-        embed_dim: int = 256,
-        image_embedding_height: int = 64,
-        image_embedding_width: int = 64,
     ) -> InputSpec:
-        # Get the input specification ordered (name -> (shape, type)) pairs for this model.
-        #
-        # This can be used with the qai_hub python API to declare
-        # the model input specification upon submitting a profile job.
-        embed_size = (image_embedding_height, image_embedding_width)
+        embed_dim = self.model.prompt_encoder.embed_dim
+        embed_size = self.embed_size
         mask_input_size = tuple([4 * x for x in embed_size])
 
         input_spec: InputSpec = {

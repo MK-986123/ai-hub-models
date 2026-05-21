@@ -80,6 +80,9 @@ class EdgeTAMMemoryEncoder(BaseModel):
         self.sigmoid_scale = sam2.sigmoid_scale_for_mem_enc
         self.sigmoid_bias = sam2.sigmoid_bias_for_mem_enc
         self.no_obj_embed_spatial = sam2.no_obj_embed_spatial
+        self._hidden_dim = sam2.hidden_dim
+        self._image_size = sam2.image_size
+        self._feat_hw = sam2.image_size // sam2.backbone_stride
         assert self.no_obj_embed_spatial is None, (
             "EdgeTAMMemoryEncoder only supports models with no_obj_embed_spatial=False; "
             "use the base SAM2 memory encoder for models that set it to True."
@@ -144,11 +147,13 @@ class EdgeTAMMemoryEncoder(BaseModel):
 
         return maskmem_features
 
-    @staticmethod
-    def get_input_spec() -> InputSpec:
+    def get_input_spec(self) -> InputSpec:
         return {
-            "pix_feat": ((1, 256, 64, 64), "float32"),
-            "mask_for_mem": ((1, 1, 1024, 1024), "float32"),
+            "pix_feat": (
+                (1, self._hidden_dim, self._feat_hw, self._feat_hw),
+                "float32",
+            ),
+            "mask_for_mem": ((1, 1, self._image_size, self._image_size), "float32"),
         }
 
     @staticmethod

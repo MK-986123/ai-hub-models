@@ -53,7 +53,15 @@ class ControlUnetBase(BaseModel, FromPretrainedMixin):
     residuals from controlnet. Output is the same as UnetBase.
     """
 
-    seq_len: int
+    def __init__(
+        self,
+        model: torch.nn.Module | None = None,
+        seq_len: int = 77,
+        text_emb_dim: int = 768,
+    ) -> None:
+        super().__init__(model)
+        self.seq_len = seq_len
+        self.text_emb_dim = text_emb_dim
 
     @classmethod
     def adapt_torch_model(
@@ -170,17 +178,15 @@ class ControlUnetBase(BaseModel, FromPretrainedMixin):
             + ["controlnet_midblock"]
         )
 
-    @classmethod
     def get_input_spec(
-        cls,
+        self,
         batch_size: int = 1,
-        text_emb_dim: int = 768,
     ) -> InputSpec:
         return {
             "latent": TensorSpec(shape=(batch_size, 4, 64, 64), dtype="float32"),
             "timestep": TensorSpec(shape=(batch_size, 1), dtype="float32"),
             "text_emb": TensorSpec(
-                shape=(batch_size, cls.seq_len, text_emb_dim), dtype="float32"
+                shape=(batch_size, self.seq_len, self.text_emb_dim), dtype="float32"
             ),
             "controlnet_downblock0": TensorSpec(
                 shape=(batch_size, 320, 64, 64), dtype="float32"
@@ -230,10 +236,11 @@ class ControlUnetQuantizableBase(AIMETOnnxQuantizableMixin, ControlUnetBase):  #
         sim_model: QuantSimOnnx,
         host_device: torch.device = torch.device("cpu"),
         onnx_bundle: ONNXBundle | None = None,
+        seq_len: int = 77,
+        text_emb_dim: int = 768,
     ) -> None:
         AIMETOnnxQuantizableMixin.__init__(self, sim_model, onnx_bundle=onnx_bundle)
-        # model is None as we don't do anything with the torch model
-        ControlUnetBase.__init__(self, None)
+        ControlUnetBase.__init__(self, None, seq_len=seq_len, text_emb_dim=text_emb_dim)
         self.host_device = host_device
 
     @classmethod
@@ -288,7 +295,15 @@ class ControlUnetQuantizableBase(AIMETOnnxQuantizableMixin, ControlUnetBase):  #
 
 
 class ControlNetBase(BaseModel, FromPretrainedMixin):
-    seq_len: int
+    def __init__(
+        self,
+        model: torch.nn.Module | None = None,
+        seq_len: int = 77,
+        text_emb_dim: int = 768,
+    ) -> None:
+        super().__init__(model)
+        self.seq_len = seq_len
+        self.text_emb_dim = text_emb_dim
 
     @classmethod
     def adapt_torch_model(
@@ -337,17 +352,12 @@ class ControlNetBase(BaseModel, FromPretrainedMixin):
         # All outputs are channel last
         return self.get_output_names()
 
-    @classmethod
-    def get_input_spec(
-        cls,
-        batch_size: int = 1,
-        text_emb_dim: int = 768,
-    ) -> InputSpec:
+    def get_input_spec(self, batch_size: int = 1) -> InputSpec:
         return {
             "latent": TensorSpec(shape=(batch_size, 4, 64, 64), dtype="float32"),
             "timestep": TensorSpec(shape=(batch_size, 1), dtype="float32"),
             "text_emb": TensorSpec(
-                shape=(batch_size, cls.seq_len, text_emb_dim), dtype="float32"
+                shape=(batch_size, self.seq_len, self.text_emb_dim), dtype="float32"
             ),
             "image_cond": TensorSpec(
                 shape=(batch_size, 3, DEFAULT_H, DEFAULT_W),
@@ -379,10 +389,11 @@ class ControlNetQuantizableBase(AIMETOnnxQuantizableMixin, ControlNetBase):  # t
         sim_model: QuantSimOnnx,
         host_device: torch.device = torch.device("cpu"),
         onnx_bundle: ONNXBundle | None = None,
+        seq_len: int = 77,
+        text_emb_dim: int = 768,
     ) -> None:
         AIMETOnnxQuantizableMixin.__init__(self, sim_model, onnx_bundle=onnx_bundle)
-        # model is None as we don't do anything with the torch model
-        ControlNetBase.__init__(self, None)
+        ControlNetBase.__init__(self, None, seq_len=seq_len, text_emb_dim=text_emb_dim)
         self.host_device = host_device
 
     @classmethod

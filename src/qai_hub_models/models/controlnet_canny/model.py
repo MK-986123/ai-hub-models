@@ -7,6 +7,9 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+import torch
 from diffusers import AutoencoderKL, ControlNetModel, UNet2DConditionModel
 from transformers import CLIPTextModel, CLIPTokenizer
 
@@ -20,6 +23,10 @@ from qai_hub_models.models._shared.stable_diffusion.model import (
     VaeDecoderQuantizableBase,
 )
 from qai_hub_models.utils.base_model import CollectionModel
+from qai_hub_models.utils.onnx.helpers import ONNXBundle
+
+if TYPE_CHECKING:
+    from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
 
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 1
@@ -40,7 +47,14 @@ class TextEncoderQuantizable(TextEncoderQuantizableBase):
     hf_model_cls = CLIPTextModel
     model_id = MODEL_ID
     model_asset_version = MODEL_ASSET_VERSION
-    seq_len = SEQ_LEN
+
+    def __init__(
+        self,
+        sim_model: QuantSimOnnx,
+        host_device: torch.device = torch.device("cpu"),
+        onnx_bundle: ONNXBundle | None = None,
+    ) -> None:
+        super().__init__(sim_model, host_device, onnx_bundle, seq_len=SEQ_LEN)
 
 
 class ControlUnetQuantizable(ControlUnetQuantizableBase):
@@ -48,7 +62,14 @@ class ControlUnetQuantizable(ControlUnetQuantizableBase):
     hf_model_cls = UNet2DConditionModel  # type: ignore[assignment]
     model_id = MODEL_ID
     model_asset_version = MODEL_ASSET_VERSION
-    seq_len = SEQ_LEN
+
+    def __init__(
+        self,
+        sim_model: QuantSimOnnx,
+        host_device: torch.device = torch.device("cpu"),
+        onnx_bundle: ONNXBundle | None = None,
+    ) -> None:
+        super().__init__(sim_model, host_device, onnx_bundle, seq_len=SEQ_LEN)
 
 
 class VaeDecoderQuantizable(VaeDecoderQuantizableBase):
@@ -63,7 +84,14 @@ class ControlNetQuantizable(ControlNetQuantizableBase):
     hf_model_cls = ControlNetModel  # type: ignore[assignment]
     model_id = MODEL_ID
     model_asset_version = MODEL_ASSET_VERSION
-    seq_len = SEQ_LEN
+
+    def __init__(
+        self,
+        sim_model: QuantSimOnnx,
+        host_device: torch.device = torch.device("cpu"),
+        onnx_bundle: ONNXBundle | None = None,
+    ) -> None:
+        super().__init__(sim_model, host_device, onnx_bundle, seq_len=SEQ_LEN)
 
 
 # Align component names with Huggingface's repo's subfolder names

@@ -73,8 +73,7 @@ class EfficientNetB4(ImagenetClassifier):
     def get_eval_dataset_classes(cls) -> list[type[BaseDataset]]:
         return [ImagenetEfficientNetB4Dataset, ImagenetteDataset]
 
-    @staticmethod
-    def get_input_spec(batch_size: int = 1) -> InputSpec:
+    def get_input_spec(self, batch_size: int = 1) -> InputSpec:
         return {
             "image_tensor": TensorSpec(
                 shape=(batch_size, 3, EFFICIENTNET_B4_DIM, EFFICIENTNET_B4_DIM),

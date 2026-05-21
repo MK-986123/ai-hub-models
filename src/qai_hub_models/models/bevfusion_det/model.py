@@ -206,7 +206,7 @@ class BEVFusionEncoder2(BaseModel):
     ) -> InputSpec:
         return {
             "img": TensorSpec(
-                shape=(batch_size, 6, 256, 32, 88),
+                shape=(batch_size, 6, 256, height // 8, width // 8),
                 dtype="float32",
                 io_type=IoType.TENSOR,
             ),
@@ -299,17 +299,15 @@ class BEVFusionEncoder3(BaseModel):
         x = out.permute(0, 3, 1, 2).contiguous()
         return self.vtransform.downsample(x)  # type: ignore[operator]
 
-    def get_input_spec(
-        self, batch_size: int = 1, height: int = 256, width: int = 704
-    ) -> InputSpec:
+    def get_input_spec(self, batch_size: int = 1) -> InputSpec:
         return {
             "segment": TensorSpec(
-                shape=(1, 59000, 80),
+                shape=(batch_size, 59000, 80),
                 dtype="float32",
                 io_type=IoType.TENSOR,
             ),
             "geom": TensorSpec(
-                shape=(1, 2, 59000),
+                shape=(batch_size, 2, 59000),
                 dtype="int32",
                 io_type=IoType.TENSOR,
             ),

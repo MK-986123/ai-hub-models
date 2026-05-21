@@ -7,6 +7,9 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+import torch
 from diffusers import AutoencoderKL, UNet2DConditionModel
 from transformers import CLIPTextModel, CLIPTokenizer
 
@@ -17,7 +20,10 @@ from qai_hub_models.models._shared.stable_diffusion.model import (
     VaeDecoderQuantizableBase,
 )
 from qai_hub_models.utils.base_model import CollectionModel
-from qai_hub_models.utils.input_spec import InputSpec, IoType, TensorSpec
+from qai_hub_models.utils.onnx.helpers import ONNXBundle
+
+if TYPE_CHECKING:
+    from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
 
 MODEL_ASSET_VERSION = 1
 MODEL_ID = __name__.split(".")[-2]
@@ -36,7 +42,14 @@ class TextEncoderQuantizable(TextEncoderQuantizableBase):
     hf_model_cls = CLIPTextModel
     model_id = MODEL_ID
     model_asset_version = MODEL_ASSET_VERSION
-    seq_len = SEQ_LEN
+
+    def __init__(
+        self,
+        sim_model: QuantSimOnnx,
+        host_device: torch.device = torch.device("cpu"),
+        onnx_bundle: ONNXBundle | None = None,
+    ) -> None:
+        super().__init__(sim_model, host_device, onnx_bundle, seq_len=SEQ_LEN)
 
 
 class UnetQuantizable(UnetQuantizableBase):
@@ -44,30 +57,15 @@ class UnetQuantizable(UnetQuantizableBase):
     hf_model_cls: type = UNet2DConditionModel
     model_id = MODEL_ID
     model_asset_version = MODEL_ASSET_VERSION
-    seq_len = SEQ_LEN
 
-    @classmethod
-    def get_input_spec(
-        cls,
-        batch_size: int = 1,
-        text_emb_dim: int = 768,
-    ) -> InputSpec:
-        return dict(
-            latent=TensorSpec(
-                shape=(batch_size, 4, 64, 64),
-                dtype="float32",
-                io_type=IoType.TENSOR,
-            ),
-            timestep=TensorSpec(
-                shape=(batch_size, 1),
-                dtype="float32",
-                io_type=IoType.TENSOR,
-            ),
-            text_emb=TensorSpec(
-                shape=(batch_size, cls.seq_len, text_emb_dim),
-                dtype="float32",
-                io_type=IoType.TENSOR,
-            ),
+    def __init__(
+        self,
+        sim_model: QuantSimOnnx,
+        host_device: torch.device = torch.device("cpu"),
+        onnx_bundle: ONNXBundle | None = None,
+    ) -> None:
+        super().__init__(
+            sim_model, host_device, onnx_bundle, seq_len=SEQ_LEN, text_emb_dim=768
         )
 
 

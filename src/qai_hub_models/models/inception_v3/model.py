@@ -71,8 +71,7 @@ class InceptionNetV3(ImagenetClassifier):
     def get_eval_dataset_classes(cls) -> list[type[BaseDataset]]:
         return [ImagenetInceptionV3Dataset, ImagenetteDataset]
 
-    @staticmethod
-    def get_input_spec(batch_size: int = 1) -> InputSpec:
+    def get_input_spec(self, batch_size: int = 1) -> InputSpec:
         return {
             "image_tensor": TensorSpec(
                 shape=(batch_size, 3, INCEPTION_V3_DIM, INCEPTION_V3_DIM),

@@ -59,7 +59,9 @@ from qai_hub_models.utils.qai_hub_helpers import ensure_hexagon_version
 
 
 class TextEncoderBase(BaseModel, FromPretrainedMixin):
-    seq_len: int
+    def __init__(self, model: torch.nn.Module | None = None, seq_len: int = 77) -> None:
+        super().__init__(model)
+        self.seq_len = seq_len
 
     @classmethod
     def adapt_torch_model(cls, model: torch.nn.Module) -> torch.nn.Module:
@@ -80,13 +82,12 @@ class TextEncoderBase(BaseModel, FromPretrainedMixin):
     def forward(self, tokens: torch.Tensor) -> torch.Tensor:
         return self.model(tokens)
 
-    @classmethod
     def get_input_spec(
-        cls,
+        self,
         batch_size: int = 1,
     ) -> InputSpec:
         return {
-            "tokens": TensorSpec(shape=(batch_size, cls.seq_len), dtype="int32"),
+            "tokens": TensorSpec(shape=(batch_size, self.seq_len), dtype="int32"),
         }
 
     def get_output_names(self) -> list[str]:
@@ -101,9 +102,10 @@ class TextEncoderQuantizableBase(AIMETOnnxQuantizableMixin, TextEncoderBase):
         sim_model: QuantSimOnnx,
         host_device: torch.device = torch.device("cpu"),
         onnx_bundle: ONNXBundle | None = None,
+        seq_len: int = 77,
     ) -> None:
         AIMETOnnxQuantizableMixin.__init__(self, sim_model, onnx_bundle=onnx_bundle)
-        TextEncoderBase.__init__(self, None)
+        TextEncoderBase.__init__(self, None, seq_len=seq_len)
         self.host_device = host_device
 
     def forward(self, tokens: torch.Tensor) -> torch.Tensor:
@@ -175,7 +177,15 @@ class TextEncoderQuantizableBase(AIMETOnnxQuantizableMixin, TextEncoderBase):
 
 
 class UnetBase(BaseModel, FromPretrainedMixin):
-    seq_len: int
+    def __init__(
+        self,
+        model: torch.nn.Module | None = None,
+        seq_len: int = 77,
+        text_emb_dim: int = 1024,
+    ) -> None:
+        super().__init__(model)
+        self.seq_len = seq_len
+        self.text_emb_dim = text_emb_dim
 
     @classmethod
     def adapt_torch_model(
@@ -217,17 +227,15 @@ class UnetBase(BaseModel, FromPretrainedMixin):
     def get_channel_last_outputs(self) -> list[str]:
         return ["output_latent"]
 
-    @classmethod
     def get_input_spec(
-        cls,
+        self,
         batch_size: int = 1,
-        text_emb_dim: int = 1024,
     ) -> InputSpec:
         return {
             "latent": TensorSpec(shape=(batch_size, 4, 64, 64), dtype="float32"),
             "timestep": TensorSpec(shape=(batch_size, 1), dtype="float32"),
             "text_emb": TensorSpec(
-                shape=(batch_size, cls.seq_len, text_emb_dim), dtype="float32"
+                shape=(batch_size, self.seq_len, self.text_emb_dim), dtype="float32"
             ),
         }
 
@@ -243,10 +251,11 @@ class UnetQuantizableBase(AIMETOnnxQuantizableMixin, UnetBase):
         sim_model: QuantSimOnnx,
         host_device: torch.device = torch.device("cpu"),
         onnx_bundle: ONNXBundle | None = None,
+        seq_len: int = 77,
+        text_emb_dim: int = 1024,
     ) -> None:
         AIMETOnnxQuantizableMixin.__init__(self, sim_model, onnx_bundle=onnx_bundle)
-        # model is None as we don't do anything with the torch model
-        UnetBase.__init__(self, None)
+        UnetBase.__init__(self, None, seq_len=seq_len, text_emb_dim=text_emb_dim)
         self.host_device = host_device
 
     def forward(
