@@ -107,6 +107,7 @@ jobs:
       contents: write
       actions: read
       pull-requests: write
+      id-token: write  # Required for AWS OIDC (S3 upload)
 
     timeout-minutes: 1440 # 24 hours
     env:
@@ -259,6 +260,7 @@ jobs:
           hub-private-user-token-prod: ${{ secrets.HUB_PRIVATE_USER_TOKEN_PROD }}
           hub-private-user-token-staging: ${{ secrets.HUB_PRIVATE_USER_TOKEN_STAGING }}
           hub-private-user-token-dev: ${{ secrets.HUB_PRIVATE_USER_TOKEN_DEV }}
+          aws-role-arn: ${{ secrets.QAIHM_CI_AWS_ROLE_ARN }}
 
       - name: Create Performance files for models
         id: create-perf-files
@@ -443,6 +445,15 @@ jobs:
         with:
           name: All Scorecard Artifacts (${{ inputs.action_id || inputs.latest_results_branch }})
           path: ${{ env.QAIHM_TEST_ARTIFACTS_DIR }}
+
+      - name: Upload Scorecard History to S3
+        if: ${{ !cancelled() && steps.aggregate-results.outcome == 'success' }}
+        continue-on-error: true
+        run: |
+          source ${{ env.VENV_PATH }}/bin/activate && python3 -m qai_hub_models.scripts.upload_scorecard_history \
+            --run-id "${{ inputs.action_id || github.run_id }}" \
+            --run-name "${{ inputs.tableau_branch_name || 'weekly-prod' }}" \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
   create_pr:
     name: Create AI Hub Models PR for Perf Results

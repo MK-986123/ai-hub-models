@@ -285,9 +285,9 @@ def test_get_severe_regressions() -> None:
 
     results = perf_diff.get_severe_regressions(min_factor=2.0)
     assert len(results) == 1
-    assert results[0]["Model ID"] == MODEL_ID
-    assert results[0]["Prev Inference time"] == "10.0"
-    assert results[0]["New Inference time"] == "20.0"
+    assert results[0].model_id == MODEL_ID
+    assert results[0].prev_inference_time == "10.0"
+    assert results[0].new_inference_time == "20.0"
 
 
 def test_get_severe_regressions_excludes_small() -> None:

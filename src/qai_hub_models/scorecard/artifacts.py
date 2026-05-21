@@ -4,6 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+import glob as glob_module
 import os
 from enum import Enum
 from pathlib import Path
@@ -31,6 +32,13 @@ class ScorecardArtifact(Enum):
     EXPORT_CSV = "export-summary.csv"
     RESULTS_CSV = "results.csv"
 
+    # History (uploaded to S3 for long-term storage)
+    PERFORMANCE_SUMMARY = "performance-summary-*.txt"
+    NUMERICS_SUMMARY = "numerics-summary-*.txt"
+    PERF_REGRESSIONS_2X = "perf-regressions-2x-*.json"
+    NUMERICS_REGRESSIONS = "numerics-regressions-*.json"
+    SCORECARD_FAILURE_ANALYSIS = "scorecard_failure_analysis.csv"
+
     # Cached State
     DATE = "date.txt"
     ENVIRONMENT_FILE = "environment.env"
@@ -56,8 +64,17 @@ class ScorecardArtifact(Enum):
 
     @property
     def path(self) -> Path:
-        """Get the path for this test artifact."""
-        return test_artifacts_dir() / self.value
+        """Get the path for this test artifact.
+
+        For glob-pattern artifacts (containing '*'), resolves to the latest
+        matching file. Returns the unresolved pattern path if no match exists.
+        """
+        raw = test_artifacts_dir() / self.value
+        if "*" in self.value:
+            matches = sorted(glob_module.glob(str(raw)))
+            if matches:
+                return Path(matches[-1])
+        return raw
 
     def exists(self) -> bool:
         """Returns true if the artifact exists and is non-empty."""

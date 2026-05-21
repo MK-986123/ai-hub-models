@@ -6,9 +6,10 @@
 from __future__ import annotations
 
 import json
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 from prettytable import PrettyTable
+from pydantic import ConfigDict, Field, model_validator
 
 from qai_hub_models.configs.devices_and_chipsets_yaml import DevicesAndChipsetsYaml
 from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
@@ -16,6 +17,7 @@ from qai_hub_models.models.common import Precision
 from qai_hub_models.scorecard.device import ScorecardDevice
 from qai_hub_models.scorecard.envvars import DeploymentEnvvar
 from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
+from qai_hub_models.utils.base_config import BaseQAIHMConfig
 
 # Last 3 values in tuple are: [prev inference time, new inference time, diff, job_id]
 InferenceInfo = tuple[
@@ -30,6 +32,49 @@ InferenceInfo = tuple[
     str,  # New Profile Job ID
     str,  # Previous Profile Job ID
 ]
+
+
+class SevereRegression(BaseQAIHMConfig):
+    """A single 2x+ regression entry from perf-regressions-2x.json.
+
+    Shared struct between the writer (get_severe_regressions / dump_severe_regressions_json)
+    and readers (detect_scorecard_trends, file_scorecard_regression_issue).
+
+    Field aliases match PrettyTable column names used in the JSON files.
+    """
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    model_id: str = Field(default="", alias="Model ID")
+    precision: str = Field(default="", alias="Precision")
+    component: str = Field(default="", alias="Component")
+    device: str = Field(default="", alias="Device")
+    runtime: str = Field(default="", alias="Runtime")
+    prev_inference_time: str = Field(default="", alias="Prev Inference time")
+    new_inference_time: str = Field(default="", alias="New Inference time")
+    factor: str = Field(default="", alias="Kx slower")
+    job_id: str = Field(default="", alias="Job ID")
+    previous_job_id: str = Field(default="", alias="Previous Job ID (prod)")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_dynamic_job_id(cls, values: Any) -> Any:
+        """Handle dynamic 'Job ID (prod)' / 'Job ID (staging)' column names."""
+        if not isinstance(values, dict):
+            return values
+        for key in list(values.keys()):
+            if key.startswith("Job ID") and key not in (
+                "Job ID",
+                "Previous Job ID (prod)",
+            ):
+                values["Job ID"] = values.pop(key)
+                break
+        return values
+
+    @property
+    def key(self) -> str:
+        """Unique identity for dedup/trend detection."""
+        return f"{self.model_id}|{self.precision}|{self.component}|{self.device}|{self.runtime}"
 
 
 class NPUNotPrimaryCUInfo(NamedTuple):
@@ -510,11 +555,8 @@ class PerformanceDiff:
 
         print(f"Perf change summary written to {summary_file_path}")
 
-    def get_severe_regressions(self, min_factor: float = 2.0) -> list[dict[str, str]]:
-        """Return regressions at or above min_factor as a list of dicts.
-
-        Uses _get_summary_table() column names as the single source of truth
-        for key definitions, with values stringified for JSON compatibility.
+    def get_severe_regressions(self, min_factor: float = 2.0) -> list[SevereRegression]:
+        """Return regressions at or above min_factor as SevereRegression structs.
 
         Parameters
         ----------
@@ -523,19 +565,18 @@ class PerformanceDiff:
 
         Returns
         -------
-        list[dict[str, str]]
-            Each dict has keys matching the PrettyTable column names.
+        list[SevereRegression]
+            Regressions at or above min_factor.
         """
-        results: list[dict[str, str]] = []
+        results: list[SevereRegression] = []
         for bucket in self.perf_buckets:
             if bucket < min_factor:
                 continue
             table = self._get_summary_table(bucket, get_progressions=False)
             field_names = table.field_names
-            results.extend(
-                {k: str(v) for k, v in zip(field_names, row, strict=False)}
-                for row in self.regressions[bucket]
-            )
+            for row in self.regressions[bucket]:
+                d = {k: str(v) for k, v in zip(field_names, row, strict=False)}
+                results.append(SevereRegression.model_validate(d))
         return results
 
     def dump_severe_regressions_json(
@@ -543,6 +584,7 @@ class PerformanceDiff:
     ) -> None:
         """Write 2x+ regressions to a JSON file for downstream consumption."""
         data = self.get_severe_regressions(min_factor)
+        serialized = [r.model_dump(by_alias=True) for r in data]
         with open(json_path, "w") as f:
-            json.dump(data, f, indent=2)
+            json.dump(serialized, f, indent=2)
         print(f"Severe regressions JSON written to {json_path} ({len(data)} entries)")
