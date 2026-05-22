@@ -114,7 +114,7 @@ def patched_ultryaltics_det_head_inference(
         tuple(score.view(shape[0], scores[0].shape[1], -1) for score in scores), 2
     )
 
-    if self.dynamic or self.shape != shape:
+    if self.dynamic or self.shape is None or self.shape[2:] != shape[2:]:
         self.anchors, self.strides = (
             bb.transpose(0, 1) for bb in make_anchors(boxes, self.stride, 0.5)
         )
