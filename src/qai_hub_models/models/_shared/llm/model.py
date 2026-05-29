@@ -84,6 +84,7 @@ from qai_hub_models import (
     TargetRuntime,
 )
 from qai_hub_models.models._shared.llm.common import (
+    TORCH_DYNAMIC_SHAPE_BELOW_VERSION,
     TORCH_DYNAMIC_SHAPE_MIN_VERSION,
     LLMIOType,
     cleanup,
@@ -286,7 +287,11 @@ def get_onnx_model(
     quiet: bool = False,
 ) -> onnx.ModelProto | None:
     if use_dynamic_shapes:
-        ensure_supported_version("torch", min_version=TORCH_DYNAMIC_SHAPE_MIN_VERSION)
+        ensure_supported_version(
+            "torch",
+            min_version=TORCH_DYNAMIC_SHAPE_MIN_VERSION,
+            below_version=TORCH_DYNAMIC_SHAPE_BELOW_VERSION,
+        )
     else:
         ensure_supported_version("torch", min_version="2.4.1", below_version="2.9")
 

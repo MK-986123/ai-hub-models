@@ -14,7 +14,10 @@ from typing import Any
 import torch
 
 from qai_hub_models import Precision
-from qai_hub_models.models._shared.llm.common import TORCH_DYNAMIC_SHAPE_MIN_VERSION
+from qai_hub_models.models._shared.llm.common import (
+    TORCH_DYNAMIC_SHAPE_BELOW_VERSION,
+    TORCH_DYNAMIC_SHAPE_MIN_VERSION,
+)
 from qai_hub_models.models._shared.llm.model import (
     DEFAULT_CALIBRATION_SEQ_LEN,
     DEFAULT_CONTEXT_LENGTH,
@@ -64,7 +67,11 @@ def quantize(
     use_dynamic_shapes: bool = False,
 ) -> None:
     if use_dynamic_shapes:
-        ensure_supported_version("torch", min_version=TORCH_DYNAMIC_SHAPE_MIN_VERSION)
+        ensure_supported_version(
+            "torch",
+            min_version=TORCH_DYNAMIC_SHAPE_MIN_VERSION,
+            below_version=TORCH_DYNAMIC_SHAPE_BELOW_VERSION,
+        )
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     if device.type != "cuda":

@@ -10,10 +10,15 @@ from packaging.version import Version
 
 # Minimum torch version required for dynamic-shape ONNX export (dynamo export).
 # Note that earlier versions did support dynamic shapes in general, but did
-# not work well for LLMs until 2.10.
+# not work well for LLMs until 2.10. torch >= 2.11 changes the exported graph
+# in ways that break our split LLM pipeline (e.g. llama_v3_2_1b_instruct,
+# qwen2_5_vl_7b_instruct), so we pin to 2.10.x.
 TORCH_DYNAMIC_SHAPE_MIN_VERSION = "2.10"
-TORCH_SUPPORTS_DYNAMIC_SHAPE = Version(torch.__version__) >= Version(
-    TORCH_DYNAMIC_SHAPE_MIN_VERSION
+TORCH_DYNAMIC_SHAPE_BELOW_VERSION = "2.11"
+TORCH_SUPPORTS_DYNAMIC_SHAPE = (
+    Version(TORCH_DYNAMIC_SHAPE_MIN_VERSION)
+    <= Version(torch.__version__)
+    < Version(TORCH_DYNAMIC_SHAPE_BELOW_VERSION)
 )
 
 
