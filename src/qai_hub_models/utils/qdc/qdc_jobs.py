@@ -45,6 +45,21 @@ DEFAULT_JOB_TIMEOUT = 7200  # 2 hours
 POLL_INTERVAL = 30
 # QDC submission fail if name exceeds this
 QDC_JOB_NAME_LIMIT = 32
+# Number of consecutive errors tolerated when polling status (absorbs transient
+# network blips like DNS resolution failures); a real error still surfaces after this.
+STATUS_POLL_MAX_RETRIES = 5
+
+
+def _get_job_status_with_retry(client: object, job_id: str) -> str:
+    """Poll job status, retrying through transient errors (e.g. DNS failures)."""
+    for attempt in range(STATUS_POLL_MAX_RETRIES):
+        try:
+            return qdc_api.get_job_status(client, job_id)
+        except (OSError, ConnectionError, TimeoutError):  # noqa: PERF203
+            if attempt == STATUS_POLL_MAX_RETRIES - 1:
+                raise
+            time.sleep(POLL_INTERVAL)
+    raise AssertionError("unreachable")  # loop either returns or raises
 
 
 class QDCDevice:
@@ -166,14 +181,14 @@ class QDCJobs:
         job_status = None
         elapsed = 0
         while elapsed < timeout:
-            job_status = qdc_api.get_job_status(self.client, job_id)
+            job_status = _get_job_status_with_retry(self.client, job_id)
             if job_status not in _RUNNING_STATES:
                 time.sleep(POLL_INTERVAL)
                 return job_status
             time.sleep(POLL_INTERVAL)
             elapsed += POLL_INTERVAL
 
-        job_status = qdc_api.get_job_status(self.client, job_id)
+        job_status = _get_job_status_with_retry(self.client, job_id)
         if job_status in {"Completed", "Canceled", "Failed", "Error", "Aborted"}:
             return job_status
         qdc_api.abort_job(self.client, job_id)
