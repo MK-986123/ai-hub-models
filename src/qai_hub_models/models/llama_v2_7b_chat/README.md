@@ -46,7 +46,7 @@ print(fibonacci(5))
 
 ## License
 * The license for the original implementation of Llama-v2-7B-Chat can be found
-  [here](https://github.com/facebookresearch/llama/blob/main/LICENSE).
+  [here](https://github.com/meta-llama/llama/blob/main/LICENSE).
 
 ## References
 * [LLaMA: Open and Efficient Foundation Language Models](https://arxiv.org/abs/2302.13971)

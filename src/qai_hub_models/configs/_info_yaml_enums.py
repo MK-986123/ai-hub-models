@@ -162,7 +162,7 @@ class MODEL_LICENSE(Enum):
         if self == MODEL_LICENSE.AI_HUB_MODELS_LICENSE:
             return "https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf"
         if self == MODEL_LICENSE.LLAMA2:
-            return "https://github.com/facebookresearch/llama/blob/main/LICENSE"
+            return "https://github.com/meta-llama/llama/blob/main/LICENSE"
         if self == MODEL_LICENSE.TAIDE:
             return "https://drive.google.com/file/d/1ICTxogjS9Bc2O3K1P9ZauQYVoruT13n5/view?pli=1"
         if self == MODEL_LICENSE.FALCON3:
