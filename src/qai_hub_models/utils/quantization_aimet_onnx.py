@@ -164,6 +164,10 @@ class AIMETOnnxQuantizableMixin(WorkbenchModel, FromPrecompiledProtocol):
         """
         self._quant_sim = quant_sim
         self._onnx_bundle = onnx_bundle
+        # Set by release() when the model is torn down to reclaim memory between
+        # parametrized test cases. Used by the conftest from_pretrained cache to
+        # treat a released instance as a cache miss and rebuild a fresh one.
+        self._released = False
 
     @property
     def quant_sim(self) -> QuantSimOnnx | None:

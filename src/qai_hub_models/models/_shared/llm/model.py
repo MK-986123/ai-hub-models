@@ -1576,6 +1576,7 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
         if hasattr(self, "quant_sim") and self.quant_sim is not None:
             del self.quant_sim
             self.quant_sim = None
+        self._released = True
 
     def get_input_spec(
         self,
