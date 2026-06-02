@@ -1,7 +1,7 @@
 name: YOLOE-Segmentation
 id: yoloe_seg
 status: unpublished
-status_reason: animated and static banner are not available
+status_reason: animated banner is not available
 headline: Real-time object segmentation optimized for mobile and edge by Ultralytics.
 domain: Computer Vision
 description: Ultralytics YOLOE is a machine learning model that predicts bounding boxes, segmentation masks and classes of objects in an image.
@@ -24,7 +24,7 @@ form_factors:
 - Tablet
 - IoT
 - XR
-has_static_banner: false
+has_static_banner: true
 has_animated_banner: false
 dataset: [coco_seg]
 restrict_model_sharing: true
