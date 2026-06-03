@@ -426,6 +426,9 @@ class Qwen2_5_VL_7B_VisionEncoder(Qwen2VLVisionEncoder):
         self._precision: Precision = Precision.float
         self._quantized_session: Any | None = None
 
+    def component_precision(self) -> Precision:
+        return self._precision
+
     @classmethod
     def from_pretrained(
         cls,
@@ -895,6 +898,9 @@ class Qwen2_5_VL_7B_PartBase(torch.nn.Module, MultiGraphWorkbenchModel):
     @property
     def graph_names(self) -> list[str]:
         return list(self._graph_names.keys())
+
+    def component_precision(self) -> Precision:
+        return self._precision
 
     @property
     def _is_quantized(self) -> bool:
