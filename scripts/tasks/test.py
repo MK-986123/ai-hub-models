@@ -249,12 +249,20 @@ class GPUPyTestModelsTask(CompositeTask):
                     f"{test_suite} and nightly" if nightly_only else test_suite
                 )
                 options = f"-m '{marker_expr}' --junit-xml={model_junit_xml_path}"
+                # Isolate each suite in a single spawned xdist worker to contain
+                # CUDA OOM/leaks/crashes (issue #19607). Spawned (not forked)
+                # workers avoid the CUDA re-init error; -n1 keeps module-scoped
+                # fixtures cached; --max-worker-restart replaces a crashed worker
+                # so remaining tests still run.
+                isolation = "-n1 --dist load --max-worker-restart=4"
+                # Reclaim the GPU from any orphaned worker left by a prior suite.
+                guard = f"python {os.path.join('scripts', 'gpu_guard.py')}"
                 tasks.append(
                     RunCommandsWithVenvTask(
                         group_name=f"Run {test_suite} Tests For Model {model_name}",
                         venv=model_venv,
                         commands=[
-                            f"{common_command} && pytest -v -s --capture=no src/qai_hub_models/models/{model_name}/test.py {options}",
+                            f"{common_command} && {guard} && pytest -v -s --capture=no {isolation} src/qai_hub_models/models/{model_name}/test.py {options}",
                         ],
                         raise_on_failure=False,
                         # Ignore "no tests collected" return code
