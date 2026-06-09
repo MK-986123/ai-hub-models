@@ -76,10 +76,16 @@ def main() -> None:
                     scorecard_model_assets, model_info.code_gen_config.disabled_paths
                 )
 
-                # Write updated assets
-                modified_files.append(
-                    str(scorecard_model_assets.to_model_yaml(model_id))
-                )
+                if scorecard_model_assets.has_ephemeral_s3_keys:
+                    print(
+                        f"Skipping {model_id} release-assets.yaml: assets were "
+                        "uploaded to ephemeral_test_assets/ (auto-purged)."
+                    )
+                else:
+                    # Write updated assets
+                    modified_files.append(
+                        str(scorecard_model_assets.to_model_yaml(model_id))
+                    )
             else:
                 QAIHMModelReleaseAssets().to_model_yaml(
                     model_id

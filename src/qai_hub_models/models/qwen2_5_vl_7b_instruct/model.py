@@ -1347,8 +1347,13 @@ class Qwen2_5_VL_7B_Collection(MultiGraphCollectionModel):
             "Embedding table (float32) for token-to-embedding conversion."
         )
 
-        # --- Tokenizer files ---
-        for name in ["tokenizer.json", "tokenizer_config.json", "config.json"]:
+        for name in [
+            "tokenizer.json",
+            "tokenizer_config.json",
+            "config.json",
+            "chat_template.json",
+            "chat_template.jinja",
+        ]:
             src = checkpoint_path / name
             if src.exists():
                 shutil.copy(src, output_dir / name)

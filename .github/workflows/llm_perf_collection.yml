@@ -27,9 +27,9 @@ on:
         type: string
 
       device:
-        description: 'Target device(s). See `src/qai_hub_models/scorecard/device.py`. Comma-separated for multiple (e.g., "cs_x2_elite,cs_auto_lemans_8775")'
+        description: 'Target device(s). Comma-separated scorecard device names (e.g. "cs_x2_elite,cs_auto_lemans_8775"), or "all" for all LLM compile devices.'
         required: true
-        default: cs_x2_elite
+        default: 'all'
         type: string
 
       deployment:
@@ -50,6 +50,38 @@ on:
         description: 'Create PR with perf.yaml changes'
         default: true
         type: boolean
+
+  workflow_call:
+    inputs:
+      model:
+        description: 'LLM Model(s) to test. Comma-separated for multiple, or "all" for all LLMs.'
+        type: string
+        default: 'all'
+
+      device:
+        description: 'Target device(s). Comma-separated scorecard device names, or "all" for all LLM compile devices.'
+        type: string
+        default: 'all'
+
+      deployment:
+        description: 'Hub Deployment'
+        type: string
+        default: prod
+
+      run_eval:
+        description: 'Run on-device evaluation'
+        type: boolean
+        default: true
+
+      create_pr:
+        description: 'Create PR with perf.yaml changes'
+        type: boolean
+        default: true
+
+      release_assets_action_id:
+        description: 'Run ID with a fresh Scorecard Cached Artifact (release-assets.yaml, <run_id>, llm) to override the committed copy.'
+        type: string
+        default: ''
 
 
 defaults:
@@ -178,13 +210,23 @@ jobs:
         source ${{ env.VENV_PATH }}/bin/activate
         pip install qualcomm_device_cloud_sdk-*.whl
 
+    - name: Download Fresh Release Assets
+      if: ${{ inputs.release_assets_action_id != '' }}
+      uses: actions/download-artifact@v8
+      with:
+        run-id: ${{ inputs.release_assets_action_id }}
+        github-token: ${{ github.token }}
+        name: Scorecard Cached Artifact (release-assets.yaml, ${{ inputs.release_assets_action_id }}, llm)
+        path: ${{ github.workspace }}/llm-release-assets
+
     - name: Run LLM Performance Collection
       id: run_tests
       env:
         QAIHM_LLM_MODELS: ${{ inputs.model || 'all' }}
-        QAIHM_TEST_DEVICES: ${{ inputs.device || 'Snapdragon X Elite CRD,Snapdragon X2 Elite CRD,Snapdragon 8 Elite QRD,Snapdragon 8 Elite Gen 5 QRD' }}
+        QAIHM_TEST_DEVICES: ${{ inputs.device }}
         QAIRT_SDK_PATH: ${{ github.workspace }}/qairt_auto_sdk.zip
         QAIHM_RUN_EVAL: ${{ inputs.run_eval }}
+        QAIHM_LLM_PERF_RELEASE_ASSETS: ${{ inputs.release_assets_action_id != '' && format('{0}/llm-release-assets/release-assets.yaml', github.workspace) || '' }}
       run: |
         cd $GITHUB_WORKSPACE && \
           python scripts/build_and_test.py \
@@ -227,7 +269,7 @@ jobs:
       if: ${{ !cancelled() && (inputs.create_pr) && steps.check_changes.outputs.has_changes == 'true' }}
       env:
         QAIHM_TEST_MODELS: ${{ inputs.model || 'all' }}
-        QAIHM_TEST_DEVICES: ${{ inputs.device || 'Snapdragon X Elite CRD,Snapdragon X2 Elite CRD,Snapdragon 8 Elite QRD,Snapdragon 8 Elite Gen 5 QRD' }}
+        QAIHM_TEST_DEVICES: ${{ inputs.device || 'all' }}
       run: |
         branch_name="perf/llm-perf-${{ github.run_id }}"
         cd $GITHUB_WORKSPACE && \
@@ -296,15 +338,14 @@ jobs:
       uses: actions/upload-artifact@v7
       with:
         name: updated-perf-yamls
-        path: |
-          ${{ github.workspace }}/src/qai_hub_models/models/**/perf.yaml
+        path: src/qai_hub_models/models/**/perf.yaml
 
     - name: Create Pull Request
       if: ${{ !cancelled() && (inputs.create_pr) && steps.push_changes.outputs.branch_name != '' && steps.check_changes.outputs.has_changes == 'true' }}
       uses: actions/github-script@v9
       env:
         QAIHM_TEST_MODELS: ${{ inputs.model || 'all' }}
-        QAIHM_TEST_DEVICES: ${{ inputs.device || 'Snapdragon X Elite CRD,Snapdragon X2 Elite CRD,Snapdragon 8 Elite QRD,Snapdragon 8 Elite Gen 5 QRD' }}
+        QAIHM_TEST_DEVICES: ${{ inputs.device || 'all' }}
       with:
         github-token: ${{ secrets.STAGING_GH_TOKEN }}
         result-encoding: string

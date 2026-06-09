@@ -54,6 +54,28 @@ class QAIHMModelReleaseAssets(BaseQAIHMConfig):
     def empty(self) -> bool:
         return not self.precisions
 
+    @property
+    def has_ephemeral_s3_keys(self) -> bool:
+        """Whether any asset's s3_key sits under the auto-purged ephemeral prefix.
+
+        Ephemeral assets are uploaded to ``ephemeral_test_assets/`` and pruned
+        by S3 lifecycle after 7 days; canonical assets live under
+        ``pre_release_assets/`` and are kept indefinitely. Per-model
+        release-assets.yaml files must only contain canonical entries — committing
+        an ephemeral key would leave the manifest pointing at a soon-deleted zip.
+        """
+        for prec_details in self.precisions.values():
+            for asset in prec_details.universal_assets.values():
+                if asset.s3_key and asset.s3_key.startswith("ephemeral_test_assets/"):
+                    return True
+            for path_dict in prec_details.chipset_assets.values():
+                for asset in path_dict.values():
+                    if asset.s3_key and asset.s3_key.startswith(
+                        "ephemeral_test_assets/"
+                    ):
+                        return True
+        return False
+
     def add_asset(
         self,
         details: QAIHMModelReleaseAssets.AssetDetails,

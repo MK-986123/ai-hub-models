@@ -223,8 +223,18 @@ jobs:
             run-id: ${{ inputs.export_tests_action_id != '' && inputs.export_tests_action_id || inputs.action_id }}
             github-token: ${{ github.token }}
             pattern: "Scorecard Cached Artifact (release-assets.yaml, ${{ inputs.action_id }}*)"
-            merge-multiple: true
-            path: ${{ env.QAIHM_TEST_ARTIFACTS_DIR }}
+            path: build/release-assets-per-split
+
+      - name: Download LLM Perf YAMLs
+        id: download-llm-perf-yamls
+        if: inputs.action_id != ''
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+            run-id: ${{ inputs.action_id }}
+            github-token: ${{ github.token }}
+            name: updated-perf-yamls
+            path: ${{ github.workspace }}/src/qai_hub_models/models
 
       - name: Check Out Scorecard Intermediates
         if: inputs.latest_results_branch != ''
@@ -291,9 +301,18 @@ jobs:
             --python="${{ steps.ci_setup.outputs.python-path }}" \
             create_numerics
 
+      - name: Combine Per-Split Release Assets
+        id: combine-release-assets
+        if: ${{ !cancelled() && steps.download-zip-asset-artifact.outcome == 'success' }}
+        run: |
+          source "${{ env.VENV_PATH }}/bin/activate"
+          python -m qai_hub_models.scripts.combine_split_artifacts \
+            --input-dir build/release-assets-per-split \
+            --output-dir ${{ env.QAIHM_TEST_ARTIFACTS_DIR }}
+
       - name: Update release asset files for models
         id: create-release-assets-files
-        if: ${{ !cancelled() && steps.download-zip-asset-artifact.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.combine-release-assets.outcome == 'success' }}
         run: |
           python3 scripts/build_and_test.py \
             --venv="${{ env.VENV_PATH }}" \

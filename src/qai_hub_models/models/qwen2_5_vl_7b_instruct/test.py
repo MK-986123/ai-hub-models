@@ -131,6 +131,11 @@ def _get_llm_perf_params() -> list[tuple[Precision, ScorecardDevice]]:
     return params if params else [(Precision.w4a16, cs_8_elite_gen_5)]
 
 
+@pytest.fixture(scope="session")
+def llm_perf_config() -> LLMPerfConfig:
+    return LLMPerfConfig.from_environment()
+
+
 @pytest.mark.llm_perf
 @pytest.mark.skipif(
     not importlib.util.find_spec("qualcomm_device_cloud_sdk"),

@@ -1,8 +1,4 @@
-name: Scorecard - LLM Export Scripts (Asset Upload)
-
-# LLM models don't have profile jobs (skipped via test_split: llm), so we can
-# upload their release assets immediately after compile/link jobs are submitted,
-# rather than waiting through fix_flaky_jobs and the rest of the matrix.
+name: Scorecard - LLM On-Device Run (Asset Upload, Perf, Accuracy)
 
 on:
     workflow_call:
@@ -11,10 +7,18 @@ on:
           type: string
           required: true
 
-        upload_to_s3:
-          description: Upload export-generated ZIP files to S3
-          type: boolean
-          default: false
+        s3_prefix:
+          description: |
+            S3 prefix for context-binary uploads. Empty disables S3 upload.
+            "pre_release_assets" is canonical (kept forever); "ephemeral_test_assets"
+            is auto-purged after 7 days via lifecycle rule.
+          type: string
+          default: ''
+
+        deployment:
+          description: Hub Deployment
+          type: string
+          default: prod
 
 env:
   PYTHONUNBUFFERED: 1
@@ -37,9 +41,6 @@ jobs:
           sudo-password: ${{ secrets.TETRASERVICE_PASSWORD }}
           venv-path: ${{ env.VENV_PATH }}
 
-      # We run in parallel with fix_flaky_jobs, so the post-flaky-retry artifact
-      # ("Job-IDs") doesn't exist yet — only the original Flaky-Job-IDs artifact
-      # uploaded by submit_split_jobs is available at this point.
       - name: Download Flaky-Job Artifacts
         uses: actions/download-artifact@v8
         with:
@@ -52,8 +53,6 @@ jobs:
         id: find
         run: |
           source "${{ env.VENV_PATH }}/bin/activate"
-          # Sanitize: model IDs are [a-z0-9_], comma-separated; strip anything else
-          # to avoid shell-metachar injection from the artifact-sourced env file.
           MODELS=$(grep '^QAIHM_TEST_MODELS=' build/scorecard-yamls/${{ inputs.action_id }}/environment.env | cut -d= -f2 | tr -cd 'A-Za-z0-9_,\-')
           MATRIX=$(python -m qai_hub_models.scripts.split_torch_models --models "$MODELS" --output-format github)
           LLM_MODELS=$(echo "$MATRIX" | python -c "import json, sys; splits=json.load(sys.stdin); m=next((s['models'] for s in splits if s['split_name']=='llm'), ''); print(m)")
@@ -66,15 +65,28 @@ jobs:
           echo "LLM models: $LLM_MODELS"
 
   test_llm_export:
-    name: Test LLM Export Scripts (Early)
+    name: LLM Asset Upload
     needs: determine_llm_models
     if: ${{ needs.determine_llm_models.outputs.has_models == 'true' }}
     secrets: inherit
     uses: ./.github/workflows/scorecard_test_export_scripts.yml
     with:
       action_id: ${{ inputs.action_id }}
-      upload_to_s3: ${{ inputs.upload_to_s3 }}
+      s3_prefix: ${{ inputs.s3_prefix }}
       models: ${{ needs.determine_llm_models.outputs.models }}
       split_name: llm
       runs_on: '["tetra-ubuntu-2204", "self-hosted"]'
       build_and_test_target: test_llm_export_scripts
+
+  collect_llm_perf:
+    name: Collect LLM Performance Numbers
+    needs: [determine_llm_models, test_llm_export]
+    if: ${{ !cancelled() && needs.test_llm_export.result == 'success' && inputs.s3_prefix != '' }}
+    secrets: inherit
+    uses: ./.github/workflows/llm_perf_collection.yml
+    with:
+      model: ${{ needs.determine_llm_models.outputs.models }}
+      deployment: ${{ inputs.deployment }}
+      run_eval: true
+      create_pr: false
+      release_assets_action_id: ${{ inputs.action_id }}

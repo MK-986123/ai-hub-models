@@ -10,6 +10,7 @@ import uuid
 from collections.abc import Callable, Iterator
 from typing import TypeVar
 
+import httpx
 import qai_hub as hub
 import requests
 from qualcomm_device_cloud_sdk.api import qdc_api
@@ -58,12 +59,14 @@ POLL_INTERVAL = 30
 # RETRY_BACKOFF_MAX. Keeps us from hammering a rate-limited (429) or overloaded
 # (5xx) endpoint on tight upload/download loops that have no outer throttle.
 RETRY_BACKOFF_BASE = 5
-RETRY_BACKOFF_MAX = 60
+RETRY_BACKOFF_MAX = 300
 # QDC submission fail if name exceeds this
 QDC_JOB_NAME_LIMIT = 32
-# Number of consecutive errors tolerated when polling status (absorbs transient
-# network blips like DNS resolution failures); a real error still surfaces after this.
-STATUS_POLL_MAX_RETRIES = 5
+# Number of consecutive errors tolerated when polling status. With BASE=5 and
+# MAX=300, the schedule (5, 10, 20, 40, 80, 160, 300, 300, 300, 300) sums to
+# ~30 minutes — long enough to absorb a ~30-min QDC API outage while still
+# probing quickly during the first few seconds.
+STATUS_POLL_MAX_RETRIES = 10
 # HTTP status codes that the QDC SDK can surface transiently on status polling.
 # The SDK raises a bare Exception with the code embedded in the message (e.g.
 # "failed with status code 403 and message: Invalid Credentials"), so we match
@@ -113,9 +116,16 @@ def _transient_network_error_name(err: Exception) -> str | None:
     ``OSError`` subclass — wrapped under httpx/httpcore ConnectError. We return
     only the type name so callers can log it WITHOUT echoing the message, which
     may carry server-reflected secrets or credential fragments.
+
+    httpx.TransportError and its subclasses (ConnectError, ReadError, *Timeout,
+    RemoteProtocolError, etc.) are all transport-layer errors safe to retry.
+    HTTPStatusError is a sibling, not a TransportError — non-retryable status
+    codes are still filtered by _matched_retryable_status_code.
     """
     for cause in _unwrap_causes(err):
         if isinstance(cause, (OSError, ConnectionError, TimeoutError)):
+            return type(cause).__name__
+        if isinstance(cause, httpx.TransportError):
             return type(cause).__name__
     return None
 

@@ -19,19 +19,21 @@ import qai_hub as hub
 
 from qai_hub_models import Precision, QAIRTVersion, TargetRuntime
 from qai_hub_models.configs.model_metadata import ModelMetadata
-from qai_hub_models.configs.release_assets_yaml import QAIHMModelReleaseAssets
 from qai_hub_models.configs.tool_versions import ToolVersions
 from qai_hub_models.models._shared.llm.common import cleanup
 from qai_hub_models.models._shared.llm.model import (
     LLM_AIMETOnnx,
     LLMBase,
 )
-from qai_hub_models.models._shared.llm.perf_collection import update_perf_yaml
+from qai_hub_models.models._shared.llm.perf_collection import (
+    load_release_assets_for_model,
+    update_perf_yaml,
+)
 from qai_hub_models.models._shared.llm.quantize import quantize
 from qai_hub_models.scorecard import ScorecardDevice, ScorecardProfilePath
 from qai_hub_models.scorecard.utils.testing import patch_qai_hub
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG
-from qai_hub_models.utils.fetch_prerelease_assets import fetch_prerelease_assets
+from qai_hub_models.utils.fetch_prerelease_assets import download_prerelease_asset
 from qai_hub_models.utils.model_cache import CacheMode
 from qai_hub_models.utils.onnx.helpers import ONNXBundle
 
@@ -720,7 +722,7 @@ def fetch_genie_bundle_for_perf(
 
     Raises a clear error if no matching asset exists.
     """
-    assets = QAIHMModelReleaseAssets.from_model(model_id, not_exists_ok=True)
+    assets = load_release_assets_for_model(model_id)
     asset = assets.get_asset(precision, chipset, ScorecardProfilePath.GENIE)
     if asset is None:
         available_chipsets: list[str] = []
@@ -741,11 +743,12 @@ def fetch_genie_bundle_for_perf(
         # Already fetched on a previous test in this session.
         return bundle_dir
 
-    zip_path = fetch_prerelease_assets(
-        model_id,
-        ScorecardProfilePath.GENIE,
+    zip_path = download_prerelease_asset(
+        asset,
+        model_id=model_id,
+        runtime=TargetRuntime.GENIE,
         precision=precision,
-        device_or_chipset=chipset,
+        chipset=chipset,
         output_folder=output_dir,
         verbose=True,
     )

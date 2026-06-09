@@ -18,12 +18,20 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 
+import ruamel.yaml
+
 from qai_hub_models import Precision
 from qai_hub_models.configs.code_gen_yaml import QAIHMModelCodeGen
 from qai_hub_models.configs.info_yaml import QAIHMModelInfo
 from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
+from qai_hub_models.configs.release_assets_yaml import QAIHMModelReleaseAssets
 from qai_hub_models.scorecard import ScorecardDevice
-from qai_hub_models.scorecard.device import sanitize_chipset_name
+from qai_hub_models.scorecard.device import (
+    LLM_COMPILE_DEVICES,
+    LLM_W4FP16_COMPILE_DEVICES,
+    sanitize_chipset_name,
+)
+from qai_hub_models.scorecard.envvars import LLMPerfReleaseAssetsEnvvar
 from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
 
 
@@ -66,6 +74,47 @@ def get_supported_precisions(model_id: str) -> list[Precision]:
     return code_gen.supported_precisions
 
 
+def load_release_assets_for_model(model_id: str) -> QAIHMModelReleaseAssets:
+    """Load release assets for ``model_id``, preferring an in-flight workflow artifact.
+
+    When ``LLMPerfReleaseAssetsEnvvar`` is set to a combined release-assets.yaml
+    (the kind uploaded as a per-split workflow artifact, with
+    ``models: {<model_id>: ...}``), pull this model's entry from there instead of
+    the committed per-model copy. Lets a workflow run consume the release-assets.yaml
+    the LLM asset-upload step just produced before the consolidated PR has merged.
+    """
+    if not LLMPerfReleaseAssetsEnvvar.is_default():
+        path = LLMPerfReleaseAssetsEnvvar.get()
+        if path.exists():
+            with open(path) as f:
+                combined = ruamel.yaml.YAML(typ="safe", pure=True).load(f) or {}
+            entry = (combined.get("models") or {}).get(model_id)
+            if entry is not None:
+                return QAIHMModelReleaseAssets.model_validate(entry)
+    return QAIHMModelReleaseAssets.from_model(model_id, not_exists_ok=True)
+
+
+def _get_devices_for_precision(
+    precision: Precision,
+    override_devices: list[ScorecardDevice] | None,
+) -> list[ScorecardDevice]:
+    """Return the devices applicable to a given precision.
+
+    If override_devices is provided (from QAIHM_TEST_DEVICES), intersects
+    that list with the compile-device sets so only valid combos are returned.
+    Otherwise uses LLM_COMPILE_DEVICES (+ LLM_W4FP16_COMPILE_DEVICES for w4).
+    """
+    compile_devices: list[ScorecardDevice] = list(LLM_COMPILE_DEVICES)
+    if precision == Precision.w4:
+        compile_devices += LLM_W4FP16_COMPILE_DEVICES
+
+    if override_devices is None:
+        return compile_devices
+
+    compile_set = set(compile_devices)
+    return [d for d in override_devices if d in compile_set]
+
+
 def get_llm_perf_parametrization(
     model_id: str,
     default_devices: list[ScorecardDevice] | None = None,
@@ -73,13 +122,14 @@ def get_llm_perf_parametrization(
 ) -> list[tuple[Precision, ScorecardDevice]]:
     """Generate pytest parametrization for LLM performance tests.
 
-    Uses environment variables if set, otherwise falls back to defaults.
+    Selects devices per precision based on LLM_COMPILE_DEVICES (all precisions)
+    and LLM_W4FP16_COMPILE_DEVICES (w4 only).
 
     Environment variables:
     - QAIHM_LLM_MODELS: Comma-separated model IDs or "all". If set and this
       model is not in the list, returns [] so the test is skipped.
-    - QAIHM_TEST_DEVICES: Comma-separated device names to override defaults
-    - QAIHM_TEST_PRECISIONS: Comma-separated precisions to override defaults
+    - QAIHM_TEST_DEVICES: Comma-separated device names. When set, acts as a
+      filter over the compile-device sets (only devices in both lists are used).
     """
     models_str = os.environ.get("QAIHM_LLM_MODELS", "")
     if models_str and models_str.strip().lower() != "all":
@@ -88,19 +138,28 @@ def get_llm_perf_parametrization(
             return []
 
     devices_str = os.environ.get("QAIHM_TEST_DEVICES", "")
-    if devices_str:
+    override_devices: list[ScorecardDevice] | None
+    if devices_str and devices_str.strip().lower() == "all":
+        override_devices = None
+    elif devices_str:
         device_names = [d.strip() for d in devices_str.split(",") if d.strip()]
-        devices = [
+        override_devices = [
             ScorecardDevice._registry[name]
             for name in device_names
             if name in ScorecardDevice._registry
         ]
     else:
-        devices = default_devices or []
+        override_devices = default_devices
 
-    precisions = get_supported_precisions(model_id)
+    precisions = default_precisions or get_supported_precisions(model_id)
 
-    return [(precision, device) for precision in precisions for device in devices]
+    result: list[tuple[Precision, ScorecardDevice]] = []
+    for precision in precisions:
+        result.extend(
+            (precision, device)
+            for device in _get_devices_for_precision(precision, override_devices)
+        )
+    return result
 
 
 def update_perf_yaml(

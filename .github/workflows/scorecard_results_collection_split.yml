@@ -7,10 +7,12 @@ on:
         type: string
         required: true
 
-      upload_to_s3:
-        description: Upload export-generated ZIP files to S3
-        type: boolean
-        default: false
+      s3_prefix:
+        description: |
+          S3 prefix for context-binary uploads (forwarded to scorecard_test_export_scripts.yml).
+          Empty disables S3 upload.
+        type: string
+        default: ''
 
       run_accuracy:
         description: Run on-device accuracy computation
@@ -106,7 +108,7 @@ jobs:
     uses: ./.github/workflows/scorecard_test_export_scripts.yml
     with:
       action_id: ${{ inputs.action_id }}
-      upload_to_s3: ${{ inputs.upload_to_s3 }}
+      s3_prefix: ${{ inputs.s3_prefix }}
       models: ${{ matrix.split.models }}
       split_name: ${{ matrix.split.split_name }}
 
@@ -143,7 +145,7 @@ jobs:
 
       - name: Download All Split Release Asset Artifacts
         id: download_release_assets
-        if: ${{ inputs.upload_to_s3 }}
+        if: ${{ inputs.s3_prefix != '' }}
         uses: actions/download-artifact@v8
         continue-on-error: true
         with:
@@ -151,7 +153,7 @@ jobs:
           path: build/split-release-assets
 
       - name: Combine Release Assets
-        if: ${{ inputs.upload_to_s3 && steps.download_release_assets.outcome == 'success' }}
+        if: ${{ inputs.s3_prefix != '' && steps.download_release_assets.outcome == 'success' }}
         run: |
           source "${{ env.VENV_PATH }}/bin/activate"
           python -m qai_hub_models.scripts.combine_split_artifacts \
@@ -159,7 +161,7 @@ jobs:
             --output-dir build/combined-release-assets
 
       - name: Upload Combined Release Assets
-        if: ${{ inputs.upload_to_s3 && steps.download_release_assets.outcome == 'success' }}
+        if: ${{ inputs.s3_prefix != '' && steps.download_release_assets.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
           name: Scorecard Cached Artifact (release-assets.yaml, ${{ inputs.action_id }})
@@ -167,7 +169,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Delete Split Release Asset Artifacts
-        if: ${{ inputs.upload_to_s3 && steps.download_release_assets.outcome == 'success' }}
+        if: ${{ inputs.s3_prefix != '' && steps.download_release_assets.outcome == 'success' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

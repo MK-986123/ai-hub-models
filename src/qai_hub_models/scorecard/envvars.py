@@ -375,6 +375,22 @@ class StaticModelsDirEnvvar(QAIHMPathEnvvar):
         return Path(os.path.dirname(__file__)) / "static" / "models"
 
 
+class LLMPerfReleaseAssetsEnvvar(QAIHMPathEnvvar):
+    """Path to a combined release-assets.yaml used by LLM perf collection in place of the committed per-model copies."""
+
+    VARNAME = "QAIHM_LLM_PERF_RELEASE_ASSETS"
+    CLI_ARGNAMES = ["--llm-perf-release-assets"]
+    CLI_HELP_MESSAGE = (
+        "Combined release-assets.yaml file (`models: {<model_id>: ...}`) consumed by "
+        "LLM perf collection to drive QDC jobs. When unset, falls back to the committed "
+        "per-model release-assets.yaml."
+    )
+
+    @classmethod
+    def default(cls) -> Path:
+        return Path("")
+
+
 @pytest_cli_envvar
 class DeploymentEnvvar(QAIHMStringEnvvar):
     """The deployment to target."""

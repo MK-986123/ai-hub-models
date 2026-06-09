@@ -95,20 +95,48 @@ def fetch_prerelease_assets(
 
     assets = QAIHMModelReleaseAssets.from_model(model_id, not_exists_ok=True)
     if asset := assets.get_asset(precision, chipset, sc_path):
-        # s3_key should always be present in release-assets.yaml
-        assert asset.s3_key is not None, "s3_key must be present for pre-release assets"
-        bucket = get_qaihm_s3(QAIHM_PRIVATE_S3_BUCKET)[0]
-        if s3_file_exists(bucket, asset.s3_key):
-            if output_folder is not None:
-                os.makedirs(output_folder, exist_ok=True)
-
-            asset_name = asset_config.get_release_asset_filename(
-                model_id, runtime, precision, chipset
-            )
-            dst_path = Path(
-                os.path.join(output_folder, asset_name) if output_folder else asset_name
-            )
-            dst_path = get_next_free_path(dst_path)
-            s3_download(bucket, asset.s3_key, dst_path, verbose)
-            return dst_path
+        return download_prerelease_asset(
+            asset,
+            model_id=model_id,
+            runtime=runtime,
+            precision=precision,
+            chipset=chipset,
+            output_folder=output_folder,
+            asset_config=asset_config,
+            verbose=verbose,
+        )
     raise ValueError("No pre-release assets found for the specified configuration.")
+
+
+def download_prerelease_asset(
+    asset: QAIHMModelReleaseAssets.AssetDetails,
+    model_id: str,
+    runtime: TargetRuntime,
+    precision: Precision,
+    chipset: str | None,
+    output_folder: str | os.PathLike | None = None,
+    asset_config: ModelZooAssetConfig = ASSET_CONFIG,
+    verbose: bool = True,
+) -> Path:
+    """Download an already-resolved pre-release asset from S3.
+
+    Use when the caller has already chosen a release-assets entry — for
+    example, after consulting an in-flight workflow override yaml — and just
+    needs the S3 download.
+    """
+    assert asset.s3_key is not None, "s3_key must be present for pre-release assets"
+    bucket = get_qaihm_s3(QAIHM_PRIVATE_S3_BUCKET)[0]
+    if not s3_file_exists(bucket, asset.s3_key):
+        raise ValueError("No pre-release assets found for the specified configuration.")
+    if output_folder is not None:
+        os.makedirs(output_folder, exist_ok=True)
+
+    asset_name = asset_config.get_release_asset_filename(
+        model_id, runtime, precision, chipset
+    )
+    dst_path = Path(
+        os.path.join(output_folder, asset_name) if output_folder else asset_name
+    )
+    dst_path = get_next_free_path(dst_path)
+    s3_download(bucket, asset.s3_key, dst_path, verbose)
+    return dst_path
