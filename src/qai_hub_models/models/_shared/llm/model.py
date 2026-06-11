@@ -285,6 +285,7 @@ def get_onnx_model(
     llm_io_type: LLMIOType = LLMIOType.genie_input_ids,
     use_dynamic_shapes: bool = False,
     quiet: bool = False,
+    extra_dynamic_shapes: dict[str, dict[int, Any]] | None = None,
 ) -> onnx.ModelProto | None:
     if use_dynamic_shapes:
         ensure_supported_version(
@@ -364,9 +365,12 @@ def get_onnx_model(
         input_names = list(input_specs.keys())
 
         # Build dynamic shapes for the *args portion (everything after input_tokens and attention_mask)
+        _extra = extra_dynamic_shapes or {}
         args_dynamic_shapes: list[dict[int, Any] | None] = []
         for name in input_names[2:]:  # Skip input_ids/input_embeds and attention_mask
-            if name == "position_ids":
+            if name in _extra:
+                args_dynamic_shapes.append(_extra[name])
+            elif name == "position_ids":
                 # Shape: (1, seq_len)
                 args_dynamic_shapes.append({1: seq_len})
             elif name in ("position_ids_cos", "position_ids_sin"):
@@ -1469,8 +1473,9 @@ class LLMBase(BaseModel, LLMConfigEditor, ABC):
                     keys = out_cache.layers[layer][0]
                     values = out_cache.layers[layer][1]
 
-                k = keys[:, :, -self.sequence_length :, :].permute(1, 0, 3, 2)
-                v = values[:, :, -self.sequence_length :, :].permute(1, 0, 2, 3)
+                seq_len = input_tokens.shape[1]
+                k = keys[:, :, -seq_len:, :].permute(1, 0, 3, 2)
+                v = values[:, :, -seq_len:, :].permute(1, 0, 2, 3)
 
             elif hasattr(out_cache, "key_cache"):
                 k = torch.cat(out_cache.key_cache[layer], dim=0)
@@ -1841,6 +1846,9 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
         _fp_embedding_weights = None
         if fp_model is not None and hasattr(fp_model, "_embedding_weights"):
             _fp_embedding_weights = fp_model._embedding_weights
+        _fp_original_llm_config = None
+        if fp_model is not None and hasattr(fp_model, "_original_llm_config"):
+            _fp_original_llm_config = fp_model._original_llm_config
 
         if not _skip_quantsim_creation:
             if AIMET_ONNX_INSTALLED:
@@ -1875,16 +1883,21 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
                     raise ValueError(
                         "The quantized checkpoint (with custom weights) must have an ONNX model."
                     )
-                # Floating model is created if not passed when from_pretrained() is called and an ONNX model doesn't exist.
-                onnx_model = get_onnx_model(
-                    fp_model=fp_model,
-                    context_length=context_length,
-                    sequence_length=sequence_length,
-                    path=onnx_tmpfile,
-                    return_model=True,
-                    llm_io_type=fp_model.llm_io_type,
-                    use_dynamic_shapes=use_dynamic_shapes,
-                )
+                if use_dynamic_shapes and isinstance(
+                    fp_model, DynamicPreSplitOnnxMixin
+                ):
+                    bundle = fp_model.get_full_onnx_bundle(Path(tmp_dir.name))
+                    onnx_model = bundle.load_onnx_model()
+                else:
+                    onnx_model = get_onnx_model(  # type: ignore[assignment]
+                        fp_model=fp_model,
+                        context_length=context_length,
+                        sequence_length=sequence_length,
+                        path=onnx_tmpfile,
+                        return_model=True,
+                        llm_io_type=fp_model.llm_io_type,
+                        use_dynamic_shapes=use_dynamic_shapes,
+                    )
 
             else:
                 print()
@@ -1959,6 +1972,9 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
             and getattr(instance, "_embedding_weights", None) is None
         ):
             instance._embedding_weights = _fp_embedding_weights
+
+        if _fp_original_llm_config is not None:
+            instance._original_llm_config = _fp_original_llm_config
 
         return instance
 
@@ -2103,18 +2119,7 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
         # Export the QuantSim model (produces model.onnx + model.data + model.encodings).
         # If the input ONNX had dynamic shapes, QuantSim preserves them.
         assert self.quant_sim is not None
-        # Export encodings only first, then save model with external weights
-        # to avoid ByteSize() EncodeError when model exceeds protobuf 2GB limit.
-        self.quant_sim.export(str(output_checkpoint), "model", export_model=False)
-        from aimet_onnx.utils import save_model_with_external_weights
-
-        with self.quant_sim._remove_quantization_nodes():
-            save_model_with_external_weights(
-                self.quant_sim.model.model,
-                os.path.join(str(output_checkpoint), "model.onnx"),
-                location="model.data",
-                all_tensors_to_one_file=True,
-            )
+        self.quant_sim.export(str(output_checkpoint), "model")
         del self.quant_sim
 
         onnx_path = os.path.join(output_checkpoint, "model.onnx")
@@ -3040,3 +3045,54 @@ class LLMDynamic_AIMETOnnx(LLM_AIMETOnnx):
             _skip_quantsim_creation=_skip_quantsim_creation,
             use_dynamic_shapes=True,
         )
+
+    def get_calibration_data(
+        self,
+        num_samples: int = 0,
+        input_spec: InputSpec | None = None,
+        sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
+        context_length: int = DEFAULT_CONTEXT_LENGTH,
+    ) -> DatasetEntries | None:
+        from qai_hub_models.datasets import instantiate_dataset
+        from qai_hub_models.datasets.wikitext import WikiText
+        from qai_hub_models.models._shared.llm.generator_factory import make_generator
+
+        if num_samples == 0:
+            num_samples = math.ceil(80000 / context_length)
+
+        dataset = instantiate_dataset(
+            WikiText,
+            DatasetSplit.TRAIN,
+            input_spec=None,
+            tokenizer=self.tokenizer,
+            block_size=sequence_length,
+            context_length=context_length,
+            num_samples=num_samples,
+        )
+        dataloader = DataLoader(dataset, batch_size=1, collate_fn=dataset.collate_fn)
+
+        input_spec = self.get_input_spec(
+            llm_config=self.llm_config.to_dict(),
+            sequence_length=sequence_length,
+            context_length=context_length,
+            llm_io_type=self.llm_io_type,
+        )
+        assert input_spec is not None
+        inputs: list[list[torch.Tensor | np.ndarray]] = [
+            [] for _ in range(len(input_spec))
+        ]
+
+        generator = make_generator(
+            self, sequence_length=sequence_length, context_length=context_length
+        )
+
+        with self.remove_quantization():
+            for sample in tqdm(
+                dataloader, total=len(dataloader), desc="Pre-filling calibration data"
+            ):
+                input_ids, attention_mask, _ = sample
+                for prefilled_inputs in generator.prefill(input_ids, attention_mask):
+                    for i, tensor in enumerate(prefilled_inputs.values()):
+                        inputs[i].append(tensor.cpu())
+
+        return make_hub_dataset_entries(tuple(inputs), list(input_spec.keys()))

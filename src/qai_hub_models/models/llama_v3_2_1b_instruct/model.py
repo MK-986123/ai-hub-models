@@ -35,6 +35,9 @@ from qai_hub_models.models._shared.llm.model import (
     DEFAULT_EXPORT_SEQUENCE_LENGTHS as GLOBAL_DEFAULT_EXPORT_SEQUENCE_LENGTHS,
 )
 from qai_hub_models.models._shared.llm.model import SplitForwardMixin
+from qai_hub_models.models._shared.lm_driver.generator import (
+    HubCompatibleGenerator,
+)
 from qai_hub_models.utils.base_multi_graph_model import MultiGraphCollectionModel
 
 logger = logging.getLogger(__name__)
@@ -75,6 +78,8 @@ SPLIT_MODEL_NAME = "Llama3_2_1B"
 class Llama3_2_1B_PreSplit(LlamaPreSplitBase):
     """FP PreSplit for Llama 3.2 1B."""
 
+    GeneratorClass = HubCompatibleGenerator
+
     num_layers = NUM_LAYERS
     hidden_size = HIDDEN_SIZE
     num_attention_heads = NUM_ATTN_HEADS
@@ -98,6 +103,7 @@ class Llama3_2_1B_QuantizablePreSplit(
     """Quantizable PreSplit for Llama 3.2 1B."""
 
     FPModel = Llama3_2_1B_PreSplit
+    GeneratorClass = HubCompatibleGenerator
 
     num_layers = NUM_LAYERS
     model_id = MODEL_ID

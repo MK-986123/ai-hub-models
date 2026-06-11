@@ -24,6 +24,7 @@ from qai_hub_models.models._shared.llm.model import (
     DynamicQuantizablePreSplitMixin,
     LLM_AIMETOnnx,
     LLMBase,
+    LLMDynamic_AIMETOnnx,
     LLMDynamicBase,
 )
 from qai_hub_models.utils.args import get_quantize_action_with_default
@@ -121,7 +122,15 @@ def quantize(
     if use_ada_scale and ada_scale_num_samples is not None:
         num_max_samples = max(num_max_samples, ada_scale_num_samples)
 
-    calib_data = model_quant.get_calibration_data(num_samples=num_max_samples)
+    if isinstance(model_quant, LLMDynamic_AIMETOnnx):
+        calib_data = model_quant.get_calibration_data(
+            num_samples=num_max_samples,
+            sequence_length=seq_len,
+            context_length=context_length,
+        )
+    else:
+        assert isinstance(model_quant, LLM_AIMETOnnx)
+        calib_data = model_quant.get_calibration_data(num_samples=num_max_samples)
     assert calib_data is not None
     dataloader = dataset_entries_to_dataloader(calib_data)
 

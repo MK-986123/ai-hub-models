@@ -53,6 +53,9 @@ from qai_hub_models import (
 from qai_hub_models.configs.model_metadata import ModelMetadata
 from qai_hub_models.datasets.imagenette import IMAGENETTE_ASSET
 from qai_hub_models.models._shared.llm.common import LLMIOType
+from qai_hub_models.models._shared.llm.generator_factory import (
+    HubCompatibleVLMGenerator,
+)
 from qai_hub_models.models._shared.llm.model import (
     DEFAULT_CONTEXT_LENGTH,
     DEFAULT_SEQUENCE_LENGTH,
@@ -62,6 +65,7 @@ from qai_hub_models.models._shared.llm.model import (
     LLMPartBase,
     SingleSlotCacheMixin,
     get_onnx_model,
+    get_tokenizer,
 )
 from qai_hub_models.models._shared.llm.model import (
     DEFAULT_EXPORT_SEQUENCE_LENGTHS as GLOBAL_DEFAULT_EXPORT_SEQUENCE_LENGTHS,
@@ -73,6 +77,7 @@ from qai_hub_models.models._shared.qwen2_vl.model import (
 )
 from qai_hub_models.models._shared.qwen2_vl.vision_encoder import (
     Qwen2VLVisionEncoder,
+    Qwen2VLVisionWrapper,
 )
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.base_model import (
@@ -147,6 +152,9 @@ class Qwen2_5_VL_7B_PreSplit(
     keyed by checkpoint. VLM uses split_embedding=False since inputs_embeds
     bypasses the embedding layer.
     """
+
+    GeneratorClass = HubCompatibleVLMGenerator
+    VisionModelWrapper = Qwen2VLVisionWrapper
 
     min_memory_recommended = MIN_MEMORY_RECOMMENDED
     split_model_name = SPLIT_MODEL_NAME
@@ -317,6 +325,8 @@ class Qwen2_5_VL_7B_QuantizablePreSplit(  # type: ignore[misc]
     """
 
     FPModel = Qwen2_5_VL_7B_PreSplit  # type: ignore[assignment]
+    GeneratorClass = HubCompatibleVLMGenerator
+    VisionModelWrapper = Qwen2VLVisionWrapper
     _hf_repo_name: str = HF_REPO_NAME
 
     # DynamicQuantizablePreSplitMixin config
@@ -401,7 +411,7 @@ class Qwen2_5_VL_7B_QuantizablePreSplit(  # type: ignore[misc]
         # VLM-specific: embedding table is needed for on-device LUT encoder
         # and for token-to-embedding conversion during evaluation.
         export_embedding_weights_from_tensor(
-            fp_model.get_embedding_weights(), Path(output_checkpoint)
+            fp_model.get_embedding_weights().float(), Path(output_checkpoint)
         )
 
 
@@ -654,8 +664,9 @@ class Qwen2_5_VL_7B_VisionEncoder(Qwen2VLVisionEncoder):
         from qai_hub_models.models._shared.qwen2_vl.model import Qwen2VLTextBase
 
         proc = AutoProcessor.from_pretrained(HF_REPO_NAME)
+        tokenizer = get_tokenizer(HF_REPO_NAME)
         dummy_text = Qwen2VLTextBase.get_input_prompt_with_tags(
-            user_input_prompt="", include_image=True
+            user_input_prompt="", include_image=True, tokenizer=tokenizer
         )
 
         pixel_values_list: list[np.ndarray] = []
@@ -1287,7 +1298,7 @@ class Qwen2_5_VL_7B_Collection(MultiGraphCollectionModel):
         else:
             fp_model = Qwen2_5_VL_7B_PreSplit.from_pretrained()
             export_embedding_weights_from_tensor(
-                fp_model.get_embedding_weights(), output_dir
+                fp_model.get_embedding_weights().float(), output_dir
             )
         metadata.supplementary_files["embedding_weights.raw"] = (
             "Embedding table (float32) for token-to-embedding conversion."
@@ -1306,7 +1317,10 @@ class Qwen2_5_VL_7B_Collection(MultiGraphCollectionModel):
                 metadata.supplementary_files[name] = f"Model {name} from checkpoint."
 
         # --- Sample prompt (text-only; vision prompt is assembled at runtime) ---
-        sample_prompt = Qwen2VLTextBase.get_input_prompt_with_tags(include_image=False)
+        tokenizer = get_tokenizer(HF_REPO_NAME)
+        sample_prompt = Qwen2VLTextBase.get_input_prompt_with_tags(
+            include_image=False, tokenizer=tokenizer
+        )
         with open(output_dir / "sample_prompt.txt", "w") as f:
             f.write(sample_prompt)
         metadata.supplementary_files["sample_prompt.txt"] = (
@@ -1609,8 +1623,9 @@ class Qwen2_5_VL_7B_Collection(MultiGraphCollectionModel):
         from qai_hub_models.models._shared.qwen2_vl.model import Qwen2VLTextBase
 
         proc = AutoProcessor.from_pretrained(HF_REPO_NAME)
+        tokenizer = get_tokenizer(HF_REPO_NAME)
         dummy_text = Qwen2VLTextBase.get_input_prompt_with_tags(
-            user_input_prompt="", include_image=True
+            user_input_prompt="", include_image=True, tokenizer=tokenizer
         )
         processed = proc(text=[dummy_text], images=[img_resized], return_tensors="pt")
 

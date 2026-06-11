@@ -10,12 +10,15 @@ from typing import Any
 
 import torch
 from torch.utils.data import DataLoader
+from transformers import AutoProcessor
 from transformers.cache_utils import DynamicCache
 
 from qai_hub_models import Precision
 from qai_hub_models.datasets import instantiate_dataset
+from qai_hub_models.datasets.common import AugmentedLabelDataset
 from qai_hub_models.evaluators.llm_evaluator import LLMEvaluator
 from qai_hub_models.models._shared.llm.generator import LLM_Generator
+from qai_hub_models.models._shared.llm.generator_factory import make_generator
 from qai_hub_models.models._shared.llm.model import (
     DEFAULT_CONTEXT_LENGTH,
     DEFAULT_SEQUENCE_LENGTH,
@@ -31,7 +34,6 @@ from qai_hub_models.utils.args import (
     get_model_kwargs,
 )
 from qai_hub_models.utils.base_dataset import (
-    AugmentedLabelDataset,
     BaseDataset,
     DatasetSplit,
 )
@@ -44,6 +46,8 @@ def get_dataset(
     model: torch.nn.Module,
     dataset_cls: type[BaseDataset],
     num_samples: int,
+    sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
+    context_length: int = DEFAULT_CONTEXT_LENGTH,
     processor: Any = None,
     image_size: tuple[int, int] | None = None,
 ) -> DataLoader[AugmentedLabelDataset]:
@@ -57,8 +61,8 @@ def get_dataset(
         DatasetSplit.TEST,
         input_spec=None,
         tokenizer=model.tokenizer,
-        block_size=model.sequence_length,
-        context_length=model.context_length,
+        block_size=sequence_length,
+        context_length=context_length,
         num_samples=num_samples,
         **extra_kwargs,
     )
@@ -74,7 +78,7 @@ def evaluate(
     num_samples: int,
     dataset_cls: type[BaseDataset],
     kwargs: Mapping[str, Any],
-    prompt_sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
+    prompt_sequence_length: int | list[int] = DEFAULT_SEQUENCE_LENGTH,
     context_length: int = DEFAULT_CONTEXT_LENGTH,
     skip_fp_model_eval: bool = False,
     vision_encoder_cls: Any = None,
@@ -82,6 +86,233 @@ def evaluate(
     vlm_image_size: tuple[int, int] | None = None,
     task_kwargs: Mapping[str, Any] | None = None,
 ) -> tuple[float, str]:
+    """Top-level evaluate that routes to the appropriate implementation.
+
+    Models that define GeneratorClass use the new make_generator path.
+    Legacy models fall back to the LLM_Generator path.
+    """
+    if hasattr(fp_model_cls, "GeneratorClass"):
+        return _evaluate_impl(
+            quantized_model_cls=quantized_model_cls,
+            fp_model_cls=fp_model_cls,
+            qnn_model_cls=qnn_model_cls,
+            num_samples=num_samples,
+            dataset_cls=dataset_cls,
+            kwargs=kwargs,
+            prompt_sequence_length=prompt_sequence_length,
+            context_length=context_length,
+            skip_fp_model_eval=skip_fp_model_eval,
+            vision_encoder_cls=vision_encoder_cls,
+            hf_repo_name=hf_repo_name,
+            vlm_image_size=vlm_image_size,
+            task_kwargs=task_kwargs,
+        )
+    return _legacy_evaluate_impl(
+        quantized_model_cls=quantized_model_cls,
+        fp_model_cls=fp_model_cls,
+        qnn_model_cls=qnn_model_cls,
+        num_samples=num_samples,
+        dataset_cls=dataset_cls,
+        kwargs=kwargs,
+        prompt_sequence_length=prompt_sequence_length,
+        context_length=context_length,
+        skip_fp_model_eval=skip_fp_model_eval,
+        vision_encoder_cls=vision_encoder_cls,
+        hf_repo_name=hf_repo_name,
+        vlm_image_size=vlm_image_size,
+        task_kwargs=task_kwargs,
+    )
+
+
+def _evaluate_impl(
+    quantized_model_cls: type[LLM_AIMETOnnx],
+    fp_model_cls: type[LLMBase],
+    qnn_model_cls: type[LLM_QNN],
+    num_samples: int,
+    dataset_cls: type[BaseDataset],
+    kwargs: Mapping[str, Any],
+    prompt_sequence_length: int | list[int] = DEFAULT_SEQUENCE_LENGTH,
+    context_length: int = DEFAULT_CONTEXT_LENGTH,
+    skip_fp_model_eval: bool = False,
+    vision_encoder_cls: Any = None,
+    hf_repo_name: str | None = None,
+    vlm_image_size: tuple[int, int] | None = None,
+    task_kwargs: Mapping[str, Any] | None = None,
+) -> tuple[float, str]:
+    """Evaluate using make_generator (for models with GeneratorClass)."""
+    checkpoint_type = CheckpointType.from_checkpoint(kwargs["checkpoint"])
+    if checkpoint_type == CheckpointType.INVALID:
+        raise ValueError(
+            f"Checkpoint '{kwargs['checkpoint']}' is not recognized "
+            f"as a valid quantized checkpoint."
+        )
+
+    host_device = (
+        torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    )
+    if host_device.type == "cpu":
+        print()
+        print(
+            "WARNING: Evaluation of this model (floating point or QuantSim) takes a "
+            "long time on CPU. Doing it on a CUDA-enabled machine will be faster."
+        )
+
+    is_default = str(kwargs["checkpoint"]).startswith("DEFAULT")
+
+    fp_model = fp_model_cls.from_pretrained().to(torch.device("cpu"))
+
+    model_cls: type[LLMBase | LLM_AIMETOnnx | LLM_QNN]
+    final_kwargs: dict[str, Any] = dict(kwargs)
+
+    if checkpoint_type == CheckpointType.GENIE_BUNDLE:
+        model_cls = qnn_model_cls
+        is_fp = False
+    elif checkpoint_type.is_aimet_onnx():
+        if is_default:
+            final_kwargs["fp_model"] = fp_model
+        final_kwargs["host_device"] = host_device
+        model_cls = quantized_model_cls
+        is_fp = False
+    else:
+        final_kwargs.pop("_skip_quantsim_creation", None)
+        model_cls = fp_model_cls
+        is_fp = True
+
+    if final_kwargs["checkpoint"] in {"DEFAULT", "DEFAULT_UNQUANTIZED"}:
+        del final_kwargs["checkpoint"]
+
+    # For VLM models, load processor so multimodal datasets include images.
+    vlm_processor = None
+    if vision_encoder_cls is not None and hf_repo_name is not None:
+        vlm_processor = AutoProcessor.from_pretrained(
+            hf_repo_name, trust_remote_code=True
+        )
+        if vlm_image_size is None:
+            raise ValueError(
+                "vlm_image_size must be provided when vision_encoder_cls is set."
+            )
+
+    eval_dataloader = get_dataset(
+        fp_model,
+        dataset_cls,
+        num_samples,
+        sequence_length=max(prompt_sequence_length)
+        if isinstance(prompt_sequence_length, list)
+        else prompt_sequence_length,
+        context_length=context_length,
+        processor=vlm_processor,
+        image_size=vlm_image_size,
+    )
+    evaluator = fp_model.get_evaluator(
+        dataset_cls.dataset_name(),
+        torch.device("cpu") if not is_fp else host_device,
+        **(task_kwargs or {}),
+    )
+    assert isinstance(evaluator, LLMEvaluator)
+
+    if evaluator.is_distance_metric and not is_fp:
+        fp_model_on_device = fp_model.to(host_device)
+        fp_generator = make_generator(
+            fp_model_on_device,
+            sequence_length=prompt_sequence_length,
+            context_length=context_length,
+            model_cls=fp_model_cls,
+        )
+
+        fp_logits_list = []
+        for input_ids, attention_mask, *_ in eval_dataloader:
+            input_ids = input_ids.to(host_device)
+            attention_mask = attention_mask.to(host_device)
+            with torch.no_grad():
+                fp_output = fp_generator(input_ids, attention_mask)
+            fp_logits_list.append(fp_output.logits.detach().cpu())
+
+        dataset = AugmentedLabelDataset(eval_dataloader.dataset, fp_logits_list)
+        eval_dataloader = DataLoader(
+            dataset,
+            shuffle=False,
+            batch_size=eval_dataloader.batch_size,
+            collate_fn=eval_dataloader.collate_fn,
+        )
+
+    if not is_fp:
+        fp_model.to(torch.device("cpu"))
+        if "fp_model" not in final_kwargs:
+            del fp_model
+            gc.collect()
+        torch.cuda.empty_cache()
+
+        if issubclass(model_cls, LLMDynamic_AIMETOnnx):
+            final_kwargs.pop("sequence_length", None)
+            final_kwargs.pop("context_length", None)
+        model = model_cls.from_pretrained(**final_kwargs).to(host_device)
+    else:
+        model = fp_model.to(host_device)
+
+    model.eval()
+
+    # Load vision encoder for VLM evaluation
+    vision_model = None
+    if vision_encoder_cls is not None:
+        veg_kwargs: dict[str, Any] = {}
+        if vlm_image_size is not None:
+            veg_kwargs["image_width"] = vlm_image_size[0]
+            veg_kwargs["image_height"] = vlm_image_size[1]
+
+        if is_fp:
+            veg_kwargs["precision"] = Precision.float
+        else:
+            checkpoint_path = kwargs.get("checkpoint")
+            if checkpoint_path is not None:
+                veg_kwargs["checkpoint"] = checkpoint_path
+
+        print("Loading vision encoder for evaluation...")
+        vision_model = vision_encoder_cls.from_pretrained(
+            device=host_device,
+            **veg_kwargs,
+        )
+
+    generator = make_generator(
+        model,
+        sequence_length=prompt_sequence_length,
+        context_length=context_length,
+        vision_model=vision_model,
+        model_cls=fp_model_cls,
+    )
+
+    evaluator.add_from_dataset(
+        model=generator,
+        data=eval_dataloader,
+        eval_iterations=len(eval_dataloader),
+    )
+
+    model.release()
+    del model
+    del generator
+    gc.collect()
+    torch.cuda.empty_cache()
+
+    score = evaluator.get_accuracy_score()
+    formatted = evaluator.formatted_accuracy()
+    return score, formatted
+
+
+def _legacy_evaluate_impl(
+    quantized_model_cls: type[LLM_AIMETOnnx],
+    fp_model_cls: type[LLMBase],
+    qnn_model_cls: type[LLM_QNN],
+    num_samples: int,
+    dataset_cls: type[BaseDataset],
+    kwargs: Mapping[str, Any],
+    prompt_sequence_length: int | list[int] = DEFAULT_SEQUENCE_LENGTH,
+    context_length: int = DEFAULT_CONTEXT_LENGTH,
+    skip_fp_model_eval: bool = False,
+    vision_encoder_cls: Any = None,
+    hf_repo_name: str | None = None,
+    vlm_image_size: tuple[int, int] | None = None,
+    task_kwargs: Mapping[str, Any] | None = None,
+) -> tuple[float, str]:
+    """Evaluate using LLM_Generator (legacy path for models without GeneratorClass)."""
     checkpoint_type = CheckpointType.from_checkpoint(kwargs["checkpoint"])
     if checkpoint_type == CheckpointType.INVALID:
         raise ValueError(
@@ -130,8 +361,6 @@ def evaluate(
     # Also determine the VEG's expected image size for resizing.
     vlm_processor = None
     if vision_encoder_cls is not None and hf_repo_name is not None:
-        from transformers import AutoProcessor
-
         vlm_processor = AutoProcessor.from_pretrained(
             hf_repo_name, trust_remote_code=True
         )
@@ -144,6 +373,10 @@ def evaluate(
         fp_model,
         dataset_cls,
         num_samples,
+        sequence_length=max(prompt_sequence_length)
+        if isinstance(prompt_sequence_length, list)
+        else prompt_sequence_length,
+        context_length=context_length,
         processor=vlm_processor,
         image_size=vlm_image_size,
     )
@@ -219,8 +452,6 @@ def evaluate(
     # Load vision encoder for VLM evaluation
     vision_encoder = None
     if vision_encoder_cls is not None:
-        from qai_hub_models import Precision
-
         veg_kwargs: dict[str, Any] = {}
         if vlm_image_size is not None:
             veg_kwargs["image_width"] = vlm_image_size[0]

@@ -310,11 +310,10 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
                 for img in images
             ]
 
-        # Use the model's get_input_prompt_with_tags for consistent prompt formatting
-        # Pass the number of images so the right number of placeholders are inserted
         formatted_text = self.selected_model.get_input_prompt_with_tags(
             user_input_prompt=input_prompt,
             include_image=len(images),  # type: ignore[arg-type]
+            tokenizer=self.tokenizer,
         )
 
         # Process inputs - processor expands vision placeholders to match image tokens

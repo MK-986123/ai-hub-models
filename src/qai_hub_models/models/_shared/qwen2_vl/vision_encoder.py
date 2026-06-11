@@ -33,6 +33,48 @@ if TYPE_CHECKING:
     from aimet_onnx.quantsim import QuantizationSimModel
 
 
+class Qwen2VLVisionWrapper(torch.nn.Module):
+    """Adapts a Qwen2.5-VL vision model to the generator's vision interface.
+
+    The generator always calls ``vision_model(pixel_values, image_grid_thw,
+    mask)`` and expects the image-embedding tensor back. Two kinds of vision
+    model can be wrapped, and this class picks the right call convention based
+    on what it is handed:
+
+    - Raw HF visual tower (calibration / demo): dynamic, computes its rotary
+      positions and attention masks internally from ``grid_thw``. We forward
+      ``grid_thw`` straight through and return its tensor output.
+    - ``Qwen2VLVisionEncoder`` VEG (evaluate): fixed input shape, runs an
+      onnxruntime session, with positions/masks precomputed as cached buffers.
+      It only consumes ``pixel_values``; ``grid_thw`` and ``mask`` are implied
+      by the fixed shape and ignored.
+    """
+
+    def __init__(self, visual: torch.nn.Module) -> None:
+        super().__init__()
+        self.visual = visual
+        self._is_veg = isinstance(visual, Qwen2VLVisionEncoder)
+
+    def forward(
+        self,
+        pixel_values: torch.Tensor,
+        image_grid_thw: torch.Tensor,
+        mask: torch.Tensor,
+    ) -> torch.Tensor | None:
+        if pixel_values is None:
+            return None
+        if self._is_veg:
+            # VEG has a fixed input shape; positions/masks are cached buffers,
+            # so grid_thw and mask are not passed. The quantized VEG runs via
+            # onnxruntime and returns a CPU tensor, so move the embeddings back
+            # to the input device before the generator merges them.
+            embeddings = self.visual(pixel_values)
+            return embeddings.to(pixel_values.device)
+        dtype = next(self.visual.parameters()).dtype
+        pixel_values = pixel_values.to(dtype=dtype)
+        return self.visual(pixel_values, grid_thw=image_grid_thw)
+
+
 class Qwen2VLVisionEncoder(BaseModel):
     """
     Adapted vision encoder for on-device export (VEG).

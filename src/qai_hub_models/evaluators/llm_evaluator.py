@@ -14,16 +14,15 @@ from tqdm import tqdm
 from qai_hub_models.utils.base_evaluator import BaseEvaluator, _DataLoader
 
 if TYPE_CHECKING:
+    from transformers.generation import GenerationMixin
     from transformers.modeling_outputs import CausalLMOutputWithPast
-
-    from qai_hub_models.models._shared.llm.generator import LLM_Generator
 
 
 class LLMEvaluator(BaseEvaluator):
-    """Base class for evaluators that run on an ``LLM_Generator``.
+    """Base class for evaluators that run on an ``GenerationMixin``.
 
-    Captures the contract the LLM evaluators share: they consume an
-    ``LLM_Generator`` (not a plain ``torch.nn.Module``), iterate the dataset one
+    Captures the contract the LLM evaluators share: they consume a derivative of
+    ``GenerationMixin`` (not a plain ``torch.nn.Module``), iterate the dataset one
     sample at a time, and run a forward pass per sample. Subclasses implement
     ``add_batch`` to fold each sample's logits into their metric.
     """
@@ -41,7 +40,7 @@ class LLMEvaluator(BaseEvaluator):
 
     def for_each_batch(
         self,
-        generator: LLM_Generator,
+        generator: GenerationMixin,
         data: _DataLoader,
         num_samples: int | None = None,
         callback: (
@@ -62,7 +61,7 @@ class LLMEvaluator(BaseEvaluator):
                 inputs = [input_ids, attention_mask]
                 inputs = [inp.to(self.device) for inp in inputs]
                 with torch.no_grad():
-                    outputs = generator(*inputs)
+                    outputs = generator(*inputs)  # type: ignore[operator, unused-ignore]
                 if callback:
                     callback(inputs, outputs, ground_truth)
                 total_samples += 1
@@ -76,9 +75,9 @@ class LLMEvaluator(BaseEvaluator):
         data: _DataLoader,
         eval_iterations: int | None = None,
     ) -> None:
-        from qai_hub_models.models._shared.llm.generator import LLM_Generator
+        from transformers.generation import GenerationMixin
 
-        assert isinstance(model, LLM_Generator), "This evaluator only works on LLMs"
+        assert isinstance(model, GenerationMixin), "This evaluator only works on LLMs"
 
         def _add_batch(
             _: list[torch.Tensor],
