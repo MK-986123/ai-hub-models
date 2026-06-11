@@ -17,6 +17,26 @@ Injected via the workflow prompt:
 - NEVER use `!=` in `--jq` expressions — bash mangles `!`. Use `select(.conclusion == "failure")` instead
 - Check run status before using `--log-failed`
 
+## Sandbox Gotchas
+
+These are real constraints in the Breeze runner — ignoring them wastes turns on
+permission denials and command-parsing failures.
+
+- **Working dir**: Use `/tmp/claude/`, NOT `/tmp/` directly. `mkdir -p /tmp/<anything>` is
+  denied; `mkdir -p /tmp/claude/<anything>` works.
+- **No pipes in Bash**: `cmd | head -10` triggers a permission denial because the matcher
+  splits on `|` and rechecks each side. Use the tool's own flags instead (`--limit`,
+  `--jq '[.[]] | .[0:10]'`, `head -n 10 file.txt` against a saved file).
+- **Quote `gh api` URLs that contain `&`**: bash parses unquoted `&` as a background
+  operator and splits the command. Always:
+  ```
+  gh api "repos/owner/name/commits?path=X&per_page=10" --jq '...'
+  ```
+  Not:
+  ```
+  gh api repos/owner/name/commits?path=X&per_page=10 --jq '...'   # DENIED
+  ```
+
 ## Step 1: Get Failed Jobs and Test Results (~3 tool calls)
 
 1. Get failed jobs in ONE call:
@@ -26,10 +46,10 @@ Injected via the workflow prompt:
 
 2. Try downloading test results artifact:
    ```
-   gh run download $RUN_ID -n nightly-test-results -D /tmp/nightly-results
+   gh run download $RUN_ID -n nightly-test-results -D /tmp/claude/nightly-results
    ```
 
-3. If download succeeds, read `/tmp/nightly-results/summary.md` — it has pre-built failure tables with test names, errors, and stack traces. This is your primary data source. If download fails, work from job-level pass/fail only.
+3. If download succeeds, read `/tmp/claude/nightly-results/summary.md` — it has pre-built failure tables with test names, errors, and stack traces. This is your primary data source. If download fails, work from job-level pass/fail only.
 
 ## Step 2: Summarize + Categorize Failures (~3 tool calls)
 
@@ -77,6 +97,13 @@ For each category: count, unique error signatures, first stack trace (max 10 lin
 4. If 0 commits between last success and current failure, note: "No new commits. Likely external dependency, flaky test, or infrastructure issue."
 
 ## Step 4: Root Cause Analysis + Triage (~5 tool calls)
+
+**STOP-AND-POST RULE — non-negotiable:**
+If you have used ~30 tool calls and have not yet started Step 5 (posting the comment),
+STOP investigating immediately. Post the comment with whatever you have, marking
+unresolved failures as confidence `LOW` or `MEDIUM`. A best-effort analysis posted on
+the issue is far more useful to the czar than a perfect analysis that hits the turn cap
+and posts nothing. The goal is to deliver, not to be exhaustive.
 
 **First, check `.claude/triage/historical-patterns.md` for known recurring patterns.**
 Many nightly failures match historical signatures (transient host outages, service timeouts,
