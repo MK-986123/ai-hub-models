@@ -16,7 +16,15 @@ function Invoke-GenieRetry {
         [string]$OutFile
     )
     foreach ($attempt in 1, 2) {
-        $captured = & genie-t2t-run.exe @GenieArgs 2>&1
+        # Avoid 2>&1: it wraps stderr as NativeCommandError records whose rendered "FullyQualifiedErrorId" text trips QDC's failure parser on exit 0.
+        $stderrFile = [System.IO.Path]::GetTempFileName()
+        try {
+            $stdout = & genie-t2t-run.exe @GenieArgs 2>$stderrFile
+            $stderr = Get-Content $stderrFile -Raw -Encoding UTF8
+        } finally {
+            Remove-Item $stderrFile -ErrorAction SilentlyContinue
+        }
+        $captured = @($stdout) + @($stderr)
         # Echo to the console as well as the log file, so progress is visible
         # even when a failed QDC job never makes the log files available.
         $captured | Out-String | Write-Host

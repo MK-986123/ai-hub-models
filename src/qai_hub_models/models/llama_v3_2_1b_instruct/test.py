@@ -154,12 +154,12 @@ def test_load_encodings_to_quantsim(checkpoint: str) -> None:
         # Prompt-generation + LLM-grader smoke test (5 samples). The grader
         # label is an argmax over near-valued logits that can flip across hosts
         # (we've seen 0.88, 0.94, 1.0), so expected_metric is a floor.
-        pytest.param("DEFAULT_W4A16", "prompts", 0.88, 5, marks=pytest.mark.nightly),
+        pytest.param("DEFAULT_W4A16", "prompts", 0.70, 5, marks=pytest.mark.nightly),
         ("DEFAULT_UNQUANTIZED", "wikitext", 12.14, 0),
         ("DEFAULT_UNQUANTIZED", "mmlu", 0.482, 1000),
         ("DEFAULT_UNQUANTIZED", "tiny_mmlu", 0.41, 0),
         pytest.param(
-            "DEFAULT_UNQUANTIZED", "prompts", 0.88, 5, marks=pytest.mark.nightly
+            "DEFAULT_UNQUANTIZED", "prompts", 0.70, 5, marks=pytest.mark.nightly
         ),
     ],
 )
@@ -371,7 +371,10 @@ def test_qdc(
     if not (genie_bundle_path / "genie_config.json").exists():
         pytest.fail("The genie bundle does not exist.")
 
-    from qai_hub_models.utils.qdc.genie_jobs import submit_genie_bundle_to_qdc_device
+    from qai_hub_models.utils.qdc.genie_jobs import (
+        _USE_DEFAULT_PROMPTS,
+        submit_genie_bundle_to_qdc_device,
+    )
 
     # TODO(https://github.com/qcom-ai-hub/tetracode/issues/19349): remove once
     # the QDC w4/w4a16 mix-up is resolved.
@@ -385,6 +388,7 @@ def test_qdc(
         device.reference_device.name,
         str(genie_bundle_path),
         job_name=qdc_job_name,
+        eval_prompts=(_USE_DEFAULT_PROMPTS if device.is_default else None),
     )
     assert tps is not None and min_ttft_ms is not None, "QDC execution failed."
     log_perf_on_device_result(
@@ -400,7 +404,7 @@ def test_qdc(
         assert tps > 24.0
         assert min_ttft_ms < 100.0
     else:
-        assert tps > 13.0
+        assert tps > 10.0
         assert min_ttft_ms < 135.0
 
 

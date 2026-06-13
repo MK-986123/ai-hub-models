@@ -147,7 +147,7 @@ jobs:
         id: start
         uses: ./.github/actions/start-gpu-runner
         with:
-          runner-id: gpu-pr-${{ github.run_id }}-${{ github.run_attempt }}
+          runner-id: gpu-pr-${{ github.run_id }}-${{ github.run_attempt }}-py${{ inputs.python_version }}
           gpu-request: "0"
           cpu-request: "8"
           memory-request: "256Gi"

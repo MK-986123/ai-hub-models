@@ -797,16 +797,9 @@ def run_llm_perf_test(
     if not api_token:
         raise ValueError("QDC_API_TOKEN environment variable is not set")
 
-    # Eval is gated to Snapdragon 8 Elite: scorecard runs on many devices,
-    # but eval is expensive (100 prompts) and only adds signal once per chipset
-    # family. 8 Elite is the reference device for our LLM bundles.
-    eight_elite_chipsets = {
-        "qualcomm-snapdragon-8-elite",
-        "qualcomm-snapdragon-8-elite-for-galaxy",
-    }
+    # Eval is expensive (100 prompts); run only on the default scorecard device.
     run_eval = (
-        os.environ.get("QAIHM_RUN_EVAL", "true").lower() == "true"
-        and device.chipset in eight_elite_chipsets
+        os.environ.get("QAIHM_RUN_EVAL", "true").lower() == "true" and device.is_default
     )
     tps, prefill_tps, ttft, eval_results = submit_genie_bundle_to_qdc_device(
         api_token,

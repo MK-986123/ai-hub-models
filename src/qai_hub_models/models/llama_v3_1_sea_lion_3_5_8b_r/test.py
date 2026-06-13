@@ -355,6 +355,7 @@ def test_qdc(
     if not (genie_bundle_path / "genie_config.json").exists():
         pytest.fail("The genie bundle does not exist.")
     from qai_hub_models.utils.qdc.genie_jobs import (
+        _USE_DEFAULT_PROMPTS,
         submit_genie_bundle_to_qdc_device,
     )
 
@@ -364,6 +365,7 @@ def test_qdc(
         device.reference_device.name,
         str(genie_bundle_path),
         job_name=qdc_job_name,
+        eval_prompts=(_USE_DEFAULT_PROMPTS if device.is_default else None),
     )
     assert tps is not None and min_ttft_ms is not None, "QDC execution failed."
     log_perf_on_device_result(

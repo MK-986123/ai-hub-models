@@ -679,16 +679,16 @@ def submit_genie_bundle_to_qdc_device(
     job_name: str = "LLM Genie",
     qairt_sdk_path: str | None = None,
     qairt_version: str = "2.45.40.260406",
-    eval_prompts: list[str] | None | object = _USE_DEFAULT_PROMPTS,
+    eval_prompts: list[str] | None | object = None,
     num_trials: int = 25,
     model_id: str | None = None,
 ) -> tuple[float | None, float | None, float | None, list[dict]]:
     """
     Submit a Genie bundle to QDC for execution on the specified device.
 
-    Runs profiling and evaluation in a single job. If eval_prompts is
-    the default sentinel, the built-in 100 questions are used. Pass None
-    or an empty list to skip evaluation entirely.
+    Runs profiling and (optionally) evaluation in a single job. Eval is
+    skipped by default; pass ``_USE_DEFAULT_PROMPTS`` for the built-in 100
+    questions, or a list of prompts to use a custom set.
 
     Parameters
     ----------
@@ -705,9 +705,9 @@ def submit_genie_bundle_to_qdc_device(
     qairt_version
         QAIRT SDK version to download on-device (e.g. ``"2.45.40.260406"``).
     eval_prompts
-        List of prompts to evaluate on device. If not provided, uses the
-        default eval_prompts.json (100 questions). Pass None or [] to skip
-        evaluation.
+        Eval is off by default. Pass ``_USE_DEFAULT_PROMPTS`` to use the
+        built-in eval_prompts.json (100 questions), or a list of prompts to
+        evaluate a custom set.
     num_trials
         Number of profiling trials to run.
     model_id
