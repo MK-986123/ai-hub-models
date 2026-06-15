@@ -114,6 +114,9 @@ lowers confidence on bisected suspects when the out-of-band signals are present.
 | `KeyError: 'Unable to synchronously open object'` | Sporadic | Corrupted HDF5 on CI machine. Re-run or clear cache. |
 | "Internal compiler error" + "status code 500" + "CompleteMultipartUpload" | `Cloud services` | Transient S3 multipart upload failure. Re-run. |
 | Job fails immediately after submission with no compile logs | `bug, Cloud services` | May be WorkerLostError with failed retry. |
+| Argo `AlreadyExists` — GPU runner workflow name collision across Python matrix | Sporadic | Race condition: multiple Python-version matrix legs try to create same Argo workflow name (e.g. `gpu-pr-<run_id>-1`). One wins, others fail. Re-run or ignore — the winning leg ran tests. Recurring (2026-06-12, 2026-06-13). |
+| `503 Service Unavailable` from `download.pytorch.org` during `uv pip install torch` | Sporadic | PyTorch index server outage. `uv` does not retry across indexes. Re-run. |
+| DNS failure resolving external dataset host (e.g. `www.cs.utexas.edu`) | Sporadic | Transient DNS resolution failure on CI runner. Only affects models that download from that host at test time. Re-run. |
 
 ### Workbench Service Issues (Not a compiler/code bug)
 | Error Signature | Label | Notes |
@@ -126,6 +129,7 @@ lowers confidence on bisected suspects when the out-of-band signals are present.
 ### Dependency Breakage (External change, fix in our code)
 | Error Signature | Label | Notes |
 |----------------|-------|-------|
+| `Invalid device name: <device> (Family)` in public website import | `ai-hub-models` | Device name format changed on workbench side; website `convertProfileJobToJobDetails` rejects it. Fix in website repo. See tetracode#19720 / tetra-public-website#1438. |
 | `ImportError: cannot import name ... from 'pkg_resources'` | `ai-hub-models` | setuptools removed pkg_resources. Pin or migrate. |
 | `numpy` build/wheel failure on Python 3.12/3.13 | `ai-hub-models` | numpy wheels not yet available. Pin numpy version. |
 | `ModuleNotFoundError: No module named 'tflite_runtime'` | `ai-hub-models` | Package renamed to `litert`. Update requirements. |

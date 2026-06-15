@@ -43,6 +43,7 @@ Use alongside `error-patterns.md` and `runtime-guide.md` for triage.
 | Same model shows wildly different times across retries | MEDIUM | Cloud Services (device pool contention) |
 | All models on one device show ~same factor increase | HIGH | Cloud Services (throttled device) |
 | All entries on one device report `-inf` / no valid measurement + null Job IDs for subset | HIGH | Cloud Services / Scorecard infra (device pool unavailable or pipeline skipped submissions) |
+| Samsung Galaxy S25 `-inf` across all runtimes, sustained across multiple consecutive runs (2026-06-05: 203, 2026-06-08: 57, 2026-06-12: 15 entries) | HIGH | Cloud Services / Tungsten — S25 device pool or firmware. Improving trend but not fully resolved. (low confidence — verify with next scorecard run) |
 
 ---
 
