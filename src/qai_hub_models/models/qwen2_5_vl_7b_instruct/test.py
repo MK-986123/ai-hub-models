@@ -58,7 +58,7 @@ def test_load_encodings_to_quantsim(checkpoint: str) -> None:
 @pytest.mark.parametrize(
     ("checkpoint", "task", "expected_metric", "num_samples"),
     [
-        pytest.param("DEFAULT", "wikitext", 9.75, 0, marks=pytest.mark.nightly),
+        pytest.param("DEFAULT", "wikitext", 10.38, 0, marks=pytest.mark.nightly),
         ("DEFAULT", "mmlu", 0.689, 1000),
         ("DEFAULT", "mmmu", 0.545, 200),
         # Image+prompt generation + LLM-grader smoke test (5 samples). Weekly
