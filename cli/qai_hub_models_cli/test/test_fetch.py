@@ -14,8 +14,6 @@ from qai_hub_models_cli.cli import _run_fetch, add_fetch_parser
 from qai_hub_models_cli.common import (
     ASSET_FOLDER,
     STORE_URL,
-    Precision,
-    TargetRuntime,
 )
 from qai_hub_models_cli.fetch import (
     _asset_url,
@@ -52,16 +50,11 @@ def test_asset_url_with_chipset() -> None:
 
 
 def test_asset_url_with_enum_types() -> None:
-    _, filename = _asset_url(
-        "mobilenet_v2", TargetRuntime.TFLITE, Precision.FLOAT, Version("0.45.0")
-    )
+    _, filename = _asset_url("mobilenet_v2", "tflite", "float", Version("0.45.0"))
     assert filename == "mobilenet_v2-tflite-float.zip"
 
 
 # ── get_asset_url ────────────────────────────────────────────────────
-
-
-_skip_version_validation = patch("qai_hub_models_cli.fetch.verify_version_supported")
 
 
 def _mock_head(status_map: dict[str, int]) -> object:
@@ -80,17 +73,13 @@ def _mock_head(status_map: dict[str, int]) -> object:
 
 
 def test_get_asset_url_found() -> None:
-    with (
-        _skip_version_validation,
-        patch("qai_hub_models_cli.fetch.requests.head", _mock_head({"tflite": 200})),
-    ):
+    with patch("qai_hub_models_cli.fetch.requests.head", _mock_head({"tflite": 200})):
         url = get_asset_url("mobilenet_v2", "tflite", "float", Version("0.45.0"))
     assert "mobilenet_v2-tflite-float.zip" in url
 
 
 def test_get_asset_url_not_found() -> None:
     with (
-        _skip_version_validation,
         patch("qai_hub_models_cli.fetch.requests.head", _mock_head({})),
         pytest.raises(FileNotFoundError, match="No asset found"),
     ):
@@ -99,14 +88,9 @@ def test_get_asset_url_not_found() -> None:
 
 def test_get_asset_url_chipset_fallback() -> None:
     """When chipset URL returns 404, falls back to generic URL."""
-    with (
-        _skip_version_validation,
-        patch(
-            "qai_hub_models_cli.fetch.requests.head",
-            _mock_head(
-                {"qualcomm_snapdragon": 404, "mobilenet_v2-tflite-float.zip": 200}
-            ),
-        ),
+    with patch(
+        "qai_hub_models_cli.fetch.requests.head",
+        _mock_head({"qualcomm_snapdragon": 404, "mobilenet_v2-tflite-float.zip": 200}),
     ):
         url = get_asset_url(
             "mobilenet_v2",
@@ -121,12 +105,9 @@ def test_get_asset_url_chipset_fallback() -> None:
 
 def test_get_asset_url_chipset_found() -> None:
     """When chipset URL returns 200, uses it directly."""
-    with (
-        _skip_version_validation,
-        patch(
-            "qai_hub_models_cli.fetch.requests.head",
-            _mock_head({"qualcomm_snapdragon": 200}),
-        ),
+    with patch(
+        "qai_hub_models_cli.fetch.requests.head",
+        _mock_head({"qualcomm_snapdragon": 200}),
     ):
         url = get_asset_url(
             "mobilenet_v2",
@@ -140,7 +121,6 @@ def test_get_asset_url_chipset_found() -> None:
 
 def test_get_asset_url_unexpected_status() -> None:
     with (
-        _skip_version_validation,
         patch(
             "qai_hub_models_cli.fetch.requests.head",
             _mock_head({"tflite": 500}),

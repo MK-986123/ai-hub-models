@@ -508,7 +508,7 @@ class TestGetModelAssetDetails:
                 "qai_hub_models_cli.proto_helpers.release_assets.get_runtime_info",
                 return_value=RuntimeInfo(is_aot_compiled=True),
             ),
-            pytest.raises(KeyError, match="Chipset is required"),
+            pytest.raises(FileNotFoundError, match="Chipset is required"),
         ):
             get_model_asset_details(
                 "mobilenet_v2",

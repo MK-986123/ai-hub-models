@@ -19,7 +19,7 @@ from qai_hub_models.configs.info_yaml import QAIHMModelInfo
 from qai_hub_models.configs.numerics_yaml import QAIHMModelNumerics
 from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
 from qai_hub_models.configs.release_assets_yaml import QAIHMModelReleaseAssets
-from qai_hub_models.utils.path_helpers import MODEL_IDS
+from qai_hub_models.utils.path_helpers import MODEL_IDS, is_internal_repo
 
 
 def get_manifest_proto() -> ReleaseManifest:
@@ -68,5 +68,5 @@ def get_platform_proto() -> PlatformInfo:
 def get_release_assets_proto(model_id: str) -> ModelReleaseAssets:
     """Build a ModelReleaseAssets proto from local model config (dev installs)."""
     return QAIHMModelReleaseAssets.from_model(model_id, not_exists_ok=True).to_proto(
-        __version__, model_id
+        __version__, model_id, is_internal_repo()
     )

@@ -8,10 +8,12 @@ import os
 import re
 import shutil
 import tempfile
+import textwrap
 from pathlib import Path
 from zipfile import ZipFile
 
 import requests
+from prettytable import PrettyTable
 from tqdm import tqdm
 
 
@@ -238,3 +240,21 @@ def extract_zip_file(
                 shutil.move(file, out_path / file.name)
 
     return out_path
+
+
+def wrap_table_column(table: PrettyTable, col_index: int) -> None:
+    """Wrap a single column of a PrettyTable to fit within the terminal width."""
+    num_cols = len(table.field_names)
+    term_width = shutil.get_terminal_size(fallback=(120, 24)).columns
+    fixed_cols_width = sum(
+        max(len(h), max((len(r[i]) for r in table._rows), default=0))
+        for i, h in enumerate(table.field_names)
+        if i != col_index
+    )
+    overhead = num_cols * 4 + 1
+    budget = term_width - overhead - fixed_cols_width
+    if budget > len(table.field_names[col_index]):
+        for row in table._rows:
+            row[col_index] = "\n".join(
+                textwrap.wrap(row[col_index], width=budget, break_on_hyphens=False)
+            )

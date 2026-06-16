@@ -4,41 +4,20 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from enum import Enum
 from pathlib import Path
 
 import platformdirs
+from packaging.version import Version
 
 CACHE_DIR = Path(platformdirs.user_cache_dir("qai_hub_models")) / "cli"
 STORE_URL = "https://qaihub-public-assets.s3.us-west-2.amazonaws.com"
 ASSET_FOLDER = "qai-hub-models/models/{model_id}/releases/v{version}"
 
-
-# These are just syntactic sugar; you can use strings to get values from older versions.
-class Precision(Enum):
-    FLOAT = "float"
-    W8A8 = "w8a8"
-    W8A16 = "w8a16"
-    W16A16 = "w16a16"
-    W4A16 = "w4a16"
-    W4 = "w4"
-    W8A8_MIXED_INT16 = "w8a8_mixed_int16"
-    W8A16_MIXED_INT16 = "w8a16_mixed_int16"
-    W8A8_MIXED_FP16 = "w8a8_mixed_fp16"
-    W8A16_MIXED_FP16 = "w8a16_mixed_fp16"
-    MXFP4 = "mxfp4"
-    Q8_0 = "q8_0"
-    Q4_0 = "q4_0"
-    MIXED = "mixed"
-    MIXED_WITH_FLOAT = "mixed_with_float"
+GITHUB_REPO_URL = "https://github.com/qualcomm/ai-hub-models"
+AIHUB_MODELS_URL = "https://aihub.qualcomm.com/models"
 
 
-# These are just syntactic sugar; you can use strings to get values from older versions.
-class TargetRuntime(Enum):
-    TFLITE = "tflite"
-    QNN_DLC = "qnn_dlc"
-    QNN_CONTEXT_BINARY = "qnn_context_binary"
-    ONNX = "onnx"
-    PRECOMPILED_QNN_ONNX = "precompiled_qnn_onnx"
-    GENIE = "genie"
-    VOICE_AI = "voice_ai"
+def model_repo_url(model_id: str, version: Version) -> str:
+    """URL to the model's source code on GitHub for the given release version."""
+    ref = f"v{version}" if not version.is_devrelease else "main"
+    return f"{GITHUB_REPO_URL}/tree/{ref}/src/qai_hub_models/models/{model_id}"

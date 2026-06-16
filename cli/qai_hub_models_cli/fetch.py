@@ -11,16 +11,22 @@ import requests
 from packaging.version import Version
 
 from qai_hub_models_cli.common import (
+    AIHUB_MODELS_URL,
     ASSET_FOLDER,
     STORE_URL,
-    Precision,
-    TargetRuntime,
 )
-from qai_hub_models_cli.utils import download, get_next_free_path
+from qai_hub_models_cli.proto.shared.precision_pb2 import Precision
+from qai_hub_models_cli.proto.shared.runtime_pb2 import Runtime
+from qai_hub_models_cli.proto_helpers._common import use_aihm_source
+from qai_hub_models_cli.proto_helpers.manifest import get_manifest_entry
+from qai_hub_models_cli.proto_helpers.platform import (
+    precision_proto_to_str,
+    runtime_proto_to_str,
+)
+from qai_hub_models_cli.proto_helpers.release_assets import get_model_asset_details
+from qai_hub_models_cli.utils import download, extract_zip_file, get_next_free_path
 from qai_hub_models_cli.versions import (
     CURRENT_VERSION,
-    verify_not_dev_release,
-    verify_version_supported,
 )
 
 ASSET_FILENAME = "{model_id}-{runtime}-{precision}.zip"
@@ -29,21 +35,29 @@ ASSET_CHIPSET_FILENAME = (
 )
 
 
+def _normalize_runtime(runtime: Runtime.ValueType | str) -> str:
+    if isinstance(runtime, int):
+        return runtime_proto_to_str(runtime)
+    return runtime
+
+
+def _normalize_precision(precision: Precision.ValueType | str) -> str:
+    if isinstance(precision, int):
+        return precision_proto_to_str(precision)
+    return precision
+
+
 def _asset_url(
     model_id: str,
-    runtime: TargetRuntime | str,
-    precision: Precision | str,
+    runtime: str,
+    precision: str,
     version: Version,
     chipset: str | None = None,
 ) -> tuple[str, str]:
     """Return (url, filename) for the asset."""
     model_id = model_id.lower()
-    runtime_str = (
-        runtime.value if isinstance(runtime, TargetRuntime) else runtime.lower()
-    )
-    precision_str = (
-        precision.value if isinstance(precision, Precision) else precision.lower()
-    )
+    runtime_str = runtime.lower()
+    precision_str = precision.lower()
     ver = str(version)
     if chipset is not None:
         filename = ASSET_CHIPSET_FILENAME.format(
@@ -64,9 +78,9 @@ def _asset_url(
 
 
 def get_asset_url(
-    model_id: str,
-    runtime: TargetRuntime | str,
-    precision: Precision | str,
+    model: str,
+    runtime: Runtime.ValueType | str,
+    precision: Precision.ValueType | str,
     version: Version,
     chipset: str | None = None,
 ) -> str:
@@ -75,12 +89,12 @@ def get_asset_url(
 
     Parameters
     ----------
-    model_id
-        Model ID (e.g. ``"mobilenet_v2"``).
+    model
+        Model Name or ID (e.g. ``"mobilenet_v2"``).
     runtime
-        Target runtime.
+        Target runtime (e.g. ``RUNTIME_TFLITE`` or ``"tflite"``).
     precision
-        Model precision.
+        Model precision (e.g. ``PRECISION_FLOAT`` or ``"float"``).
     version
         AI Hub Models version.
     chipset
@@ -96,14 +110,12 @@ def get_asset_url(
     FileNotFoundError
         If the asset does not exist on the server.
     """
-    verify_not_dev_release(version)
-    verify_version_supported(version)
+    if version >= Version("0.50.1"):
+        return get_model_asset_details(
+            model, runtime, precision, chipset, version
+        ).download_url
 
-    # TODO(#18374): Read available assets from a manifest
-    # instead of making HEAD requests.
-    #
-    # Not all runtimes produce chipset-specific assets. Try the chipset URL
-    # first, then fall back to the generic (non-chipset) URL.
+    # Legacy: No manifest was published for these releases.
     def _head(url: str) -> int:
         resp = requests.head(url, timeout=10)
         if resp.status_code not in (200, 403, 404):
@@ -113,29 +125,31 @@ def get_asset_url(
             )
         return resp.status_code
 
+    runtime_s = _normalize_runtime(runtime)
+    precision_s = _normalize_precision(precision)
     if chipset is not None:
-        url, _ = _asset_url(model_id, runtime, precision, version, chipset)
+        url, _ = _asset_url(model, runtime_s, precision_s, version, chipset)
         if _head(url) == 200:
             return url
 
-    url, _ = _asset_url(model_id, runtime, precision, version)
+    url, _ = _asset_url(model, runtime_s, precision_s, version)
     if _head(url) == 200:
         return url
 
     chipset_msg = f", chipset={chipset!r}" if chipset else ""
     raise FileNotFoundError(
-        f"No asset found for model={model_id!r}, runtime={runtime!r}, "
+        f"No asset found for model={model!r}, runtime={runtime!r}, "
         f"precision={precision!r}, version={version!r}{chipset_msg}.\n"
-        "  - Browse available models: https://aihub.qualcomm.com/models\n"
+        f"  - Browse available models: {AIHUB_MODELS_URL}\n"
         "  - List valid devices/chipsets: qai-hub list-devices (from the qai_hub package)"
     )
 
 
 def fetch(
     model: str,
-    runtime: TargetRuntime | str,
+    runtime: Runtime.ValueType | str,
     output_dir: str | os.PathLike,
-    precision: Precision | str = Precision.FLOAT,
+    precision: Precision.ValueType | str = "float",
     chipset: str | None = None,
     version: Version = CURRENT_VERSION,
     extract: bool = False,
@@ -152,11 +166,11 @@ def fetch(
     model
         Model ID (e.g. ``"mobilenet_v2"``).
     runtime
-        Target runtime (e.g. ``TargetRuntime.QNN_DLC`` or ``"qnn_dlc"``).
+        Target runtime (e.g. ``RUNTIME_TFLITE`` or ``"tflite"``).
     output_dir
         Output directory.
     precision
-        Model precision (e.g. ``Precision.FLOAT`` or ``"w8a8"``).
+        Model precision (e.g. ``PRECISION_FLOAT`` or ``"float"``).
     chipset
         Chipset name for device-specific (AOT compiled) runtimes.
     version
@@ -176,7 +190,36 @@ def fetch(
     FileNotFoundError
         If the asset does not exist on the server.
     """
+    # This runs first (even though the result is unused for dev releases),
+    # as it will throw with a good error message if the asset is missing.
     url = get_asset_url(model, runtime, precision, version, chipset)
+
+    if use_aihm_source(version):
+        from qai_hub_models import Precision as QAIHM_Precision
+        from qai_hub_models import TargetRuntime as QAIHM_TargetRuntime
+        from qai_hub_models.utils.fetch_prerelease_assets import fetch_prerelease_assets
+
+        # Map CLI string values to models types.
+        tgt_runtime = QAIHM_TargetRuntime(_normalize_runtime(runtime))
+        tgt_precision = getattr(QAIHM_Precision, _normalize_precision(precision))
+
+        entry = get_manifest_entry(model, version)
+        result = fetch_prerelease_assets(
+            model_id=entry.id,
+            runtime_or_path=tgt_runtime,
+            precision=tgt_precision,
+            device_or_chipset=chipset,
+            output_folder=output_dir,
+            verbose=not quiet,
+        )
+
+        if extract:
+            zip_path = result
+            extract_dir = get_next_free_path(zip_path.parent / zip_path.stem)
+            result = extract_zip_file(zip_path, extract_dir)
+            zip_path.unlink()
+        return result
+
     filename = url.rsplit("/", 1)[-1]
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)

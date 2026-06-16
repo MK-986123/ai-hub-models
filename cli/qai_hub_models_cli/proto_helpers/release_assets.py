@@ -8,7 +8,9 @@ import functools
 from pathlib import Path
 
 from packaging.version import Version
+from prettytable import PrettyTable
 
+from qai_hub_models_cli.common import model_repo_url
 from qai_hub_models_cli.proto import info_pb2
 from qai_hub_models_cli.proto.release_assets_pb2 import ModelReleaseAssets
 from qai_hub_models_cli.proto.shared.precision_pb2 import Precision
@@ -23,6 +25,7 @@ from qai_hub_models_cli.proto_helpers.platform import (
     runtime_proto_to_str,
     runtime_str_to_proto,
 )
+from qai_hub_models_cli.utils import wrap_table_column
 from qai_hub_models_cli.versions import CURRENT_VERSION
 
 
@@ -110,14 +113,10 @@ def get_model_release_assets(
 
         if info_proto.restrict_model_sharing:
             raise AssetNotFoundError(
-                (
-                    f"No pre-compiled model files for {entry.display_name} are available due to licensing"
-                    " restrictions. You can use the AI Hub Models package to manually"
-                    " export the model. See"
-                    " https://github.com/qualcomm/ai-hub-models/tree/"
-                )
-                + (f"v{version}" if not version.is_devrelease else "main")
-                + f"/src/qai_hub_models/models/{entry.id} for export instructions.",
+                f"No pre-compiled model files for {entry.display_name} are available due to licensing"
+                " restrictions. You can use the AI Hub Models package to manually"
+                " export the model. See"
+                f" {model_repo_url(entry.id, version)} for export instructions.",
                 model_sharing_restricted=True,
             )
 
@@ -127,6 +126,46 @@ def get_model_release_assets(
         )
 
     return proto
+
+
+def format_release_assets_table(
+    release_assets: ModelReleaseAssets,
+    model: str,
+    title: str | None = None,
+) -> str:
+    """Format a table of download options for a model."""
+    grouped: dict[tuple[str, str], list[str | None]] = {}
+    for asset in release_assets.assets:
+        prec = precision_proto_to_str(asset.precision)
+        rt = runtime_proto_to_str(asset.runtime)
+        key = (prec, rt)
+        chipset = asset.chipset if asset.HasField("chipset") else None
+        grouped.setdefault(key, []).append(chipset)
+
+    table = PrettyTable()
+    if title:
+        table.title = title
+    table.field_names = ["Precision", "Runtime", "Chipsets"]
+    table.align = "l"
+    for (prec, rt), chipsets in grouped.items():
+        if all(c is None for c in chipsets):
+            chipset_str = "Universal"
+        else:
+            chipset_str = ", ".join(sorted(c for c in chipsets if c))
+        table.add_row([prec, rt, chipset_str])
+    wrap_table_column(table, 2)
+
+    chipset_flag = (
+        " -c <chipset>"
+        if any(asset.HasField("chipset") for asset in release_assets.assets)
+        else ""
+    )
+    lines = [
+        str(table),
+        f"\nRun `qai_hub_models fetch {model} -r <runtime> -p <precision>"
+        f"{chipset_flag}` to download the model.\n",
+    ]
+    return "\n".join(lines)
 
 
 def get_model_asset_details(
@@ -174,28 +213,28 @@ def get_model_asset_details(
     rt_info = get_runtime_info(runtime_val, version)
     release_assets = get_model_release_assets(model, version)
 
+    errmsg: str | None = None
     if rt_info.is_aot_compiled:
         if chipset is None:
-            raise KeyError(f"Chipset is required for AOT-compiled runtime {runtime!r}.")
-        for asset in release_assets.assets:
-            if (
-                asset.runtime == runtime_val
-                and asset.precision == precision_val
-                and asset.chipset == chipset
-            ):
-                return asset
+            errmsg = f"Chipset is required for AOT-compiled runtime {runtime!r}.\n\n"
+        else:
+            for asset in release_assets.assets:
+                if (
+                    asset.runtime == runtime_val
+                    and asset.precision == precision_val
+                    and asset.chipset == chipset
+                ):
+                    return asset
     else:
         for asset in release_assets.assets:
             if asset.runtime == runtime_val and asset.precision == precision_val:
                 return asset
 
-    available = ", ".join(
-        f"{runtime_proto_to_str(a.runtime)}/{precision_proto_to_str(a.precision)}"
-        + (f"/{a.chipset}" if a.HasField("chipset") else "")
-        for a in release_assets.assets
-    )
-    raise AssetNotFoundError(
+    errmsg = errmsg or (
         f"No asset found for model={model!r} with runtime={runtime!r}, "
         f"precision={precision!r}, chipset={chipset!r} (version={version}).\n"
-        f"Available: {available}"
+        f"The model was found, but not with the requested runtime, precision, or chipset.\n\n"
     )
+    errmsg += f"The following are valid fetch options for {model}:\n"
+    errmsg += format_release_assets_table(release_assets, model)
+    raise AssetNotFoundError(errmsg)

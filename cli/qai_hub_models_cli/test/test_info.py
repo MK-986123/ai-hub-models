@@ -1,0 +1,122 @@
+# ---------------------------------------------------------------------
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+# ---------------------------------------------------------------------
+from collections.abc import Generator
+from unittest.mock import patch
+
+import pytest
+
+from qai_hub_models_cli.cli import main
+from qai_hub_models_cli.proto.info_pb2 import (
+    ModelDomain,
+    ModelInfo,
+    ModelLicense,
+    ModelTag,
+    ModelUseCase,
+)
+from qai_hub_models_cli.proto.release_assets_pb2 import ModelReleaseAssets
+from qai_hub_models_cli.proto.shared.precision_pb2 import Precision
+from qai_hub_models_cli.proto.shared.runtime_pb2 import Runtime
+
+
+def _fake_model_info() -> ModelInfo:
+    return ModelInfo(
+        id="mobilenet_v2",
+        name="MobileNet V2",
+        description="Imagenet classifier and general-purpose backbone.",
+        domain=ModelDomain.MODEL_DOMAIN_COMPUTER_VISION,
+        use_case=ModelUseCase.MODEL_USE_CASE_IMAGE_CLASSIFICATION,
+        tags=[ModelTag.MODEL_TAG_REAL_TIME],
+        license_type=ModelLicense.MODEL_LICENSE_APACHE_2_0,
+        technical_details=[
+            ModelInfo.TechnicalDetail(key="Number of parameters", int_value=3500000),
+            ModelInfo.TechnicalDetail(key="Model size (MB)", float_value=14.2),
+            ModelInfo.TechnicalDetail(key="Architecture", string_value="CNN"),
+        ],
+    )
+
+
+def _fake_release_assets() -> ModelReleaseAssets:
+    return ModelReleaseAssets(
+        model_id="mobilenet_v2",
+        assets=[
+            ModelReleaseAssets.AssetDetails(
+                precision=Precision.PRECISION_FLOAT,
+                runtime=Runtime.RUNTIME_TFLITE,
+                download_url="https://example.com/mobilenet_v2-tflite-float.zip",
+            ),
+            ModelReleaseAssets.AssetDetails(
+                precision=Precision.PRECISION_FLOAT,
+                runtime=Runtime.RUNTIME_QNN_CONTEXT_BINARY,
+                chipset="qualcomm-snapdragon-8-gen-3",
+                download_url="https://example.com/mobilenet_v2-qnn-float-sd8g3.zip",
+            ),
+        ],
+    )
+
+
+@pytest.fixture(autouse=True)
+def _skip_version_check() -> Generator[None]:
+    with patch("qai_hub_models_cli.cli._check_version_match"):
+        yield
+
+
+@pytest.fixture
+def info_mocks() -> Generator[None]:
+    with (
+        patch(
+            "qai_hub_models_cli.cli.get_model_info",
+            return_value=_fake_model_info(),
+        ),
+        patch(
+            "qai_hub_models_cli.cli.get_model_release_assets",
+            return_value=_fake_release_assets(),
+        ),
+    ):
+        yield
+
+
+def test_info_full_output(info_mocks: None, capsys: pytest.CaptureFixture[str]) -> None:
+    main(["info", "mobilenet_v2"])
+    output = capsys.readouterr().out
+    assert "MobileNet V2" in output
+    assert "Imagenet classifier" in output
+    assert "Computer Vision" in output
+    assert "Image Classification" in output
+    assert "Real Time" in output
+    assert "Apache-2.0" in output
+    assert "3500000" in output
+    assert "14.2" in output
+    assert "CNN" in output
+
+
+def test_info_download_options(
+    info_mocks: None, capsys: pytest.CaptureFixture[str]
+) -> None:
+    main(["info", "mobilenet_v2"])
+    output = capsys.readouterr().out
+    assert "Download Options" in output
+    assert "tflite" in output
+    assert "Universal" in output
+    assert "qnn_context_binary" in output
+    assert "qualcomm-snapdragon-8-gen-3" in output
+    assert "qai_hub_models fetch mobilenet_v2" in output
+    assert "-c <chipset>" in output
+
+
+def test_info_minimal_model(capsys: pytest.CaptureFixture[str]) -> None:
+    minimal_info = ModelInfo(id="my_model", name="My Model")
+    empty_assets = ModelReleaseAssets(model_id="my_model", assets=[])
+    with (
+        patch("qai_hub_models_cli.cli.get_model_info", return_value=minimal_info),
+        patch(
+            "qai_hub_models_cli.cli.get_model_release_assets",
+            return_value=empty_assets,
+        ),
+    ):
+        main(["info", "my_model"])
+    output = capsys.readouterr().out
+    assert "My Model" in output
+    assert "Domain:" not in output
+    assert "Technical Details:" not in output
