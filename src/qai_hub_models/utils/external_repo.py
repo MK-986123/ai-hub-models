@@ -273,6 +273,11 @@ def _shallow_clone(url: str, commit_sha: str, target: Path) -> None:
         Local directory to clone into.
     """
     repo = git.Repo.init(target)
+    # External repos are imported as Python source only; git-lfs assets are
+    # never needed. The bare `git init` + `git fetch <url>` clone registers no
+    # remote, so git-lfs can't resolve an endpoint and fails the checkout with
+    # "batch request: missing protocol" in CI. Skip the smudge filter.
+    repo.git.update_environment(GIT_LFS_SKIP_SMUDGE="1")
     try:
         repo.git.fetch(url, commit_sha, depth=1)
     except git.GitCommandError:

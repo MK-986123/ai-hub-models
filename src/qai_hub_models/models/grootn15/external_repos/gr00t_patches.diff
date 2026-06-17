@@ -1,0 +1,16 @@
+diff --git a/gr00t/model/backbone/eagle_backbone.py b/gr00t/model/backbone/eagle_backbone.py
+index c9de3fa..4da936c 100755
+--- a/gr00t/model/backbone/eagle_backbone.py
++++ b/gr00t/model/backbone/eagle_backbone.py
+@@ -19,10 +19,8 @@ from torch import nn
+ from transformers import AutoConfig, AutoModel
+ from transformers.feature_extraction_utils import BatchFeature
+ 
+-import gr00t
+-
+ DEFAULT_EAGLE_PATH = os.path.join(
+-    os.path.dirname(gr00t.__file__), "model", "backbone", "eagle2_hg_model"
++   os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "model", "backbone", "eagle2_hg_model"
+ )
+ 
+ 
