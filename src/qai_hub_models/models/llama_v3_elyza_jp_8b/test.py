@@ -237,14 +237,12 @@ def test_evaluate(
         d for d in FP_Model.get_eval_dataset_classes() if d.dataset_name() == task
     )
     cleanup()
-    is_unquantized = checkpoint == "DEFAULT_UNQUANTIZED"
     actual_metric, _ = evaluate(
         quantized_model_cls=Model,
         fp_model_cls=FP_Model,
         qnn_model_cls=QNN_Model,
         num_samples=num_samples,
         dataset_cls=dataset_cls,
-        skip_fp_model_eval=not is_unquantized,
         kwargs=dict(
             checkpoint=checkpoint,
             sequence_length=DEFAULT_EVAL_SEQLEN,

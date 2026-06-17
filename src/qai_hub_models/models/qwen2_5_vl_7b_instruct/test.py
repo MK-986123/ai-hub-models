@@ -98,7 +98,6 @@ def test_evaluate(
         qnn_model_cls=LLM_QNN,  # placeholder — no QNN variant yet
         num_samples=num_samples,
         dataset_cls=dataset_cls,
-        skip_fp_model_eval=True,
         kwargs=dict(
             checkpoint=checkpoint,
             sequence_length=DEFAULT_EVAL_SEQLEN,

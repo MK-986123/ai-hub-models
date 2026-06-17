@@ -11,11 +11,9 @@ from typing import Any
 import torch
 from torch.utils.data import DataLoader
 from transformers import AutoProcessor
-from transformers.cache_utils import DynamicCache
 
 from qai_hub_models import Precision
 from qai_hub_models.datasets import instantiate_dataset
-from qai_hub_models.datasets.common import AugmentedLabelDataset
 from qai_hub_models.evaluators.llm_evaluator import LLMEvaluator
 from qai_hub_models.models._shared.llm.generator import LLM_Generator
 from qai_hub_models.models._shared.llm.generator_factory import make_generator
@@ -50,7 +48,7 @@ def get_dataset(
     context_length: int = DEFAULT_CONTEXT_LENGTH,
     processor: Any = None,
     image_size: tuple[int, int] | None = None,
-) -> DataLoader[AugmentedLabelDataset]:
+) -> DataLoader:
     extra_kwargs: dict[str, Any] = {}
     if processor is not None:
         extra_kwargs["processor"] = processor
@@ -80,7 +78,6 @@ def evaluate(
     kwargs: Mapping[str, Any],
     prompt_sequence_length: int | list[int] = DEFAULT_SEQUENCE_LENGTH,
     context_length: int = DEFAULT_CONTEXT_LENGTH,
-    skip_fp_model_eval: bool = False,
     vision_encoder_cls: Any = None,
     hf_repo_name: str | None = None,
     vlm_image_size: tuple[int, int] | None = None,
@@ -101,7 +98,6 @@ def evaluate(
             kwargs=kwargs,
             prompt_sequence_length=prompt_sequence_length,
             context_length=context_length,
-            skip_fp_model_eval=skip_fp_model_eval,
             vision_encoder_cls=vision_encoder_cls,
             hf_repo_name=hf_repo_name,
             vlm_image_size=vlm_image_size,
@@ -116,7 +112,6 @@ def evaluate(
         kwargs=kwargs,
         prompt_sequence_length=prompt_sequence_length,
         context_length=context_length,
-        skip_fp_model_eval=skip_fp_model_eval,
         vision_encoder_cls=vision_encoder_cls,
         hf_repo_name=hf_repo_name,
         vlm_image_size=vlm_image_size,
@@ -133,7 +128,6 @@ def _evaluate_impl(
     kwargs: Mapping[str, Any],
     prompt_sequence_length: int | list[int] = DEFAULT_SEQUENCE_LENGTH,
     context_length: int = DEFAULT_CONTEXT_LENGTH,
-    skip_fp_model_eval: bool = False,
     vision_encoder_cls: Any = None,
     hf_repo_name: str | None = None,
     vlm_image_size: tuple[int, int] | None = None,
@@ -210,31 +204,6 @@ def _evaluate_impl(
     )
     assert isinstance(evaluator, LLMEvaluator)
 
-    if evaluator.is_distance_metric and not is_fp:
-        fp_model_on_device = fp_model.to(host_device)
-        fp_generator = make_generator(
-            fp_model_on_device,
-            sequence_length=prompt_sequence_length,
-            context_length=context_length,
-            model_cls=fp_model_cls,
-        )
-
-        fp_logits_list = []
-        for input_ids, attention_mask, *_ in eval_dataloader:
-            input_ids = input_ids.to(host_device)
-            attention_mask = attention_mask.to(host_device)
-            with torch.no_grad():
-                fp_output = fp_generator(input_ids, attention_mask)
-            fp_logits_list.append(fp_output.logits.detach().cpu())
-
-        dataset = AugmentedLabelDataset(eval_dataloader.dataset, fp_logits_list)
-        eval_dataloader = DataLoader(
-            dataset,
-            shuffle=False,
-            batch_size=eval_dataloader.batch_size,
-            collate_fn=eval_dataloader.collate_fn,
-        )
-
     if not is_fp:
         fp_model.to(torch.device("cpu"))
         if "fp_model" not in final_kwargs:
@@ -307,7 +276,6 @@ def _legacy_evaluate_impl(
     kwargs: Mapping[str, Any],
     prompt_sequence_length: int | list[int] = DEFAULT_SEQUENCE_LENGTH,
     context_length: int = DEFAULT_CONTEXT_LENGTH,
-    skip_fp_model_eval: bool = False,
     vision_encoder_cls: Any = None,
     hf_repo_name: str | None = None,
     vlm_image_size: tuple[int, int] | None = None,
@@ -392,47 +360,6 @@ def _legacy_evaluate_impl(
     assert isinstance(evaluator, LLMEvaluator)
 
     embedding = None
-    if skip_fp_model_eval and evaluator.is_distance_metric and not is_fp:
-        # If it's a distance metric, we run the FP model and attach the outputs
-        # to the ground truth of the eval data loader.
-        assert fp_model_cls.EmbeddingClass is not None
-        embedding = fp_model_cls.EmbeddingClass(
-            max_length=context_length,
-            config=fp_model.llm_config,
-        )
-
-        fp_generator = LLM_Generator(
-            [fp_model.to(host_device)],
-            fp_model.tokenizer,
-            embedding,
-            accumulate_logits_on_cpu=evaluator.accumulate_logits_on_cpu,
-        )
-
-        # no_grad: this forward-only reference pass would otherwise retain the
-        # full autograd graph and OOM on a large FP model.
-        fp_logits_list = []
-        with torch.no_grad():
-            for input_ids, attention_mask, *_ in eval_dataloader:
-                input_ids = input_ids.to(host_device)
-                attention_mask = attention_mask.to(host_device)
-                fp_logits = fp_generator(
-                    input_ids, attention_mask, DynamicCache()
-                ).logits
-                fp_logits_list.append(fp_logits.cpu())
-
-        # Augment dataloader
-        dataset = AugmentedLabelDataset(eval_dataloader.dataset, fp_logits_list)
-        eval_dataloader = DataLoader(
-            dataset,
-            shuffle=False,
-            batch_size=eval_dataloader.batch_size,
-            collate_fn=eval_dataloader.collate_fn,
-        )
-
-        # Drop the wrapper, not the underlying fp_model (reused via final_kwargs
-        # on DEFAULT; moved to CPU + cache-emptied below).
-        del fp_generator
-
     if not is_fp:
         fp_model.to(torch.device("cpu"))
         if "fp_model" not in final_kwargs:

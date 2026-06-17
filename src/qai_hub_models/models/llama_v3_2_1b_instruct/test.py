@@ -196,7 +196,6 @@ def test_evaluate(
         qnn_model_cls=LLM_QNN,
         num_samples=num_samples,
         dataset_cls=dataset_cls,
-        skip_fp_model_eval=not is_unquantized,
         kwargs=dict(
             checkpoint=checkpoint,
             sequence_length=DEFAULT_EVAL_SEQLEN,
