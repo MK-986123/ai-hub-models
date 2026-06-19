@@ -669,6 +669,10 @@ def save_eval_results_json(results: list[dict], output_path: str) -> None:
 
 _USE_DEFAULT_PROMPTS = object()
 
+# Bounded retries for a QDC job that finishes with a non-"Successful" result;
+# these device-side failures are usually transient (device availability/flakiness).
+_QDC_EXECUTION_MAX_ATTEMPTS = 2
+
 
 def submit_genie_bundle_to_qdc_device(
     api_token: str,
@@ -744,26 +748,58 @@ def submit_genie_bundle_to_qdc_device(
         model_id=model_id,
     )
 
-    job_id = genie_job.submit_automated_job(
-        qdc_device, job_artifacts, entry_script, job_name=job_name
+    # A job can reach state "Completed" yet fail device-side (result "Unsuccessful"),
+    # yielding no perf logs; retry the (usually transient) failure, then raise.
+    last_failure_reason: str | None = None
+    for attempt in range(1, _QDC_EXECUTION_MAX_ATTEMPTS + 1):
+        job_id = genie_job.submit_automated_job(
+            qdc_device, job_artifacts, entry_script, job_name=job_name
+        )
+        if job_id is None:
+            raise RuntimeError("Job submission failed.")
+
+        print(f"Submitted QDC job with ID: {job_id}")
+        job_status = genie_job.status(job_id)
+        job_result = genie_job.result(job_id)
+        print(
+            f"QDC job {job_id} completed with status: {job_status}, "
+            f"result: {job_result}"
+        )
+        genie_job.log_upload_status(job_id)
+        job_log_files = genie_job.get_job_log_files(job_id)
+        time.sleep(POLL_INTERVAL)
+
+        # Treat a non-"Successful" terminal result as a device-side failure.
+        if job_result is not None and job_result != "Successful":
+            last_failure_reason = (
+                f"QDC job {job_id} on device '{device}' finished with "
+                f"status='{job_status}', result='{job_result}'"
+            )
+            print(
+                f"[attempt {attempt}/{_QDC_EXECUTION_MAX_ATTEMPTS}] "
+                f"{last_failure_reason}"
+            )
+            if attempt < _QDC_EXECUTION_MAX_ATTEMPTS:
+                print("Retrying QDC job execution...")
+                continue
+            raise RuntimeError(
+                f"{last_failure_reason} after {_QDC_EXECUTION_MAX_ATTEMPTS} "
+                f"attempt(s). The device-side job did not complete successfully; "
+                f"check the QDC job logs for details."
+            )
+
+        tps, prefill_tps, ttft = genie_job.compute_metrics(job_log_files)
+
+        eval_results: list[dict] = []
+        if prompts_to_use:
+            eval_results = genie_job.compute_eval_results(job_log_files, prompts_to_use)
+
+        return tps, prefill_tps, ttft, eval_results
+
+    # Unreachable: the loop either returns or raises on the final attempt.
+    raise RuntimeError(
+        f"QDC job execution failed for device '{device}': {last_failure_reason}"
     )
-    if job_id is None:
-        raise RuntimeError("Job submission failed.")
-
-    print(f"Submitted QDC job with ID: {job_id}")
-    job_status = genie_job.status(job_id)
-    print(f"QDC job {job_id} completed with status: {job_status}")
-    genie_job.log_upload_status(job_id)
-    job_log_files = genie_job.get_job_log_files(job_id)
-    time.sleep(POLL_INTERVAL)
-
-    tps, prefill_tps, ttft = genie_job.compute_metrics(job_log_files)
-
-    eval_results: list[dict] = []
-    if prompts_to_use:
-        eval_results = genie_job.compute_eval_results(job_log_files, prompts_to_use)
-
-    return tps, prefill_tps, ttft, eval_results
 
 
 if __name__ == "__main__":

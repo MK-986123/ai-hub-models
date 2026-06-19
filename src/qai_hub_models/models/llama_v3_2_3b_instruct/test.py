@@ -204,9 +204,11 @@ def test_quantize_and_demo(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -
     Llama3_2_3B_QuantizablePreSplit.release()
     FPSplitModelWrapper.release()
     QuantizedSplitModelWrapper.release()
+    # Calibrate on the PreSplit (monolithic QuantSim) like production; split
+    # wrappers stack the Part sessions and OOM. Demo below still validates the split.
     checkpoint_path = test.setup_test_quantization(
-        QuantizedSplitModelWrapper,
-        FPSplitModelWrapper,
+        Llama3_2_3B_QuantizablePreSplit,
+        Llama3_2_3B_PreSplit,
         str(tmp_path),
         precision=Precision.w4a16,
         checkpoint="DEFAULT",

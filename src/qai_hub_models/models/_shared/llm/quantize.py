@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import gc
 import json
+import logging
 import sys
 from pathlib import Path
 from typing import Any
@@ -26,10 +27,13 @@ from qai_hub_models.models._shared.llm.model import (
     LLMBase,
     LLMDynamic_AIMETOnnx,
     LLMDynamicBase,
+    SplitForwardMixin,
 )
 from qai_hub_models.utils.args import get_quantize_action_with_default
 from qai_hub_models.utils.dataset_util import dataset_entries_to_dataloader
 from qai_hub_models.utils.version_helpers import ensure_supported_version
+
+logger = logging.getLogger(__name__)
 
 _SERIALIZABLE_TYPES = (str, int, float, bool)
 
@@ -67,6 +71,19 @@ def quantize(
     ada_scale_num_iterations: int | None = None,
     use_dynamic_shapes: bool = False,
 ) -> None:
+    # Calibration should run on the PreSplit (monolithic QuantSim) class. A
+    # split-forward wrapper stacks one ORT session per Part on the monolithic and
+    # can OOM the GPU on larger models; warn so the caller passes the PreSplit class.
+    if isinstance(quantized_model_cls, type) and issubclass(
+        quantized_model_cls, SplitForwardMixin
+    ):
+        logger.warning(
+            "quantize() received split-forward wrapper %s; calibration should run "
+            "on its PreSplit class (monolithic QuantSim) to avoid stacking per-Part "
+            "sessions and OOMing the GPU.",
+            quantized_model_cls.__name__,
+        )
+
     if use_dynamic_shapes:
         ensure_supported_version(
             "torch",

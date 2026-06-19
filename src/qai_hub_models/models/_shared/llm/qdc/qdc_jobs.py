@@ -406,6 +406,30 @@ class QDCJobs:
             f"Last status: {job_status}"
         )
 
+    def result(self, job_id: str) -> str | None:
+        """Return the terminal result of a job (e.g. "Successful"/"Unsuccessful").
+
+        ``status()`` reports only the lifecycle ``state`` ("Completed"); a job can
+        reach "Completed" yet still have failed device-side execution, which shows
+        up in the separate ``result`` field.
+
+        Parameters
+        ----------
+        job_id
+            ID of the job to query.
+
+        Returns
+        -------
+        result : str | None
+            The job's terminal result (e.g. "Successful"/"Unsuccessful"), or None
+            if the field is absent.
+        """
+        job = _call_with_retry(
+            lambda: self.get_job(job_id),
+            f"get_job({job_id})",
+        )
+        return getattr(job, "result", None)
+
     def get_active_jobs(self) -> list[Job]:
         """Return all currently active (non-terminal) jobs for this user.
 
