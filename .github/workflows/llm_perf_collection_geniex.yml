@@ -1,0 +1,89 @@
+##
+## QAI Hub Models LL Performance Collection (Geniex)
+##
+## Placeholder workflow for dispatch testing. Real perf-collection logic will be added later,
+## modeled on llm_perf_collection.yml.
+##
+
+name: LL Performance Collection (Geniex)
+run-name: "LLM Perf Geniex (${{ inputs.model || 'all' }}, ${{ inputs.device || 'all' }})"
+
+env:
+  VENV_PATH: build/ci-envs/qaihm-build
+  QAIHM_CI: 1
+
+on:
+  # Allows this workflow to be manually triggered.
+  workflow_dispatch:
+    inputs:
+      model:
+        description: 'LLM Model(s) to test. Comma-separated for multiple, or "all" for all LLMs.'
+        required: true
+        default: 'all'
+        type: string
+
+      device:
+        description: 'Target device(s). See `src/qai_hub_models/scorecard/device.py`. Comma-separated scorecard device names, or "all" for all LLM compile devices.'
+        required: true
+        default: 'all'
+        type: string
+
+      precision:
+        description: 'Precision(s) to collect perf for. Comma-separated (e.g. "w4,w4a16"), "all" for every supported precision, or "default" to use the model''s default_precisions.'
+        required: true
+        default: 'default'
+        type: string
+
+      run_eval:
+        description: 'Run on-device evaluation with default prompts.'
+        default: true
+        type: boolean
+
+      create_pr:
+        description: 'Create PR with perf.yaml changes'
+        default: true
+        type: boolean
+
+  workflow_call:
+    inputs:
+      model:
+        description: 'LLM Model(s) to test. Comma-separated for multiple, or "all" for all LLMs.'
+        type: string
+        default: 'all'
+
+      device:
+        description: 'Target device(s). Comma-separated scorecard device names, or "all" for all LLM compile devices.'
+        type: string
+        default: 'all'
+
+      precision:
+        description: 'Precision(s) to collect perf for. Comma-separated, "all", or "default".'
+        type: string
+        default: 'default'
+
+      run_eval:
+        description: 'Run on-device evaluation'
+        type: boolean
+        default: true
+
+      create_pr:
+        description: 'Create PR with perf.yaml changes'
+        type: boolean
+        default: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  placeholder:
+    name: "Placeholder (no-op)"
+    runs-on: ubuntu-latest
+    steps:
+    - name: Report dispatch
+      run: |
+        echo "LL Performance Collection (Geniex) dispatched."
+        echo "model=${{ inputs.model || 'all' }}"
+        echo "device=${{ inputs.device || 'all' }}"
+        echo "precision=${{ inputs.precision || 'default' }}"
+        echo "This is an empty placeholder workflow. No work performed."
