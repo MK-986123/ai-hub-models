@@ -29,7 +29,7 @@ def patch_mmcv_no_extensions():
 
     def load_ext_dummy(*args, **kwargs):
         try:
-            load_ext(*args, **kwargs)
+            return load_ext(*args, **kwargs)
         except (ImportError, ModuleNotFoundError):
             return types.SimpleNamespace()
 

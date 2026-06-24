@@ -18,6 +18,10 @@ with patch_mmdet_no_build_deps():
     from mmdet.apis import init_detector
     from mmdet.models.detectors.rtmdet import RTMDet as mmdet_RTMDET
 
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.coco_detection_evaluator import (
+    COCODetectionEvaluator,
+)
 from qai_hub_models.extern.mmengine import (
     patch_mmengine_pkgresources,
     patch_mmengine_torch_load_no_weights_only,
@@ -28,7 +32,7 @@ from qai_hub_models.utils.base_model import SerializationSettings
 from qai_hub_models.utils.input_spec import IoType, OutputSpec, TensorSpec
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 1
+MODEL_ASSET_VERSION = 2
 
 DEFAULT_WEIGHTS = "rtmdet_m_8xb32-300e_coco_20220719_112220-229f527c.pth"
 DEFAULT_CONFIG = "rtmdet_m_8xb32-300e_coco.py"
@@ -55,6 +59,17 @@ class RTMDet(Yolo):
         self.stage = [80, 40, 20]
         self.input_shape = 640
         self.include_postprocessing = include_postprocessing
+        self.mean = model.data_preprocessor.mean
+        self.std = model.data_preprocessor.std
+
+    def get_evaluator(self) -> BaseEvaluator:
+        image_height, image_width = self.get_input_spec()["image"][0][2:]
+        return COCODetectionEvaluator(
+            image_height,
+            image_width,
+            nms_iou_threshold=0.65,
+            score_threshold=0.001,
+        )
 
     @classmethod
     def from_pretrained(cls, include_postprocessing: bool = True) -> Self:
@@ -109,6 +124,11 @@ class RTMDet(Yolo):
             box_80, box_40, box_20
                 Box-regression maps, shapes [batch, 4, S, S] for S in (80, 40, 20).
         """
+        # Normalize: model expects (pixel_uint8 - mean) / std; input is float [0, 1]
+        # Model was trained on BGR images (bgr_to_rgb=False in config).
+        # Our input is RGB, so flip channels before applying BGR-ordered mean/std.
+        image = image[:, [2, 1, 0], :, :]
+        image = (image * 255.0 - self.mean) / self.std
         # Add a cast. model._forward is not typed correctly.
         output = cast(
             tuple[
