@@ -551,6 +551,23 @@ class Qwen3PreSplitBase(
         **kwargs: Any,
     ) -> None:
         super().__init__(*args, checkpoint=checkpoint or self.hf_repo_name, **kwargs)
+        # tie_word_embeddings=False makes HF allocate a distinct but randomly-
+        # initialized lm_head.weight; copy the embedding values in so the math is
+        # unchanged and the ONNX exports two separate weights (the untie).
+        if not self.llm_config.tie_word_embeddings:
+            # self.model is a dynamically-patched HF causal-LM; its exact type
+            # (and which attributes mypy sees) varies by transformers version,
+            # so treat it as Any to keep the access version-independent.
+            model: Any = self.model
+            with torch.no_grad():
+                model.lm_head.weight.copy_(model.get_input_embeddings().weight)
+
+    def edit_llm_config(self, llm_config: PretrainedConfig) -> PretrainedConfig:
+        llm_config = super().edit_llm_config(llm_config)
+        # Untie embedding/lm_head so they export as two ONNX initializers; the
+        # post-load copy in __init__ restores lm_head's (tied) values.
+        llm_config.tie_word_embeddings = False
+        return llm_config
 
     def _verify_ckpt(self) -> None:
         """Verify checkpoint compatibility."""

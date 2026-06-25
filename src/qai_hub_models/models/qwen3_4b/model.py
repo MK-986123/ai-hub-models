@@ -46,9 +46,11 @@ DEFAULT_EXPORT_SEQUENCE_LENGTHS = GLOBAL_DEFAULT_EXPORT_SEQUENCE_LENGTHS
 
 # Model identification
 MODEL_ID = __name__.split(".")[-2]
-# v3 was the static (pre-dynamo) qwen3_4b model; bump to v4 for this dynamic-shape
-# (dynamo) version so its assets live alongside, not on top of, the v3 assets.
-MODEL_ASSET_VERSION = 4
+# v3 was the static (pre-dynamo) qwen3_4b model; v4 was the dynamic-shape (dynamo)
+# version. v5 re-exports with embedding/lm_head untied so the lm_head weight no
+# longer carries a per-channel encoding onto the embedding Gather output, which
+# the HTP linker rejected at the split boundary.
+MODEL_ASSET_VERSION = 5
 
 # Model architecture constants (from Qwen3-4B)
 NUM_LAYERS = 36
