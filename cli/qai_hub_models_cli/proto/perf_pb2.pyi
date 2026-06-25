@@ -159,10 +159,10 @@ class ModelPerf(google.protobuf.message.Message):
         tokens_per_second: builtins.float
         prefill_tokens_per_second: builtins.float
         desired_compute_unit: builtins.str
-        """Available in 0.57.0+
+        """Available in 0.56.0+
 
         Compute unit these metrics are intended to run on (e.g. "npu", "gpu",
-        "cpu"). Unset on releases before 0.57.0; if unset, assume "npu". Set by
+        "cpu"). Unset on releases before 0.56.0; if unset, assume "npu". Set by
         runtimes that report per-compute-unit metrics (e.g. geniex_llamacpp).
         """
         @property

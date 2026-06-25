@@ -86,14 +86,14 @@ def manifest() -> Generator[None]:
 
 
 def test_models_table(manifest: None, capsys: pytest.CaptureFixture[str]) -> None:
-    main(["models"])
+    main(["models", "-v", "0.57.0"])
     output = capsys.readouterr().out
     assert "MobileNet V2" in output
     assert "Whisper Small" in output
     assert "Computer Vision" in output
     assert "Audio" in output
     assert "Total: 2 models" in output
-    # Quantized + Runtimes columns.
+    # Use Case + Quantized + Runtimes columns.
     assert "Quantized" in output and "Runtimes" in output
     assert "tflite" in output
 
@@ -131,7 +131,7 @@ def test_models_filters(
     args: list[str],
     expected: list[str],
 ) -> None:
-    main(["models", *args, "-q"])
+    main(["models", "-v", "0.57.0", *args, "-q"])
     lines = capsys.readouterr().out.strip().splitlines()
     assert lines == (expected or ["No models found."])
 
@@ -139,7 +139,7 @@ def test_models_filters(
 def test_models_filter_version_gated(
     manifest: None, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    # Non-domain filters require >= 0.56.0; older releases reject them but the
+    # Non-domain filters require >= 0.57.0; older releases reject them but the
     # new table columns are hidden rather than shown blank.
     main(["models", "-v", "0.55.0", "--quantized"])
     assert "requires version 0.56.0" in capsys.readouterr().out

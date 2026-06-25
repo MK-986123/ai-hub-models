@@ -208,7 +208,9 @@ def get_asset_url(
         if quiet:
             raise AssetNotFoundError(reason)
 
-        table = format_release_assets_table(matches, platform.chipsets)
+        table = format_release_assets_table(
+            matches, platform.chipsets, platform=platform
+        )
         commands = format_fetch_commands(
             release_assets,
             model,

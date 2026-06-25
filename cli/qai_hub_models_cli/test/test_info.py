@@ -21,6 +21,7 @@ from qai_hub_models_cli.proto.release_assets_pb2 import ModelReleaseAssets
 from qai_hub_models_cli.proto.shared.precision_pb2 import Precision
 from qai_hub_models_cli.proto.shared.runtime_pb2 import Runtime
 from qai_hub_models_cli.proto.shared.tool_versions_pb2 import ToolVersions
+from qai_hub_models_cli.versions import MIN_MODEL_FILTER_VERSION
 
 
 def _fake_model_info() -> ModelInfo:
@@ -119,7 +120,7 @@ def info_mocks() -> Generator[None]:
 
 
 def test_info_full_output(info_mocks: None, capsys: pytest.CaptureFixture[str]) -> None:
-    main(["info", "mobilenet_v2"])
+    main(["info", "mobilenet_v2", "-v", str(MIN_MODEL_FILTER_VERSION)])
     output = capsys.readouterr().out
     assert "MobileNet V2" in output
     assert "Imagenet classifier" in output

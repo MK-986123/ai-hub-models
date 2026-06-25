@@ -37,6 +37,10 @@ message ManifestModelEntry {
 
   // Tags applied to the model (mirrors ModelInfo.tags).
   repeated ModelTag tags = 8;
+
+  // The model's use case (mirrors ModelInfo.use_case). Added in AI Hub Models
+  // 0.56.0; unset (MODEL_USE_CASE_UNSPECIFIED) in earlier manifests.
+  ModelUseCase use_case = 9;
 }
 
 message ReleaseManifest {

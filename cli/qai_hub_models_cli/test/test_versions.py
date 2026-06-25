@@ -18,6 +18,7 @@ from packaging.version import Version
 from qai_hub_models_cli.cli import _run_versions, add_versions_parser
 from qai_hub_models_cli.versions import (
     UnsupportedVersionError,
+    feature_supported,
     get_published_versions,
     get_supported_versions,
     normalize_version,
@@ -62,7 +63,10 @@ def _mock_pypi() -> Any:
 
 
 def test_verify_version_supported_below_floor() -> None:
-    with pytest.raises(UnsupportedVersionError, match="not supported"):
+    with (
+        _mock_installed("0.99.0"),
+        pytest.raises(UnsupportedVersionError, match="not supported"),
+    ):
         verify_version_supported(Version("0.43.0"))
 
 
@@ -98,6 +102,25 @@ def test_verify_version_supported_not_published() -> None:
         pytest.raises(UnsupportedVersionError, match="not a published release"),
     ):
         verify_version_supported(Version("0.50.0"))
+
+
+def test_verify_version_supported_dev_install_skips_checks() -> None:
+    # On a dev/source install the checks are skipped so any version is allowed,
+    # even one newer than (the synthetic) installed version.
+    with _mock_installed("0.56.1.dev77+gabc123"):
+        verify_version_supported(Version("0.99.0"), verify_manifest_supported=True)
+
+
+def test_feature_supported() -> None:
+    # Released install: plain version comparison against the feature's minimum.
+    with _mock_installed("0.57.0"):
+        assert feature_supported(Version("0.57.0"), Version("0.57.0"))
+        assert not feature_supported(Version("0.56.0"), Version("0.57.0"))
+    # Dev/source install requesting the (dev) installed version: always supported.
+    with _mock_installed("0.56.1.dev77+gabc123"):
+        assert feature_supported(Version("0.56.1.dev77+gabc123"), Version("0.57.0"))
+        # An explicit older release is still gated normally.
+        assert not feature_supported(Version("0.56.0"), Version("0.57.0"))
 
 
 # ── get_published_versions / get_supported_versions ─────────────

@@ -161,6 +161,7 @@ def filter_numerics(
 def format_numerics_table(
     numerics: ModelNumerics,
     title: str | None = "Numerics (Accuracy)",
+    platform: PlatformInfo | None = None,
 ) -> str:
     """Format a model's numerical accuracy metrics as a table.
 
@@ -168,6 +169,9 @@ def format_numerics_table(
     metric is shown alongside each on-device value for comparison. The SDK
     Versions column is sourced from each result's tool versions (cross-referenced
     from perf at build time).
+
+    *platform*, when provided, is used to render each runtime by its human
+    display name (e.g. ``TensorFlow Lite``) instead of its token.
 
     Returns a message string when *numerics* has no per-device results.
     """
@@ -187,7 +191,7 @@ def format_numerics_table(
             metric.dataset_name,
             metric.metric_name,
             precision_proto_to_str(dm.precision),
-            runtime_proto_to_str(dm.runtime),
+            runtime_proto_to_str(dm.runtime, platform, display_name=True),
             dm.device,
             f"{dm.partial_metric:.3g}{metric.metric_unit}",
             f"{metric.partial_torch_metric:.3g}{metric.metric_unit}",
@@ -199,4 +203,10 @@ def format_numerics_table(
 
     if not rows:
         return "No numerics match the given filters."
-    return build_table(columns, rows, wrap_column="Device", title=title)
+    return build_table(
+        columns,
+        rows,
+        wrap_column="SDK Versions",
+        title=title,
+        wrap_on_commas=True,
+    )

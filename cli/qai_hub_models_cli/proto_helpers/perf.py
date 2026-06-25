@@ -213,6 +213,7 @@ def _sdk_versions_str(record: ModelPerf.PerformanceDetails) -> str:
 def format_perf_table(
     perf: ModelPerf,
     title: str | None = "Performance",
+    platform: PlatformInfo | None = None,
 ) -> str:
     """Format a model's performance metrics as one or two tables.
 
@@ -220,6 +221,9 @@ def format_perf_table(
     are rendered as separate tables joined by a blank line. The ``Component``
     column is shown only when the model has 2+ distinct components (a single
     component adds a column of identical values, so it's omitted).
+
+    *platform*, when provided, is used to render each runtime by its human
+    display name (e.g. ``TensorFlow Lite``) instead of its token.
 
     Returns a message string when *perf* has no records.
     """
@@ -235,6 +239,17 @@ def format_perf_table(
         r.component for r in perf.performance_metrics if r.HasField("component")
     }
     show_component = len(components) >= 2
+
+    # Precompute runtime -> display name once; runtime_proto_to_str otherwise
+    # rescans platform.runtimes for every record.
+    runtime_names: dict[int, str] = {}
+    if platform is not None:
+        runtime_names = {
+            rt.runtime: rt.display_name for rt in platform.runtimes if rt.display_name
+        }
+
+    def _runtime_name(runtime: Runtime.ValueType) -> str:
+        return runtime_names.get(runtime) or runtime_proto_to_str(runtime)
 
     tables: list[str] = []
 
@@ -253,7 +268,7 @@ def format_perf_table(
             m = r.metrics
             row = [
                 precision_proto_to_str(r.precision),
-                runtime_proto_to_str(r.runtime),
+                _runtime_name(r.runtime),
                 r.device,
             ]
             if show_component:
@@ -267,7 +282,15 @@ def format_perf_table(
                 _sdk_versions_str(r),
             ]
             rows.append(row)
-        tables.append(build_table(columns, rows, wrap_column="Device", title=title))
+        tables.append(
+            build_table(
+                columns,
+                rows,
+                wrap_column="SDK Versions",
+                title=title,
+                wrap_on_commas=True,
+            )
+        )
 
     if llm:
         columns = ["Precision", "Runtime", "Device"]
@@ -286,7 +309,7 @@ def format_perf_table(
             for lm in r.llm_metrics:
                 row = [
                     precision_proto_to_str(r.precision),
-                    runtime_proto_to_str(r.runtime),
+                    _runtime_name(r.runtime),
                     r.device,
                 ]
                 if show_component:
@@ -310,8 +333,9 @@ def format_perf_table(
             build_table(
                 columns,
                 rows,
-                wrap_column="Device",
+                wrap_column="SDK Versions",
                 title="LLM Performance" if standard else title,
+                wrap_on_commas=True,
             )
         )
 

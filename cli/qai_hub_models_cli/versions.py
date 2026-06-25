@@ -23,14 +23,19 @@ from qai_hub_models_cli.envvars import (
 )
 
 CURRENT_VERSION = parse_version(os.environ.get(FORCE_VERSION_ENVVAR, __version__))
+
+# the minimum AI Hub Models version supported by the CLI
 MIN_SUPPORTED_VERSION = Version("0.44.0")
-MIN_MANIFEST_VERSION = Version(
-    "0.52.0"
-)  # the version where manifest files were first published
+
+# the version where manifest files were first published
+MIN_MANIFEST_VERSION = Version("0.52.0")
+
+# the version where internal manifest files were first published
 MIN_INTERNAL_REGISTRY_VERSION = Version("0.56.0")
-MIN_MODEL_FILTER_VERSION = Version(
-    "0.56.0"
-)  # the version where the manifest gained model-filter and runtime-detail fields
+
+# the version where the manifest gained model-filter and runtime-detail fields
+MIN_MODEL_FILTER_VERSION = Version("0.56.0")
+
 PYPI_VERSIONS_URL = "https://pypi.org/pypi/qai-hub-models/json"
 
 
@@ -138,6 +143,20 @@ def normalize_version(version: str) -> str:
     return version.lower().removeprefix("v")
 
 
+def feature_supported(version: Version, min_version: Version) -> bool:
+    """Whether a feature introduced in *min_version* is available for *version*.
+
+    Normally this is just ``version >= min_version``. On a dev/source install
+    the default ``version`` is the synthetic dev ``CURRENT_VERSION`` (e.g.
+    ``0.56.1.dev77+g...``), which sorts below the next release even though the
+    source tree already has the feature. Treat that case as supported so
+    new features aren't gated off when running from a source checkout.
+    """
+    if version == CURRENT_VERSION and CURRENT_VERSION.is_devrelease:
+        return True
+    return version >= min_version
+
+
 def version_flag(version: Version) -> str:
     """Return ``"-v <version>"`` for a non-current release, else ``""``.
 
@@ -201,12 +220,16 @@ def verify_version_supported(
             f"Version {version} does not support this operation. Update to version {MIN_MANIFEST_VERSION} or higher."
         )
 
-    if version > CURRENT_VERSION:
+    if version > CURRENT_VERSION and not CURRENT_VERSION.is_devrelease:
         raise UnsupportedVersionError(
             f"Version {version} is newer than the installed version ({__version__}). "
             f"Upgrade the package or use -v with an older version.\n"
             "Run `qai-hub-models versions` to see all supported versions."
         )
+
+    if CURRENT_VERSION.is_devrelease:
+        # dev releases are allowed to look forward
+        return
 
     published = get_published_versions()
     if version not in published:

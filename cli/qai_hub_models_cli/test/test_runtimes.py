@@ -47,7 +47,7 @@ def _mocks() -> Generator[None]:
 
 
 def test_runtimes_table(capsys: pytest.CaptureFixture[str]) -> None:
-    main(["runtimes"])
+    main(["runtimes", "-v", "0.57.0"])
     output = capsys.readouterr().out
     # Token + display name in the table, docs URL in the footnote.
     assert "tflite" in output and "TensorFlow Lite" in output
@@ -62,8 +62,8 @@ def test_runtimes_quiet(capsys: pytest.CaptureFixture[str]) -> None:
 def test_runtimes_old_version_omits_metadata(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    # Before 0.56.0 the display-metadata columns are omitted, but the table
-    # (ID/Ext/Compiled) still renders.
+    # Before MIN_MODEL_FILTER_VERSION the display-metadata columns are omitted,
+    # but the table (ID/Ext/Compiled) still renders.
     main(["runtimes", "-v", "0.55.0"])
     output = capsys.readouterr().out
     assert "qnn_dlc" in output and ".dlc" in output

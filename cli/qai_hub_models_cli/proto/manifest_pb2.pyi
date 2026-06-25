@@ -58,6 +58,7 @@ class ManifestModelEntry(google.protobuf.message.Message):
     SUPPORTED_RUNTIMES_FIELD_NUMBER: builtins.int
     SUPPORTED_CHIPSETS_FIELD_NUMBER: builtins.int
     TAGS_FIELD_NUMBER: builtins.int
+    USE_CASE_FIELD_NUMBER: builtins.int
     id: builtins.str
     display_name: builtins.str
     domain: info_pb2.ModelDomain.ValueType
@@ -67,6 +68,10 @@ class ManifestModelEntry(google.protobuf.message.Message):
     only rely on them when the manifest version is >= 0.56.0.
 
     Whether the model has any quantized (non-float) released assets.
+    """
+    use_case: info_pb2.ModelUseCase.ValueType
+    """The model's use case (mirrors ModelInfo.use_case). Added in AI Hub Models
+    0.56.0; unset (MODEL_USE_CASE_UNSPECIFIED) in earlier manifests.
     """
     @property
     def manifest_urls(self) -> global___ModelManifestUrls: ...
@@ -93,9 +98,10 @@ class ManifestModelEntry(google.protobuf.message.Message):
         supported_runtimes: collections.abc.Iterable[shared.runtime_pb2.Runtime.ValueType] | None = ...,
         supported_chipsets: collections.abc.Iterable[builtins.str] | None = ...,
         tags: collections.abc.Iterable[info_pb2.ModelTag.ValueType] | None = ...,
+        use_case: info_pb2.ModelUseCase.ValueType = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["manifest_urls", b"manifest_urls"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["display_name", b"display_name", "domain", b"domain", "id", b"id", "is_quantized", b"is_quantized", "manifest_urls", b"manifest_urls", "supported_chipsets", b"supported_chipsets", "supported_runtimes", b"supported_runtimes", "tags", b"tags"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["display_name", b"display_name", "domain", b"domain", "id", b"id", "is_quantized", b"is_quantized", "manifest_urls", b"manifest_urls", "supported_chipsets", b"supported_chipsets", "supported_runtimes", b"supported_runtimes", "tags", b"tags", "use_case", b"use_case"]) -> None: ...
 
 global___ManifestModelEntry = ManifestModelEntry
 

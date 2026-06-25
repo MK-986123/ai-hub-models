@@ -30,6 +30,7 @@ from qai_hub_models.configs.proto_helpers import (
     domain_to_proto,
     runtime_to_proto,
     tag_to_proto,
+    use_case_to_proto,
 )
 from qai_hub_models.configs.release_assets_yaml import QAIHMModelReleaseAssets
 from qai_hub_models.scorecard import ScorecardDevice, ScorecardProfilePath
@@ -355,6 +356,7 @@ def _manifest_filter_fields(
         supported_runtimes=sorted(runtime_to_proto(r) for r in runtimes),
         supported_chipsets=list(perf.supported_chipsets),
         tags=[tag_to_proto(t) for t in info.tags],
+        use_case=use_case_to_proto(info.use_case),
     )
 
 

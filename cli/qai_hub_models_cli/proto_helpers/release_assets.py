@@ -209,10 +209,13 @@ def format_release_assets_table(
     release_assets: ModelReleaseAssets,
     chipsets: Iterable[ChipsetInfo],
     title: str | None = None,
+    platform: PlatformInfo | None = None,
 ) -> str:
     """Format a table of a model's download options.
 
     *chipsets* is used to display each asset's chipset by its marketing name.
+    *platform*, when provided, is used to render each runtime by its human
+    display name (e.g. ``TensorFlow Lite``) instead of its token.
     Returns only the table; use :func:`format_fetch_commands` for the
     accompanying ``fetch``/``devices`` command hints.
     """
@@ -221,7 +224,7 @@ def format_release_assets_table(
     grouped: dict[tuple[str, str, str], list[str | None]] = {}
     for asset in release_assets.assets:
         prec = precision_proto_to_str(asset.precision)
-        rt = runtime_proto_to_str(asset.runtime)
+        rt = runtime_proto_to_str(asset.runtime, platform, display_name=True)
         sdk = (
             format_tool_versions(asset.tool_versions)
             if asset.HasField("tool_versions")
@@ -495,5 +498,7 @@ def get_model_asset_details(
         f"The model was found, but not with the requested runtime, precision, or chipset.\n\n"
     )
     errmsg += f"The following are valid fetch options for {model}:\n"
-    errmsg += format_release_assets_table(release_assets, platform.chipsets)
+    errmsg += format_release_assets_table(
+        release_assets, platform.chipsets, platform=platform
+    )
     raise AssetNotFoundError(errmsg)

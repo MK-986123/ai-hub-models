@@ -27,7 +27,12 @@ from qai_hub_models_cli.envvars import (
     bool_envvar_value,
 )
 from qai_hub_models_cli.fetch import fetch, get_asset_url
-from qai_hub_models_cli.proto.info_pb2 import MODEL_TAG_LLM, ModelDomain, ModelTag
+from qai_hub_models_cli.proto.info_pb2 import (
+    MODEL_TAG_LLM,
+    ModelDomain,
+    ModelTag,
+    ModelUseCase,
+)
 from qai_hub_models_cli.proto.manifest_pb2 import ManifestModelEntry
 from qai_hub_models_cli.proto.platform_pb2 import FormFactor, WebsiteWorld
 from qai_hub_models_cli.proto.shared.precision_pb2 import Precision
@@ -60,6 +65,7 @@ from qai_hub_models_cli.proto_helpers.platform_enums import (
     form_factor_proto_to_str,
     form_factor_str_to_proto,
     license_proto_to_str,
+    normalize_label,
     os_str_to_proto,
     precision_proto_to_str,
     runtime_proto_to_str,
@@ -67,6 +73,7 @@ from qai_hub_models_cli.proto_helpers.platform_enums import (
     tag_proto_to_str,
     tag_str_to_proto,
     use_case_proto_to_str,
+    use_case_str_to_proto,
     world_proto_to_str,
     world_str_to_proto,
 )
@@ -83,6 +90,7 @@ from qai_hub_models_cli.versions import (
     CURRENT_VERSION,
     MIN_MODEL_FILTER_VERSION,
     UnsupportedVersionError,
+    feature_supported,
     get_supported_versions,
     normalize_version,
     print_upgrade_notice,
@@ -190,6 +198,7 @@ def _run_fetch(args: argparse.Namespace) -> None:
                 release_assets,
                 platform.chipsets,
                 title="Download Options",
+                platform=platform,
             )
         )
         print()
@@ -245,6 +254,8 @@ def _run_fetch(args: argparse.Namespace) -> None:
                 "Failed to fetch model. Consider excluding -q/--quiet from your command to reveal more logs."
             )
         raise
+
+    result = result.resolve()
 
     if args.quiet:
         print(result)
@@ -491,10 +502,11 @@ def _print_model_metric_footer(command: str, args: argparse.Namespace) -> None:
 
 def _run_perf(args: argparse.Namespace) -> None:
     sdk_versions = parse_sdk_version_filters(args.sdk_version or [])
+    platform = get_platform(args.qaihm_version)
     perf = get_model_perf(args.model, args.qaihm_version)
     perf = filter_perf(
         perf,
-        get_platform(args.qaihm_version),
+        platform,
         runtime=_flatten_multi_arg(args.runtime),
         precision=_flatten_multi_arg(args.precision),
         chipset=_flatten_multi_arg(args.chipset),
@@ -502,7 +514,7 @@ def _run_perf(args: argparse.Namespace) -> None:
         sdk_versions=sdk_versions,
         components=_flatten_multi_arg(args.component),
     )
-    print(format_perf_table(perf))
+    print(format_perf_table(perf, platform=platform))
     if perf.performance_metrics:
         _print_model_metric_footer("perf", args)
 
@@ -533,17 +545,18 @@ def add_perf_parser(subparsers: argparse._SubParsersAction) -> argparse.Argument
 
 
 def _run_numerics(args: argparse.Namespace) -> None:
+    platform = get_platform(args.qaihm_version)
     numerics = get_model_numerics(args.model, args.qaihm_version)
     numerics = filter_numerics(
         numerics,
-        get_platform(args.qaihm_version),
+        platform,
         runtime=_flatten_multi_arg(args.runtime),
         precision=_flatten_multi_arg(args.precision),
         chipset=_flatten_multi_arg(args.chipset),
         device=_flatten_multi_arg(args.device),
         sdk_versions=parse_sdk_version_filters(args.sdk_version or []),
     )
-    print(format_numerics_table(numerics))
+    print(format_numerics_table(numerics, platform=platform))
     if numerics.metrics:
         _print_model_metric_footer("numerics", args)
 
@@ -581,12 +594,15 @@ def _run_list_models(args: argparse.Namespace) -> None:
         args.chipset,
         args.device,
         args.llm,
+        args.use_case,
     )
-    if any(gated_filters) and args.qaihm_version < MIN_MODEL_FILTER_VERSION:
+    if any(gated_filters) and not feature_supported(
+        args.qaihm_version, MIN_MODEL_FILTER_VERSION
+    ):
         print(
-            f"Filtering by quantization, runtime, chipset, device, or tag requires "
-            f"version {MIN_MODEL_FILTER_VERSION} or later. Only --domain is supported "
-            f"for version {args.qaihm_version}."
+            f"Filtering by quantization, runtime, chipset, device, tag, or use case "
+            f"requires version {MIN_MODEL_FILTER_VERSION} or later. Only --domain is "
+            f"supported for version {args.qaihm_version}."
         )
         return
 
@@ -595,14 +611,14 @@ def _run_list_models(args: argparse.Namespace) -> None:
     predicates: list[Callable[[ManifestModelEntry], bool]] = []
 
     if args.domain:
-
-        def _normalize_domain(s: str) -> str:
-            return s.lower().replace("_", " ").replace("-", " ")
-
-        domain_filter = _normalize_domain(args.domain)
+        domain_filter = normalize_label(args.domain)
         predicates.append(
-            lambda e: _normalize_domain(domain_proto_to_str(e.domain)) == domain_filter
+            lambda e: normalize_label(domain_proto_to_str(e.domain)) == domain_filter
         )
+
+    if args.use_case:
+        use_case_val = use_case_str_to_proto(args.use_case)
+        predicates.append(lambda e: e.use_case == use_case_val)
 
     if args.quantized:
         predicates.append(lambda e: e.is_quantized)
@@ -665,25 +681,31 @@ def _run_list_models(args: argparse.Namespace) -> None:
         domain = domain_proto_to_str(entry.domain)
         groups.setdefault(domain, []).append(entry)
 
-    # The Quantized/Runtimes columns are populated from manifest fields added in
-    # MIN_MODEL_FILTER_VERSION; on older releases they'd be blank, so omit them.
-    show_filter_columns = args.qaihm_version >= MIN_MODEL_FILTER_VERSION
+    # The Use Case/Quantized/Runtimes columns are populated from manifest fields
+    # added in MIN_MODEL_FILTER_VERSION; on older releases they'd be blank, so
+    # omit them.
+    show_filter_columns = feature_supported(
+        args.qaihm_version, MIN_MODEL_FILTER_VERSION
+    )
+    columns = ["Name", "Domain"]
     if show_filter_columns:
-        columns = ["Name", "Domain", "Quantized", "Runtimes"]
+        columns += ["Use Case", "Quantized", "Runtimes"]
         wrap_column, wrap_on_commas = "Runtimes", True
     else:
-        columns = ["Name", "Domain"]
         wrap_column, wrap_on_commas = "Name", False
 
+    platform = get_platform(args.qaihm_version) if show_filter_columns else None
     rows = []
     for domain, group in groups.items():
         for entry in group:
             row = [entry.display_name, domain]
             if show_filter_columns:
+                row.append(use_case_proto_to_str(entry.use_case))
                 row += [
                     "Yes" if entry.is_quantized else "No",
                     ", ".join(
-                        runtime_proto_to_str(r) for r in entry.supported_runtimes
+                        runtime_proto_to_str(r, platform, display_name=True)
+                        for r in entry.supported_runtimes
                     ),
                 ]
             rows.append(row)
@@ -735,6 +757,17 @@ def add_list_models_parser(
         default=None,
         type=str.lower,
         help=f"Filter by domain. Known values: {domain_values}.",
+    )
+    use_case_values = ", ".join(
+        use_case_proto_to_str(u)
+        for u in ModelUseCase.values()
+        if u != ModelUseCase.MODEL_USE_CASE_UNSPECIFIED
+    )
+    parser.add_argument(
+        "--use-case",
+        default=None,
+        type=str.lower,
+        help=f"Filter by use case. Known values: {use_case_values}.",
     )
     parser.add_argument(
         "--quantized",
@@ -972,7 +1005,7 @@ def _run_list_runtimes(args: argparse.Namespace) -> None:
     print(format_runtimes_table(runtimes, args.qaihm_version))
     print(f"Total: {len(runtimes)} runtimes")
     # Display metadata (incl. docs links) exists only as of MIN_MODEL_FILTER_VERSION.
-    if args.qaihm_version >= MIN_MODEL_FILTER_VERSION and (
+    if feature_supported(args.qaihm_version, MIN_MODEL_FILTER_VERSION) and (
         links := format_runtime_links(runtimes)
     ):
         print(f"\n{links}")
@@ -1027,7 +1060,7 @@ def _run_info(args: argparse.Namespace) -> None:
         )
     # is_quantized / supported_runtimes are manifest fields added in 0.56.0.
     # Best-effort: skip if the model isn't in the manifest for this version.
-    if args.qaihm_version >= MIN_MODEL_FILTER_VERSION:
+    if feature_supported(args.qaihm_version, MIN_MODEL_FILTER_VERSION):
         try:
             entry = get_manifest_entry(args.model, args.qaihm_version)
         except KeyError:
@@ -1035,11 +1068,15 @@ def _run_info(args: argparse.Namespace) -> None:
         if entry is not None:
             metadata_table.add_row(["Quantized", "Yes" if entry.is_quantized else "No"])
             if entry.supported_runtimes:
+                metadata_platform = get_platform(args.qaihm_version)
                 metadata_table.add_row(
                     [
                         "Supported Runtimes",
                         ", ".join(
-                            runtime_proto_to_str(r) for r in entry.supported_runtimes
+                            runtime_proto_to_str(
+                                r, metadata_platform, display_name=True
+                            )
+                            for r in entry.supported_runtimes
                         ),
                     ]
                 )
@@ -1112,11 +1149,13 @@ def _run_info(args: argparse.Namespace) -> None:
 
     try:
         release_assets = get_model_release_assets(args.model, args.qaihm_version)
+        info_platform = get_platform(args.qaihm_version)
         print(
             format_release_assets_table(
                 release_assets,
-                get_platform(args.qaihm_version).chipsets,
+                info_platform.chipsets,
                 title="Download Options",
+                platform=info_platform,
             )
         )
         print()

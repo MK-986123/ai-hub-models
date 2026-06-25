@@ -87,7 +87,7 @@ class ModelNumerics(google.protobuf.message.Message):
                 the matching perf record (same device/precision/runtime) at build time,
                 since numerics is produced without tool-version info of its own.
 
-                Unset in numerics protos from releases before 0.57.0.
+                Unset in numerics protos from releases before 0.56.0.
                 """
 
             def __init__(

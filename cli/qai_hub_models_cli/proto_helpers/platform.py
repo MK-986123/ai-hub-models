@@ -31,7 +31,11 @@ from qai_hub_models_cli.proto_helpers.platform_enums import (
     world_proto_to_str,
 )
 from qai_hub_models_cli.utils import build_table
-from qai_hub_models_cli.versions import CURRENT_VERSION, MIN_MODEL_FILTER_VERSION
+from qai_hub_models_cli.versions import (
+    CURRENT_VERSION,
+    MIN_MODEL_FILTER_VERSION,
+    feature_supported,
+)
 
 # Column headers for the chipset attributes shared by the `chipsets` and
 # `devices` CLI tables, in display order. Kept here so both tables stay aligned.
@@ -478,7 +482,7 @@ def format_runtimes_table(
     """
     # Docs URLs are long, unwrappable tokens; keeping them in the table would
     # squeeze every other column. List them via format_runtime_links instead.
-    has_metadata = version >= MIN_MODEL_FILTER_VERSION
+    has_metadata = feature_supported(version, MIN_MODEL_FILTER_VERSION)
     columns = ["ID"]
     if has_metadata:
         columns += ["Name", "Description"]
@@ -506,12 +510,12 @@ def format_runtimes_table(
 def format_runtime_links(runtimes: Iterable[RuntimeInfo]) -> str:
     """Format a ``Learn more`` footnote of per-runtime docs URLs (or "" if none)."""
     links = [
-        (runtime_proto_to_str(rt.runtime), rt.documentation_url)
+        (rt.display_name or runtime_proto_to_str(rt.runtime), rt.documentation_url)
         for rt in runtimes
         if rt.documentation_url
     ]
     if not links:
         return ""
-    width = max(len(token) for token, _ in links)
-    body = "\n".join(f"  {token:<{width}}  {url}" for token, url in links)
+    width = max(len(name) for name, _ in links)
+    body = "\n".join(f"  {name:<{width}}  {url}" for name, url in links)
     return f"Learn more:\n{body}"

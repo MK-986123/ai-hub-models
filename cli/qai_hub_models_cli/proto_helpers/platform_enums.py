@@ -23,7 +23,7 @@ from qai_hub_models_cli.proto.shared.precision_pb2 import Precision
 from qai_hub_models_cli.proto.shared.runtime_pb2 import Runtime
 
 
-def _normalize_label(s: str) -> str:
+def normalize_label(s: str) -> str:
     """Lowercase and unify separators so filter values match display labels."""
     return s.lower().replace("_", " ").replace("-", " ")
 
@@ -285,10 +285,10 @@ def form_factor_str_to_proto(form_factor: str) -> FormFactor.ValueType:
     KeyError
         If *form_factor* does not match any known form factor.
     """
-    target = _normalize_label(form_factor)
+    target = normalize_label(form_factor)
     for ff in FormFactor.values():
         if ff != FormFactor.FORM_FACTOR_UNSPECIFIED and (
-            _normalize_label(form_factor_proto_to_str(ff)) == target
+            normalize_label(form_factor_proto_to_str(ff)) == target
         ):
             return ff
     valid = ", ".join(
@@ -326,10 +326,10 @@ def world_str_to_proto(world: str) -> WebsiteWorld.ValueType:
     KeyError
         If *world* does not match any known chipset type.
     """
-    target = _normalize_label(world)
+    target = normalize_label(world)
     for w in WebsiteWorld.values():
         if w != WebsiteWorld.WEBSITE_WORLD_UNSPECIFIED and (
-            _normalize_label(world_proto_to_str(w)) == target
+            normalize_label(world_proto_to_str(w)) == target
         ):
             return w
     valid = ", ".join(
@@ -370,10 +370,10 @@ def os_str_to_proto(os: str) -> OperatingSystem:
         If the OS name does not match any known operating system.
     """
     name, _, version = os.strip().partition(" ")
-    target = _normalize_label(name)
+    target = normalize_label(name)
     for ot in OperatingSystemType.values():
         if ot != OperatingSystemType.OPERATING_SYSTEM_TYPE_UNSPECIFIED and (
-            _normalize_label(os_type_proto_to_str(ot)) == target
+            normalize_label(os_type_proto_to_str(ot)) == target
         ):
             return OperatingSystem(ostype=ot, version=version.strip())
     valid = ", ".join(
@@ -401,7 +401,13 @@ def domain_proto_to_str(domain: int) -> str:
 
 
 def use_case_proto_to_str(use_case: int) -> str:
-    """Convert a ModelUseCase enum value to a human-readable string."""
+    """Convert a ModelUseCase enum value to a human-readable string.
+
+    Returns the empty string for ``MODEL_USE_CASE_UNSPECIFIED`` so callers don't
+    have to guard against an "Unspecified" label leaking into output.
+    """
+    if use_case == ModelUseCase.MODEL_USE_CASE_UNSPECIFIED:
+        return ""
     name = ModelUseCase.Name(use_case)  # type: ignore[arg-type]
     return (
         name.removeprefix("MODEL_USE_CASE_")
@@ -409,6 +415,40 @@ def use_case_proto_to_str(use_case: int) -> str:
         .title()
         .replace("Ai", "AI")
     )
+
+
+def use_case_str_to_proto(use_case: str) -> ModelUseCase.ValueType:
+    """
+    Convert a use-case display string (e.g. ``"image classification"``) to its
+    proto enum value. Case- and separator-insensitive.
+
+    Parameters
+    ----------
+    use_case
+        Use-case display name.
+
+    Returns
+    -------
+    ModelUseCase.ValueType
+        Corresponding ``ModelUseCase`` enum value.
+
+    Raises
+    ------
+    KeyError
+        If *use_case* does not match any known use case.
+    """
+    target = normalize_label(use_case)
+    for u in ModelUseCase.values():
+        if u != ModelUseCase.MODEL_USE_CASE_UNSPECIFIED and (
+            normalize_label(use_case_proto_to_str(u)) == target
+        ):
+            return u
+    valid = ", ".join(
+        use_case_proto_to_str(u)
+        for u in ModelUseCase.values()
+        if u != ModelUseCase.MODEL_USE_CASE_UNSPECIFIED
+    )
+    raise KeyError(f"Unknown use case: {use_case!r}. Valid use cases: {valid}")
 
 
 _TAG_DISPLAY_NAMES: dict[str, str] = {
@@ -451,10 +491,10 @@ def tag_str_to_proto(tag: str) -> ModelTag.ValueType:
     KeyError
         If *tag* does not match any known tag.
     """
-    target = _normalize_label(tag)
+    target = normalize_label(tag)
     for t in ModelTag.values():
         if t != ModelTag.MODEL_TAG_UNSPECIFIED and (
-            _normalize_label(tag_proto_to_str(t)) == target
+            normalize_label(tag_proto_to_str(t)) == target
         ):
             return t
     valid = ", ".join(
