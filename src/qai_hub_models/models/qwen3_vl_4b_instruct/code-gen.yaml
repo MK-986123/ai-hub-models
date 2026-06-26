@@ -8,9 +8,6 @@ global_requirements_incompatible: true
 supported_precisions:
 - q4_0
 - w4a16
-skip_scorecard: true
-skip_export: true
-skip_example_usage: true
 orchestrator_runtimes: [geniex_llamacpp, geniex_qairt, genie]
 only_allow_orchestrator_runtimes: true
 add_genie_url_to_export: true
