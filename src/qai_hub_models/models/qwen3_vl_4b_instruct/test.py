@@ -84,7 +84,7 @@ def test_evaluate(
     actual_metric, _ = evaluate(
         quantized_model_cls=Qwen3_VL_4B_QuantizablePreSplit,
         fp_model_cls=Qwen3_VL_4B_PreSplit,
-        qnn_model_cls=LLM_QNN,
+        qnn_model_cls=LLM_QNN,  # type: ignore[type-abstract]
         num_samples=num_samples,
         dataset_cls=dataset_cls,
         kwargs=dict(

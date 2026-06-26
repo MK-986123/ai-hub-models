@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import torch
 from transformers import DetrForObjectDetection, PreTrainedModel
 from typing_extensions import Self
@@ -183,7 +185,7 @@ class DETR(BaseModel):
         return {"image": [app_to_net_image_inputs(image)[1].numpy()]}
 
     @classmethod
-    def get_eval_dataset_classes(cls) -> list[type[BaseDataset]]:
+    def get_eval_dataset_classes(cls) -> Sequence[type[BaseDataset]]:
         return [Coco91ClassDataset]
 
     def get_calibration_dataset_cls(self) -> type[BaseDataset]:

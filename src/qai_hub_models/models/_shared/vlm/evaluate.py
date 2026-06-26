@@ -30,7 +30,7 @@ def vlm_evaluate(
     llm_evaluate(
         quantized_model_cls=quantized_model_cls,
         fp_model_cls=fp_model_cls,
-        qnn_model_cls=LLM_QNN,
+        qnn_model_cls=LLM_QNN,  # type: ignore[type-abstract]
         supported_precisions=supported_precisions,
         vision_encoder_cls=vision_encoder_cls,
         hf_repo_name=hf_repo_name,

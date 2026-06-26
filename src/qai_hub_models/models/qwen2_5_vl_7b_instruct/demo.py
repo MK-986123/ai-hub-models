@@ -24,7 +24,7 @@ def qwen2_5_vl_7b_instruct_chat_demo(
     llm_chat_demo(
         model_cls=Qwen2_5_VL_7B_QuantizablePreSplit,
         fp_model_cls=Qwen2_5_VL_7B_PreSplit,
-        qnn_model_cls=LLM_QNN,
+        qnn_model_cls=LLM_QNN,  # type: ignore[type-abstract]
         model_id=MODEL_ID,
         end_tokens=END_TOKENS,
         hf_repo_name=HF_REPO_NAME,

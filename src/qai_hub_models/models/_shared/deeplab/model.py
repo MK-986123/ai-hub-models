@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Sequence
 
 import torch
 
@@ -114,7 +115,7 @@ class DeepLabV3Model(BaseModel):
         return {"image": [app_to_net_image_inputs(image)[1].numpy()]}
 
     @classmethod
-    def get_eval_dataset_classes(cls) -> list[type[BaseDataset]]:
+    def get_eval_dataset_classes(cls) -> Sequence[type[BaseDataset]]:
         return [VOCSegmentationDataset]
 
     def get_calibration_dataset_cls(self) -> type[BaseDataset]:

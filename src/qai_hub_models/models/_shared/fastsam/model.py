@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import cast
 
 from typing_extensions import Self
@@ -39,7 +40,7 @@ class Fast_SAM(UltralyticsSingleClassSegmentor):
         return ClassAgnosticARkEvaluator(image_height, image_width)
 
     @classmethod
-    def get_eval_dataset_classes(cls) -> list[type[BaseDataset]]:
+    def get_eval_dataset_classes(cls) -> Sequence[type[BaseDataset]]:
         return [CocoDataset]
 
     def get_calibration_dataset_cls(self) -> type[BaseDataset]:

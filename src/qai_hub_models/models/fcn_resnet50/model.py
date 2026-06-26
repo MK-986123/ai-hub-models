@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import torchvision.models as tv_models
 from typing_extensions import Self
 
@@ -28,7 +30,7 @@ class FCN_ResNet50(DeepLabV3Model):
         return cls(model)
 
     @classmethod
-    def get_eval_dataset_classes(cls) -> list[type[BaseDataset]]:
+    def get_eval_dataset_classes(cls) -> Sequence[type[BaseDataset]]:
         return [CocoVocSegDataset]
 
     def get_calibration_dataset_cls(self) -> type[BaseDataset]:

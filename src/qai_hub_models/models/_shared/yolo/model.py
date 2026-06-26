@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Sequence
 
 import torch
 import torch.nn.functional as F
@@ -239,7 +240,7 @@ class Yolo(BaseModel):
         return {"image": [app_to_net_image_inputs(image)[1].numpy()]}
 
     @classmethod
-    def get_eval_dataset_classes(cls) -> list[type[BaseDataset]]:
+    def get_eval_dataset_classes(cls) -> Sequence[type[BaseDataset]]:
         return [CocoDataset]
 
     def get_calibration_dataset_cls(self) -> type[BaseDataset]:
@@ -264,7 +265,7 @@ class YoloSegEvalMixin(BaseModel):
         return YoloSegmentationOutputEvaluator(image_height, image_width, 0.001, 0.7)
 
     @classmethod
-    def get_eval_dataset_classes(cls) -> list[type[BaseDataset]]:
+    def get_eval_dataset_classes(cls) -> Sequence[type[BaseDataset]]:
         return [CocoSegDataset]
 
     def get_calibration_dataset_cls(self) -> type[BaseDataset]:

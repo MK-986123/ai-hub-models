@@ -4,6 +4,7 @@
 # ---------------------------------------------------------------------
 import os
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Generic, TypeVar
 
@@ -219,7 +220,7 @@ class MultiGraphCollectionModel(ABC, FromPretrainedProtocol):
         return
 
     @classmethod
-    def get_eval_dataset_classes(cls) -> list[type[BaseDataset]]:
+    def get_eval_dataset_classes(cls) -> Sequence[type[BaseDataset]]:
         """Returns list of dataset classes on which this model can be evaluated."""
         return []
 

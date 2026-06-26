@@ -25,6 +25,6 @@ if __name__ == "__main__":
         fp_model_cls=Llama3_Elyza_JP_8B_PreSplit
         if use_presplit
         else FPSplitModelWrapper,
-        qnn_model_cls=LLM_QNN,
+        qnn_model_cls=LLM_QNN,  # type: ignore[type-abstract]
         supported_precisions=SUPPORTED_PRECISIONS,
     )

@@ -95,7 +95,7 @@ def test_evaluate(
     actual_metric, _ = evaluate(
         quantized_model_cls=Qwen2_5_VL_7B_QuantizablePreSplit,
         fp_model_cls=Qwen2_5_VL_7B_PreSplit,
-        qnn_model_cls=LLM_QNN,  # placeholder — no QNN variant yet
+        qnn_model_cls=LLM_QNN,  # type: ignore[type-abstract]  # placeholder — no QNN variant yet
         num_samples=num_samples,
         dataset_cls=dataset_cls,
         kwargs=dict(

@@ -37,7 +37,7 @@ def qwen3_vl_4b_instruct_chat_demo(
     llm_chat_demo(
         model_cls=quantized_cls,
         fp_model_cls=fp_cls,
-        qnn_model_cls=LLM_QNN,
+        qnn_model_cls=LLM_QNN,  # type: ignore[type-abstract]
         model_id=MODEL_ID,
         end_tokens=END_TOKENS,
         hf_repo_name=HF_REPO_NAME,

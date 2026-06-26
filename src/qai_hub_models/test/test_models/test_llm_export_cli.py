@@ -274,7 +274,7 @@ def test_export_cli(
             supported_precision_runtimes,
             num_splits,
             num_layers_per_split,
-            model_cls,
+            model_cls,  # type: ignore[type-abstract]
             fp_model_cls,
             position_processor_cls,
             default_export_device,

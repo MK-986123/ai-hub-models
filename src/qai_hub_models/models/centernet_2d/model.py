@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 import numpy as np
 import torch
@@ -150,7 +150,7 @@ class CenterNet2D(CenterNet):
         )
 
     @classmethod
-    def get_eval_dataset_classes(cls) -> list[type[BaseDataset]]:
+    def get_eval_dataset_classes(cls) -> Sequence[type[BaseDataset]]:
         return [CocoDataset]
 
     def get_calibration_dataset_cls(self) -> type[BaseDataset]:

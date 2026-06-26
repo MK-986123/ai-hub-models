@@ -17,6 +17,7 @@ These are type checked at compile time.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any, Generic, Protocol, TypeVar, runtime_checkable
 
 from typing_extensions import Self
@@ -114,7 +115,7 @@ class EvaluatableModelProtocol(ExecutableModelProtocol, Protocol):
     """Models follow this protocol if they can be evaluated using AI Hub Models."""
 
     @classmethod
-    def get_eval_dataset_classes(cls) -> list[type]:
+    def get_eval_dataset_classes(cls) -> Sequence[type]:
         """Returns list of dataset classes on which this model can be evaluated."""
         ...
 

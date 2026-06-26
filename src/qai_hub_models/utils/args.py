@@ -10,7 +10,7 @@ from __future__ import annotations
 import argparse
 import inspect
 import sys
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from enum import Enum
 from functools import partial
 from itertools import chain
@@ -171,7 +171,7 @@ class QAIHMArgumentParser(argparse.ArgumentParser):
         super().__init__(*args, **kwargs)
 
     def set_supported_dataset_classes(
-        self, dataset_classes: list[type[BaseDataset]]
+        self, dataset_classes: Sequence[type[BaseDataset]]
     ) -> None:
         self._dataset_name_to_cls = {
             ds_cls.dataset_name(): ds_cls for ds_cls in dataset_classes
@@ -1200,7 +1200,7 @@ def export_parser(
 
 def evaluate_parser(
     model_cls: type[FromPretrainedTypeVar],
-    supported_dataset_classes: list[type[BaseDataset]],
+    supported_dataset_classes: Sequence[type[BaseDataset]],
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] | None = None,
     uses_quantize_job: bool = True,
     num_calibration_samples: int | None = None,

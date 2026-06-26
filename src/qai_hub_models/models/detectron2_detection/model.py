@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import torch
 from detectron2.modeling import GeneralizedRCNN
 from qai_hub.client import Device
@@ -277,7 +279,7 @@ class Detectron2Detection(WorkbenchModelCollection):
         )
 
     @classmethod
-    def get_eval_dataset_classes(cls) -> list[type[BaseDataset]]:
+    def get_eval_dataset_classes(cls) -> Sequence[type[BaseDataset]]:
         return [Coco180Dataset]
 
     def get_evaluator(self) -> BaseEvaluator:

@@ -20,7 +20,7 @@ if __name__ == "__main__":
     llm_evaluate(
         quantized_model_cls=Qwen2_5_VL_7B_QuantizablePreSplit,
         fp_model_cls=Qwen2_5_VL_7B_PreSplit,
-        qnn_model_cls=LLM_QNN,
+        qnn_model_cls=LLM_QNN,  # type: ignore[type-abstract]
         supported_precisions=SUPPORTED_PRECISIONS,
         vision_encoder_cls=Qwen2_5_VL_7B_VisionEncoder,
         hf_repo_name=HF_REPO_NAME,

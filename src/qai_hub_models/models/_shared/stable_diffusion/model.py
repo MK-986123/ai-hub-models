@@ -501,7 +501,7 @@ class StableDiffusionBase(WorkbenchModelCollection):
     guidance_scale: float = 7.5
     default_num_steps: int = 20
     hf_repo_id: str = ""
-    component_classes: dict[str, type[BaseModel]] = {
+    component_classes = {
         "text_encoder": TextEncoderBase,
         "unet": UnetBase,
         "vae": VaeDecoderBase,
