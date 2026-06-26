@@ -413,6 +413,22 @@ def format_devices_table(
     )
 
 
+def _chipset_marketing_name(
+    chipsets_by_name: dict[str, ChipsetInfo], chipset_id: str
+) -> str:
+    """Marketing name for *chipset_id*, falling back to the raw id if unknown."""
+    chipset = chipsets_by_name.get(chipset_id)
+    return chipset.marketing_name if chipset else chipset_id
+
+
+def _chipset_reference_device(
+    chipsets_by_name: dict[str, ChipsetInfo], chipset_id: str
+) -> str:
+    """Reference device name for *chipset_id*, or "" if unknown."""
+    chipset = chipsets_by_name.get(chipset_id)
+    return chipset.reference_device if chipset else ""
+
+
 def format_similar_devices_table(
     devices: Iterable[DeviceInfo],
     chipsets: Iterable[ChipsetInfo],
@@ -424,25 +440,66 @@ def format_similar_devices_table(
     """
     chipsets_by_name = {c.name: c for c in chipsets}
 
-    def chipset_name(chipset_id: str) -> str:
-        chipset = chipsets_by_name.get(chipset_id)
-        return chipset.marketing_name if chipset else chipset_id
-
-    def reference_device(chipset_id: str) -> str:
-        chipset = chipsets_by_name.get(chipset_id)
-        return chipset.reference_device if chipset else ""
-
     return build_table(
         ["Type", "Name", "Chipset", "Similar Device", "Similar Chipset"],
         [
             [
                 form_factor_proto_to_str(d.form_factor),
                 d.name,
-                chipset_name(d.chipset),
-                reference_device(d.reference_chipset),
-                chipset_name(d.reference_chipset),
+                _chipset_marketing_name(chipsets_by_name, d.chipset),
+                _chipset_reference_device(chipsets_by_name, d.reference_chipset),
+                _chipset_marketing_name(chipsets_by_name, d.reference_chipset),
             ]
             for d in devices
+        ],
+        wrap_column="Name",
+        title=title,
+    )
+
+
+def similar_chipset_references(devices: Iterable[DeviceInfo]) -> dict[str, str]:
+    """
+    Map each "similar" chipset to the reference chipset whose metrics it borrows.
+
+    A "similar" chipset is one used only by devices that are not available in
+    workbench.
+    """
+    devices = list(devices)
+    primary_chipsets = {d.chipset for d in devices if not d.reference_chipset}
+    return {
+        d.chipset: d.reference_chipset
+        for d in devices
+        if d.reference_chipset and d.chipset not in primary_chipsets
+    }
+
+
+def format_similar_chipsets_table(
+    chipsets: Iterable[ChipsetInfo],
+    all_chipsets: Iterable[ChipsetInfo],
+    references: dict[str, str],
+    title: str | None = "Similar Chipsets",
+) -> str:
+    """
+    Format a table of "similar" chipsets, mapping each to the reference
+    chipset/device whose metrics it borrows.
+
+    *references* is the ``{similar_chipset: reference_chipset}`` map from
+    ``similar_chipset_references``; *all_chipsets* is the full registry, used to
+    resolve each reference chipset's marketing name and device.
+    """
+    chipsets_by_name = {c.name: c for c in all_chipsets}
+
+    return build_table(
+        ["Type", "Name", "Aliases", "Similar Chipset", "Similar Device"],
+        [
+            [
+                world_proto_to_str(c.world),
+                c.marketing_name,
+                ", ".join(c.aliases),
+                _chipset_marketing_name(chipsets_by_name, references.get(c.name, "")),
+                _chipset_reference_device(chipsets_by_name, references.get(c.name, "")),
+            ]
+            for c in chipsets
         ],
         wrap_column="Name",
         title=title,

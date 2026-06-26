@@ -62,9 +62,11 @@ from qai_hub_models_cli.proto_helpers.platform import (
     format_devices_table,
     format_runtime_links,
     format_runtimes_table,
+    format_similar_chipsets_table,
     format_similar_devices_table,
     get_platform,
     resolve_chipset,
+    similar_chipset_references,
 )
 from qai_hub_models_cli.proto_helpers.platform_enums import (
     domain_proto_to_str,
@@ -844,8 +846,9 @@ def add_list_devices_parser(
 
 
 def _run_list_chipsets(args: argparse.Namespace) -> None:
+    platform = get_platform(args.qaihm_version)
     chipsets = sorted(
-        get_platform(args.qaihm_version).chipsets,
+        platform.chipsets,
         key=lambda c: (world_proto_to_str(c.world), c.marketing_name),
     )
     types = flatten_multi_arg(args.type)
@@ -866,11 +869,29 @@ def _run_list_chipsets(args: argparse.Namespace) -> None:
             print(chipset.marketing_name)
         return
 
-    print(format_chipsets_table(chipsets))
+    # Chipsets only reachable through "similar" devices (those whose perf numbers
+    # are duplicated from another chipset) are themselves "similar"; show them in
+    # a separate table, mirroring the `devices` command.
+    references = similar_chipset_references(platform.devices)
+    primary = [c for c in chipsets if c.name not in references]
+    similar = [c for c in chipsets if c.name in references]
 
-    print(f"Total: {len(chipsets)} chipsets")
+    print(format_chipsets_table(primary))
+    print(f"Total: {len(primary)} chipsets")
+
+    if similar:
+        print()
+        print(format_similar_chipsets_table(similar, platform.chipsets, references))
+        noun = "chipset" if len(similar) == 1 else "chipsets"
+        print(
+            f"Total: {len(similar)} similar {noun}. NOTE: The similar chipsets table lists chipsets that have not "
+            "been tested with AI Hub Models. However, the corresponding similar chipset / device "
+            "serve as substitute compilation targets and have been tested. Assets built for the 'similar chipset' / 'similar device' "
+            "are likely to run on the chipset, though performance and accuracy metrics may differ."
+        )
+
     print(
-        f"\nNOTE: This is a snapshot of chipsets tested with AI Hub Models v{args.qaihm_version}. AI Hub Workbench may support a different set of devices."
+        f"\nNOTE: This is a snapshot of chipsets tested with AI Hub Models v{args.qaihm_version}. AI Hub Workbench may support a different set of chipsets."
     )
     print("\nSee all supported devices using `qai-hub-models devices`.")
     print_upgrade_notice()
