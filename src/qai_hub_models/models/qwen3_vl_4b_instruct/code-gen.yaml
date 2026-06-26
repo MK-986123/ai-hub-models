@@ -3,3 +3,5 @@ supported_precisions:
 skip_scorecard: true
 skip_export: true
 skip_example_usage: true
+orchestrator_runtimes: [geniex_llamacpp]
+only_allow_orchestrator_runtimes: true

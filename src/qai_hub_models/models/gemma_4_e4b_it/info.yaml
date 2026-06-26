@@ -15,8 +15,6 @@ license: https://ai.google.dev/gemma/apache_2
 source_repo: https://huggingface.co/google/gemma-4-E4B-it
 technical_details:
   Model architecture: Mixture-of-Experts (MoE) Transformer with Per-Layer Expert Selection and selective routing.
-  Quantization Type: Q4_0 (GGUF)
-  Model Size: 4.84 GB
   Supported languages: Multilingual (trained on 140+ languages)
   TTFT: Time To First Token is the time it takes to generate the first response token. This is expressed as a range because it varies based on the length of the prompt.
   Response Rate: Rate of response generation after the first response token.
@@ -29,7 +27,7 @@ related_models:
 form_factors:
 - Phone
 - Tablet
-has_static_banner: false
+has_static_banner: true
 has_animated_banner: false
 license_type: apache-2.0
 dataset: []
@@ -39,4 +37,9 @@ llm_details:
   call_to_action: Download and View Readme
   geniex_llamacpp_compatible: true
   genie_compatible: false
-  geniex_qairt_compatible: true
+  geniex_qairt_compatible: false
+runtime_technical_details:
+  geniex_llamacpp:
+    model_infer_id: google/gemma-4-E4B-it-qat-q4_0-gguf
+    Quantization Type: Q4_0 (GGUF)
+    Model Size: 4.84 GB

@@ -15,8 +15,6 @@ license: https://www.apache.org/licenses/LICENSE-2.0
 source_repo: https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct
 technical_details:
   Model architecture: Transformer with ViT Vision Encoder, Grouped Query Attention (GQA), and SwiGLU activation.
-  Quantization Type: Q4_0 (GGUF)
-  Model Size: 1.39 GB
   Supported languages: 100+ languages and dialects
   TTFT: Time To First Token is the time it takes to generate the first response token. This is expressed as a range because it varies based on the length of the prompt.
   Response Rate: Rate of response generation after the first response token.
@@ -29,7 +27,7 @@ related_models:
 form_factors:
 - Phone
 - Tablet
-has_static_banner: false
+has_static_banner: true
 has_animated_banner: false
 license_type: apache-2.0
 dataset: []
@@ -39,4 +37,9 @@ llm_details:
   call_to_action: Download and View Readme
   geniex_llamacpp_compatible: true
   genie_compatible: false
-  geniex_qairt_compatible: true
+  geniex_qairt_compatible: false
+runtime_technical_details:
+  geniex_llamacpp:
+    model_infer_id: unsloth/Qwen3-VL-2B-Instruct-GGUF
+    Quantization Type: Q4_0 (GGUF)
+    Model Size: 1.39 GB
