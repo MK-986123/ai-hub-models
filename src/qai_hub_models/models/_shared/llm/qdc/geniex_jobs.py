@@ -8,7 +8,6 @@ import json
 import os
 import shutil
 import tempfile
-import time
 import zipfile
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -16,7 +15,6 @@ from dataclasses import dataclass
 from qualcomm_device_cloud_sdk.models import ArtifactType
 
 from qai_hub_models.models._shared.llm.qdc.qdc_jobs import (
-    POLL_INTERVAL,
     QDCDevice,
     QDCJobs,
 )
@@ -488,9 +486,6 @@ def submit_geniex_bench_to_qdc_device(
             f"QDC job {job_id} completed with status: {job_status}, "
             f"result: {job_result}"
         )
-        geniex_job.log_upload_status(job_id)
-        job_log_files = geniex_job.get_job_log_files(job_id)
-        time.sleep(POLL_INTERVAL)
 
         if job_result is not None and job_result != "Successful":
             last_failure_reason = (
@@ -508,6 +503,31 @@ def submit_geniex_bench_to_qdc_device(
                 f"{last_failure_reason} after {_QDC_EXECUTION_MAX_ATTEMPTS} "
                 f"attempt(s). The device-side job did not complete successfully; "
                 f"check the QDC job logs for details."
+            )
+
+        geniex_job.log_upload_status(job_id)
+        # The file listing lags log-upload-status on the QDC backend, so wait
+        # for it to populate -- otherwise a successful job yields no metrics.
+        job_log_files = geniex_job.get_job_log_files(job_id, wait_for_logs=True)
+
+        # An empty listing here means the job succeeded but its logs never
+        # became retrievable; retry the whole job (transient) rather than
+        # returning empty metrics.
+        if not job_log_files:
+            last_failure_reason = (
+                f"QDC job {job_id} on device '{hub_device_name}' reported result="
+                f"'{job_result}' but produced no retrievable log files"
+            )
+            print(
+                f"[attempt {attempt}/{_QDC_EXECUTION_MAX_ATTEMPTS}] "
+                f"{last_failure_reason}"
+            )
+            if attempt < _QDC_EXECUTION_MAX_ATTEMPTS:
+                print("Retrying QDC job execution...")
+                continue
+            raise RuntimeError(
+                f"{last_failure_reason} after {_QDC_EXECUTION_MAX_ATTEMPTS} "
+                f"attempt(s). Check the QDC job logs for details."
             )
 
         return geniex_job.compute_metrics(

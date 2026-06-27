@@ -68,6 +68,17 @@ QDC_JOB_NAME_LIMIT = 32
 # ~30 minutes — long enough to absorb a ~30-min QDC API outage while still
 # probing quickly during the first few seconds.
 STATUS_POLL_MAX_RETRIES = 10
+# Number of times to re-list job log files when the listing returns empty.
+# QDC exposes log-upload-status and the file listing as two independently
+# eventually-consistent signals: get_job_log_upload_status can report
+# "Completed" seconds before get_job_log_files has indexed the uploaded files,
+# so a successful job can momentarily list zero files (observed in the GPU
+# nightly, breaking metric extraction for a job that actually succeeded). With
+# BASE=5/MAX=300 the backoff schedule (5, 10, 20, 40, 80) sums to ~2.5 minutes.
+# This is a client-side workaround; QDC-5565 tracks fixing it server-side so
+# the file listing is consistent once log upload reports complete.
+# https://jira-dc.qualcomm.com/jira/browse/QDC-5565
+LOG_LISTING_MAX_RETRIES = 5
 # HTTP status codes that the QDC SDK can surface transiently on status polling.
 # The SDK raises a bare Exception with the code embedded in the message (e.g.
 # "failed with status code 403 and message: Invalid Credentials"), so we match
@@ -560,23 +571,43 @@ class QDCJobs:
             f"Last status: {status}"
         )
 
-    def get_job_log_files(self, job_id: str) -> list:
+    def get_job_log_files(self, job_id: str, wait_for_logs: bool = False) -> list:
         """Wrapper to get job log files using the QDC API.
 
         Parameters
         ----------
         job_id
             ID of the job to retrieve logs for.
+        wait_for_logs
+            If True, re-list (with capped exponential backoff) while the
+            listing comes back empty, up to ``LOG_LISTING_MAX_RETRIES`` times.
+            The file listing lags log-upload-status on the QDC backend, so a
+            successful job can momentarily list zero files; callers that need
+            the logs to extract metrics should set this. An empty list is still
+            returned if the listing never populates -- the caller decides
+            whether that is fatal.
 
         Returns
         -------
         job_log_files: list
             List of job log files.
         """
-        return _call_with_retry(
-            lambda: qdc_api.get_job_log_files(self.client, job_id),
-            f"get_job_log_files({job_id})",
-        )
+        for attempt in range(LOG_LISTING_MAX_RETRIES):
+            job_log_files = _call_with_retry(
+                lambda: qdc_api.get_job_log_files(self.client, job_id),
+                f"get_job_log_files({job_id})",
+            )
+            if job_log_files or not wait_for_logs:
+                return job_log_files
+            if attempt < LOG_LISTING_MAX_RETRIES - 1:
+                delay = _backoff_seconds(attempt)
+                print(
+                    f"[QDC] job {job_id} log listing is empty (upload reported "
+                    f"complete); the file listing lags behind. Attempt "
+                    f"{attempt + 1}/{LOG_LISTING_MAX_RETRIES}, retrying in {delay}s."
+                )
+                time.sleep(delay)
+        return job_log_files
 
     def download_job_log_files(self, filename: str, target_path: str) -> None:
         """Download job log files from QDC.

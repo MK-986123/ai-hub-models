@@ -13,7 +13,6 @@ import re
 import shutil
 import statistics
 import tempfile
-import time
 import zipfile
 from abc import ABC, abstractmethod
 
@@ -23,7 +22,6 @@ from transformers import AutoTokenizer
 from qai_hub_models.models._shared.llm.model import LLMBase
 from qai_hub_models.models._shared.llm.qdc.qdc_jobs import (
     HUB_DEVICE_TO_QDC_DEVICE_MAP,
-    POLL_INTERVAL,
     QDCDevice,
     QDCJobs,
 )
@@ -765,9 +763,6 @@ def submit_genie_bundle_to_qdc_device(
             f"QDC job {job_id} completed with status: {job_status}, "
             f"result: {job_result}"
         )
-        genie_job.log_upload_status(job_id)
-        job_log_files = genie_job.get_job_log_files(job_id)
-        time.sleep(POLL_INTERVAL)
 
         # Treat a non-"Successful" terminal result as a device-side failure.
         if job_result is not None and job_result != "Successful":
@@ -786,6 +781,31 @@ def submit_genie_bundle_to_qdc_device(
                 f"{last_failure_reason} after {_QDC_EXECUTION_MAX_ATTEMPTS} "
                 f"attempt(s). The device-side job did not complete successfully; "
                 f"check the QDC job logs for details."
+            )
+
+        genie_job.log_upload_status(job_id)
+        # The file listing lags log-upload-status on the QDC backend, so wait
+        # for it to populate -- otherwise a successful job yields no metrics.
+        job_log_files = genie_job.get_job_log_files(job_id, wait_for_logs=True)
+
+        # An empty listing here means the job succeeded but its logs never
+        # became retrievable; retry the whole job (transient) rather than
+        # asserting on None metrics downstream.
+        if not job_log_files:
+            last_failure_reason = (
+                f"QDC job {job_id} on device '{device}' reported result="
+                f"'{job_result}' but produced no retrievable log files"
+            )
+            print(
+                f"[attempt {attempt}/{_QDC_EXECUTION_MAX_ATTEMPTS}] "
+                f"{last_failure_reason}"
+            )
+            if attempt < _QDC_EXECUTION_MAX_ATTEMPTS:
+                print("Retrying QDC job execution...")
+                continue
+            raise RuntimeError(
+                f"{last_failure_reason} after {_QDC_EXECUTION_MAX_ATTEMPTS} "
+                f"attempt(s). Check the QDC job logs for details."
             )
 
         tps, prefill_tps, ttft = genie_job.compute_metrics(job_log_files)
