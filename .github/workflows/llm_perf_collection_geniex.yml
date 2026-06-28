@@ -88,6 +88,9 @@ jobs:
       packages: read
     env:
       QDC_API_TOKEN: ${{ secrets.QDC_API_KEY }}
+    outputs:
+      results_url: ${{ steps.upload-results.outputs.artifact-url }}
+      perf_updates_url: ${{ steps.upload-perf-updates.outputs.artifact-url }}
 
     steps:
     - uses: actions/checkout@v6
@@ -133,6 +136,7 @@ jobs:
           --precisions "$GENIEX_BENCH_PRECISIONS"
 
     - name: Upload geniex-bench results
+      id: upload-results
       if: ${{ !cancelled() }}
       uses: actions/upload-artifact@v7
       with:
@@ -142,6 +146,7 @@ jobs:
           ${{ github.workspace }}/geniex_bench_results/**/*.json
 
     - name: Upload geniex perf.yaml update manifest
+      id: upload-perf-updates
       if: ${{ !cancelled() }}
       uses: actions/upload-artifact@v7
       with:
@@ -240,20 +245,31 @@ jobs:
         result-encoding: string
         script: |
           const { repo, owner } = context.repo;
+          const runId = '${{ github.run_id }}';
+          const runUrl = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}';
+          const resultsUrl = '${{ needs.collect_geniex_bench_perf.outputs.results_url }}';
+          const perfUpdatesUrl = '${{ needs.collect_geniex_bench_perf.outputs.perf_updates_url }}';
+          const bodyLines = [
+            `Update data for [${runId} scorecard](${runUrl}).`,
+            '',
+          ];
+          if (resultsUrl) {
+            bodyLines.push(`[All Results (zip)](${resultsUrl})`, '');
+          }
+          if (perfUpdatesUrl) {
+            bodyLines.push(`[Perf Updates Manifest](${perfUpdatesUrl})`, '');
+          }
+          bodyLines.push(
+            `Models: ${process.env.QAIHM_TEST_MODELS}`,
+            `Devices: ${process.env.QAIHM_TEST_DEVICES}`,
+          );
           const result = await github.rest.pulls.create({
-            title: `[Automated] Add GenieX performance numbers`,
+            title: `[Automated] Add GenieX performance numbers for ${runId} scorecard`,
             owner,
             repo,
             head: process.env.BRANCH_NAME,
             base: 'main',
-            body: [
-              'Generated automatically by GenieX Performance Collection workflow.',
-              '',
-              `Models: ${process.env.QAIHM_TEST_MODELS}`,
-              `Devices: ${process.env.QAIHM_TEST_DEVICES}`,
-              '',
-              'Workflow Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}',
-            ].join('\n')
+            body: bodyLines.join('\n')
           });
           console.log('PR created:', result.data.html_url);
           return result.data.html_url;
