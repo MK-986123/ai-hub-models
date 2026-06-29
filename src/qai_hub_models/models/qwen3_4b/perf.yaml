@@ -162,8 +162,29 @@ precisions:
                 tokens_per_second: 18.065555
                 time_to_first_token_range_milliseconds:
                   min: 240.40425
-                  max: 961.617
-                prefill_tokens_per_second: 532.556688
+                  max: 957.415
+                prefill_tokens_per_second: 534.896792
+                desired_compute_unit: npu
+              - context_length: 1024
+                tokens_per_second: 19.048557
+                time_to_first_token_range_milliseconds:
+                  min: 12245.684
+                  max: 12245.684
+                prefill_tokens_per_second: 83.623108
+                desired_compute_unit: cpu
+              - context_length: 1024
+                tokens_per_second: 19.016666
+                time_to_first_token_range_milliseconds:
+                  min: 12599.75
+                  max: 12599.75
+                prefill_tokens_per_second: 81.272679
+                desired_compute_unit: gpu
+              - context_length: 1024
+                tokens_per_second: 16.243636
+                time_to_first_token_range_milliseconds:
+                  min: 2318.602
+                  max: 2318.602
+                prefill_tokens_per_second: 441.703925
                 desired_compute_unit: npu
               - context_length: 4096
                 tokens_per_second: 7.579774
@@ -173,7 +194,7 @@ precisions:
                 prefill_tokens_per_second: 39.696254
                 desired_compute_unit: cpu
               - context_length: 4096
-                tokens_per_second: 7.670537
+                tokens_per_second: 8.135403
                 time_to_first_token_range_milliseconds:
                   min: 3398.20121875
                   max: 108742.439

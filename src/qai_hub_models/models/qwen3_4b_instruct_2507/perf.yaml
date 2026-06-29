@@ -75,6 +75,29 @@ precisions:
                   min: 75.09
                   max: 2402.88
                 desired_compute_unit: npu
+            geniex_qairt:
+              llm_metrics:
+              - context_length: 1024
+                tokens_per_second: 42.728652
+                time_to_first_token_range_milliseconds:
+                  min: 188.4036129032258
+                  max: 1507.2289032258063
+                prefill_tokens_per_second: 679.392492
+                desired_compute_unit: npu
+              - context_length: 2048
+                tokens_per_second: 42.437317
+                time_to_first_token_range_milliseconds:
+                  min: 188.6926451612903
+                  max: 3019.082322580645
+                prefill_tokens_per_second: 678.351824
+                desired_compute_unit: npu
+              - context_length: 3072
+                tokens_per_second: 42.850562
+                time_to_first_token_range_milliseconds:
+                  min: 188.30451612903224
+                  max: 4519.308387096774
+                prefill_tokens_per_second: 679.750027
+                desired_compute_unit: npu
           Snapdragon 8 Elite QRD:
             genie:
               llm_metrics:
