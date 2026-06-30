@@ -50,6 +50,15 @@ precisions:
                   max: 1600.048
                 prefill_tokens_per_second: 310.0775146484375
                 desired_compute_unit: npu
+            geniex_qairt:
+              llm_metrics:
+              - context_length: 2048
+                tokens_per_second: 15.12732
+                time_to_first_token_range_milliseconds:
+                  min: 530.93888
+                  max: 8495.02208
+                prefill_tokens_per_second: 241.082363
+                desired_compute_unit: npu
           Snapdragon 8 Elite Gen 5 QRD:
             genie:
               llm_metrics:
@@ -58,6 +67,15 @@ precisions:
                 time_to_first_token_range_milliseconds:
                   min: 83.4975
                   max: 1335.96
+                desired_compute_unit: npu
+            geniex_qairt:
+              llm_metrics:
+              - context_length: 2048
+                tokens_per_second: 17.347405
+                time_to_first_token_range_milliseconds:
+                  min: 427.8784
+                  max: 6846.0544
+                prefill_tokens_per_second: 299.150413
                 desired_compute_unit: npu
           Dragonwing IQ-9075 EVK:
             genie:
@@ -68,6 +86,15 @@ precisions:
                   min: 138.498
                   max: 2215.968
                 prefill_tokens_per_second: 223.8638916015625
+                desired_compute_unit: npu
+            geniex_qairt:
+              llm_metrics:
+              - context_length: 2048
+                tokens_per_second: 10.808642
+                time_to_first_token_range_milliseconds:
+                  min: 738.2323200000001
+                  max: 11811.717120000001
+                prefill_tokens_per_second: 173.387153
                 desired_compute_unit: npu
           Dragonwing Q-8750:
             genie:
