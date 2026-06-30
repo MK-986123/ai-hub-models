@@ -305,8 +305,8 @@ jobs:
 
   test_qaihm_models:
     name: QAIHM Model Tests
-    needs: get_changed_models
-    if: ${{ !cancelled() && inputs.models != 'none' && (inputs.models != 'changed' || needs.get_changed_models.outputs.models != '') && !inputs.use_public_wheel }}
+    needs: [precommit_check, test_qaihm_unit, get_changed_models]
+    if: ${{ !cancelled() && needs.precommit_check.result == 'success' && needs.test_qaihm_unit.result == 'success' && inputs.models != 'none' && (inputs.models != 'changed' || needs.get_changed_models.outputs.models != '') && !inputs.use_public_wheel }}
     secrets: inherit
     uses: ./.github/workflows/test_models_split.yml
     with:
