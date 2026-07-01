@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import argparse
+import functools
 import sys
 from collections.abc import Callable, Iterable
 from functools import partial
@@ -536,40 +537,87 @@ def _dispatch_export_or_evaluate(script: str, raw_args: list[str]) -> None:
     run_model_script(model_id=entry.id, script=script, forwarded=forwarded)
 
 
+def _warn_missing_qaihm_install(
+    _: argparse.Namespace,
+    cmd: str,
+) -> None:
+    install_command = (
+        "`pip install -e src -e cli` from the repo root"
+        if CURRENT_VERSION.is_devrelease
+        else f"`pip install qai-hub-models=={CURRENT_VERSION}`"
+    )
+    print(
+        f"The `qai-hub-models` pypi package is required to run {cmd}, but is not installed (you only have `qai-hub-models-cli` installed).\n"
+    )
+    print(f"Run {install_command} and try again.")
+
+
+def add_qaihm_required_help_only_parser(
+    subparsers: argparse._SubParsersAction,
+    name: str,
+    helpmsg: str,
+    description: str,
+    args: list[tuple[str, Any]],
+) -> argparse.ArgumentParser:
+    """
+    Arg parsing for some commands like `export <model> ...` are
+    delegated to the model's own parser in AI Hub Models.
+
+    If AI Hub Models is installed, commands should be intercepted before this parser
+    can read them, and forwarded to the appropriate parser defined by AI Hub Models.
+    (for example, the args would be forwarded to the parser defined by a model's export script).
+
+    Therefore, this subparser has only two purposes:
+        * Makes sure the command shows up in top-level --help message.
+        * If a command is not intercepted, AI Hub Models is not installed and this parser
+          will read the arguments instead. This parser will always print
+          an error message that asks the user to install AI Hub Models.
+    """
+    parser = subparsers.add_parser(
+        name,
+        help=helpmsg,
+        description=description,
+        add_help=False,
+    )
+    for argname, argtype in args:
+        parser.add_argument(argname, type=argtype)
+    # This swallows any possible args when AI Hub Models is not installed, so _warn_missing_qaihm_install
+    # is called instead of the parser erroring out on unknown arguments.
+    parser.add_argument("allow_any_args", nargs=argparse.REMAINDER)
+    # This is never actually called by the CLI's main() function unless AI Hub Models is not installed.
+    # We "hijack" export calls and send them to the model-specific export / evaluate parser defined in QAIHM.
+    parser.set_defaults(func=functools.partial(_warn_missing_qaihm_install, cmd=name))
+    return parser
+
+
 def add_export_parser(
     subparsers: argparse._SubParsersAction,
 ) -> argparse.ArgumentParser:
-    # Skeleton-only: arg parsing for `export <model> ...` is delegated to the
-    # model's own parser via the two-phase dispatch in `main()`. We keep a
-    # subparser here so `export` shows up in top-level help.
-    parser = subparsers.add_parser(
-        "export",
-        help="Export a model from source using AI Hub Workbench.",
+    return add_qaihm_required_help_only_parser(
+        subparsers,
+        name="export",
+        helpmsg="Export a model from source using AI Hub Workbench.",
         description=(
             f"Run `{CLI_NAME} export <model> --help` to see the model's "
             "native export options."
         ),
-        add_help=False,
+        args=[("model", str)],
     )
-    parser.add_argument("model", type=str.lower)
-    return parser
 
 
 def add_evaluate_parser(
     subparsers: argparse._SubParsersAction,
 ) -> argparse.ArgumentParser:
-    # Skeleton-only: see `add_export_parser`.
-    parser = subparsers.add_parser(
-        "evaluate",
-        help="Evaluate a model from source using AI Hub Workbench.",
+    return add_qaihm_required_help_only_parser(
+        subparsers,
+        name="evaluate",
+        helpmsg="Evaluate a model from source using AI Hub Workbench.",
         description=(
             f"Run `{CLI_NAME} evaluate <model> --help` to see the model's "
             "native evaluate options."
         ),
-        add_help=False,
+        args=[("model", str)],
     )
-    parser.add_argument("model", type=str.lower)
-    return parser
 
 
 def _run_list_models(args: argparse.Namespace) -> None:
@@ -1334,6 +1382,12 @@ class _GroupedHelpFormatter(argparse.RawDescriptionHelpFormatter):
                 for name, label in items
             ]
             blocks.append("\n".join(lines))
+
+        blocks.append(
+            "Many commands accept flags to narrow the results.\n"
+            "Run 'qai-hub-models <command> --help' to "
+            "see the flags a command supports."
+        )
         return text.rstrip() + "\n\n" + "\n\n".join(blocks) + "\n"
 
 
@@ -1366,13 +1420,8 @@ def _build_parser() -> argparse.ArgumentParser:
     add_list_runtimes_parser(subparsers)
     add_find_parser(subparsers)
     add_versions_parser(subparsers)
-    # `export`/`evaluate` are dispatched in `main()` before this parser runs;
-    # we still register their skeletons here so they appear in `--help` (and so
-    # invocations without the heavy package fall through to argparse's
-    # "invalid choice" error).
-    if is_heavy_package_installed():
-        add_export_parser(subparsers)
-        add_evaluate_parser(subparsers)
+    add_export_parser(subparsers)
+    add_evaluate_parser(subparsers)
     if use_internal_releases() or is_internal_repo():
         add_validate_aws_parser(subparsers)
 
@@ -1398,7 +1447,9 @@ def _build_parser() -> argparse.ArgumentParser:
         "Qualcomm Internal": ["validate_aws_credentials"],
     }
     parser.formatter_class = partial(
-        _GroupedHelpFormatter, subparsers_action=subparsers, sections=sections
+        _GroupedHelpFormatter,
+        subparsers_action=subparsers,
+        sections=sections,
     )
 
     return parser

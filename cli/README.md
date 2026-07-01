@@ -37,28 +37,44 @@ next step from the output itself.
 
 ## Commands
 
+Run `qai-hub-models <command> --help` (e.g. `qai-hub-models fetch --help`) for
+the full flag list of any command.
+
+### Models
+
 | Command    | Purpose                                                   | Example                                              |
 | ---------- | --------------------------------------------------------- | ---------------------------------------------------- |
 | `fetch`    | Download a model, or list options with `-i/--info` *      | `qai-hub-models fetch mobilenet_v2 -r tflite -p float` |
 | `info`     | Show metadata and download options for a model            | `qai-hub-models info mobilenet_v2`                  |
-| `models`   | List all available models *                               | `qai-hub-models models --domain "Computer Vision"`  |
 | `perf`     | Show a model's performance metrics *                      | `qai-hub-models perf mobilenet_v2`                  |
 | `numerics` | Show a model's accuracy metrics *                         | `qai-hub-models numerics mobilenet_v2`              |
-| `devices`  | List all supported devices *                              | `qai-hub-models devices`                            |
-| `chipsets` | List all supported chipsets *                             | `qai-hub-models chipsets`                           |
-| `runtimes` | List all runtimes a model can be compiled to              | `qai-hub-models runtimes`                           |
 | `find`     | Search past releases for a matching asset *               | `qai-hub-models find mobilenet_v2 -s qairt=2.45` |
-| `versions` | List AI Hub Models versions supported by this CLI         | `qai-hub-models versions`                           |
-| `export` † | Export a model to a Qualcomm runtime via AI Hub Workbench | `qai-hub-models export mobilenet_v2 -r tflite -p float -d "Samsung Galaxy S25 (Family)"` |
-| `evaluate` † | Evaluate a model's accuracy on a dataset via AI Hub Workbench | `qai-hub-models evaluate mobilenet_v2 -r tflite -p float -d "Samsung Galaxy S25 (Family)"` |
-
-Run `qai-hub-models <command> --help` (e.g. `qai-hub-models fetch --help`) for
-the full flag list of any command.
 
 \* These commands accept filter flags to be passed, to narrow their results — see
 [Filtering](#filtering).
 
-† `export` and `evaluate` require the full `qai_hub_models` package (`pip install qai_hub_models`).
+### Customized Models (export from source)
+
+| Command    | Purpose                                                   | Example                                              |
+| ---------- | --------------------------------------------------------- | ---------------------------------------------------- |
+| `export` | Export a model to a Qualcomm runtime via AI Hub Workbench | `qai-hub-models export mobilenet_v2 -r tflite -p float -d "Samsung Galaxy S25 (Family)"` |
+| `evaluate` | Evaluate a model's accuracy on a dataset via AI Hub Workbench | `qai-hub-models evaluate mobilenet_v2 -r tflite -p float -d "Samsung Galaxy S25 (Family)"` |
+
+`export` and `evaluate` require the full `qai_hub_models` package (`pip install qai_hub_models`).
+
+### Catalog
+
+| Command    | Purpose                                                   | Example                                              |
+| ---------- | --------------------------------------------------------- | ---------------------------------------------------- |
+| `models`   | List all available models *                               | `qai-hub-models models --domain "Computer Vision"`  |
+| `devices`  | List all supported devices *                              | `qai-hub-models devices`                            |
+| `chipsets` | List all supported chipsets *                             | `qai-hub-models chipsets`                           |
+| `runtimes` | List all runtimes a model can be compiled to              | `qai-hub-models runtimes`                           |
+| `versions` | List AI Hub Models versions supported by this CLI         | `qai-hub-models versions`                           |
+
+\* These commands accept filter flags to be passed, to narrow their results — see
+[Filtering](#filtering).
+
 
 ## Common flags
 

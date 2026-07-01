@@ -9,7 +9,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from qai_hub_models_cli.cli import (
-    _build_parser,
     _check_version_match,
     main,
 )
@@ -49,24 +48,6 @@ def test_check_version_match(
                 _check_version_match()
         else:
             _check_version_match()
-
-
-# ── export/evaluate gating on the heavy package ─────────────────────
-
-
-def test_export_subcommand_registered_when_heavy_installed() -> None:
-    """When qai_hub_models is installed, `export`/`evaluate` are registered."""
-    with patch("qai_hub_models_cli.cli.is_heavy_package_installed", return_value=True):
-        choices = _subcommand_choices(_build_parser())
-    assert {"export", "evaluate"}.issubset(choices)
-
-
-def test_export_subcommand_absent_when_heavy_missing() -> None:
-    """When qai_hub_models is missing, `export`/`evaluate` aren't registered."""
-    with patch("qai_hub_models_cli.cli.is_heavy_package_installed", return_value=False):
-        choices = _subcommand_choices(_build_parser())
-    assert "export" not in choices
-    assert "evaluate" not in choices
 
 
 # ── two-phase dispatch for export/evaluate ──────────────────────────
