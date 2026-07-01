@@ -16,6 +16,7 @@ def vlm_evaluate(
     quantized_model_cls: type,
     fp_model_cls: type,
     supported_precisions: Any,
+    default_sequence_length: int | list[int] | None = None,
     vision_encoder_cls: type | None = None,
     hf_repo_name: str | None = None,
     vlm_image_size: tuple[int, int] | None = None,
@@ -32,6 +33,7 @@ def vlm_evaluate(
         fp_model_cls=fp_model_cls,
         qnn_model_cls=LLM_QNN,  # type: ignore[type-abstract]
         supported_precisions=supported_precisions,
+        default_sequence_length=default_sequence_length,
         vision_encoder_cls=vision_encoder_cls,
         hf_repo_name=hf_repo_name,
         vlm_image_size=vlm_image_size,

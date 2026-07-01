@@ -310,6 +310,22 @@ ORT_TENSOR_STR_TO_NP_TYPE = {
 
 QUANTIZED_IO_TYPES = [np.uint8, np.uint16, np.int8, np.int16]
 
+# torch <-> numpy dtype maps used by the CUDA io-binding inference path.
+TORCH_TO_NP_DTYPE = {
+    torch.float16: np.float16,
+    torch.float32: np.float32,
+    torch.float64: np.float64,
+    torch.int32: np.int32,
+    torch.int64: np.int64,
+    torch.int16: np.int16,
+    torch.int8: np.int8,
+    torch.uint8: np.uint8,
+    torch.bool: np.bool_,
+}
+NP_TO_TORCH_DTYPE = {
+    np.dtype(np_type): torch_type for torch_type, np_type in TORCH_TO_NP_DTYPE.items()
+}
+
 
 @wraps(torch.onnx.export)
 def safe_torch_onnx_export(*args: Any, **kwargs: Any) -> None:
@@ -335,23 +351,163 @@ def safe_torch_onnx_export(*args: Any, **kwargs: Any) -> None:
         raise
 
 
+def _resolve_output_shapes(
+    session: onnxruntime.InferenceSession,
+    inputs: dict[str, torch.Tensor],
+) -> list[tuple[int, ...]] | None:
+    """Resolve concrete output shapes from session metadata and input shapes.
+
+    The io-binding path needs to pre-allocate output buffers, which requires
+    fully concrete shapes. ONNX graphs frequently leave output dims symbolic
+    (e.g. dynamic sequence/context length). We resolve them from (a) symbolic
+    dim names shared with the inputs, and (b) a few well-known LLM conventions
+    (growing past_* KV caches, batch-sized logits). Returns ``None`` if any
+    dimension can't be resolved, signalling the caller to fall back to numpy.
+    """
+    input_shapes = {name: tuple(t.shape) for name, t in inputs.items()}
+    sym_table: dict[str, int] = {}
+    for meta in session.get_inputs():
+        for i, dim in enumerate(meta.shape):
+            if isinstance(dim, str):
+                sym_table[dim] = input_shapes[meta.name][i]
+
+    if "input_ids" in input_shapes:
+        batch_size: int | None = input_shapes["input_ids"][0]
+        seq_len: int | None = input_shapes["input_ids"][1]
+    elif "inputs_embeds" in input_shapes:
+        batch_size = input_shapes["inputs_embeds"][0]
+        seq_len = input_shapes["inputs_embeds"][1]
+    elif "attention_mask" in input_shapes and len(input_shapes["attention_mask"]) == 4:
+        # Split parts after the first take a hidden-state input (not input_ids /
+        # inputs_embeds), so derive the new-token count from the 4D causal mask
+        # (batch, 1, seq_len, context_length). Without this these parts can't
+        # resolve their growing past_*_out shapes and fall back to the slow
+        # numpy (host round-trip) path instead of staying on-device.
+        batch_size = input_shapes["attention_mask"][0]
+        seq_len = input_shapes["attention_mask"][2]
+    else:
+        batch_size = None
+        seq_len = None
+
+    output_shapes: list[tuple[int, ...]] = []
+    for meta in session.get_outputs():
+        shape: list[int] = []
+        for dim_idx, dim in enumerate(meta.shape):
+            if isinstance(dim, int):
+                shape.append(dim)
+            elif isinstance(dim, str) and dim in sym_table:
+                shape.append(sym_table[dim])
+            elif "past_" in meta.name and "_out" in meta.name and dim_idx == 2:
+                in_name = meta.name.replace("_out", "_in").replace("_updated", "")
+                if in_name in input_shapes and seq_len is not None:
+                    shape.append(input_shapes[in_name][2] + seq_len)
+                else:
+                    return None
+            elif "logits" in meta.name and dim_idx == 0 and batch_size is not None:
+                shape.append(batch_size)
+            else:
+                return None
+        output_shapes.append(tuple(shape))
+    return output_shapes
+
+
+def _numpy_inference(
+    session: onnxruntime.InferenceSession,
+    inputs: dict[str, torch.Tensor],
+    target_device: torch.device | str,
+) -> torch.Tensor | Collection[torch.Tensor]:
+    """Run inference by moving inputs/outputs through numpy on the host."""
+    np_inputs = {k: v.cpu().detach().numpy() for k, v in inputs.items()}
+    output_np = session.run(None, np_inputs)
+    output_tensors = [torch.from_numpy(out).to(target_device) for out in output_np]
+
+    if len(output_tensors) == 1:
+        return output_tensors[0]
+    return output_tensors
+
+
+def _iobinding_inference(
+    session: onnxruntime.InferenceSession,
+    inputs: dict[str, torch.Tensor],
+) -> torch.Tensor | Collection[torch.Tensor]:
+    """Run inference on a CUDA session via io-binding, keeping data on-device.
+
+    Avoids the GPU->host->GPU numpy round-trip by binding torch CUDA tensors
+    directly to ONNX Runtime. Falls back to :func:`_numpy_inference` when the
+    output shapes can't be resolved or an I/O dtype isn't representable in torch.
+    """
+    cuda_options = session.get_provider_options().get("CUDAExecutionProvider", {})
+    device_id = int(cuda_options.get("device_id", "0"))
+    torch_device = torch.device(f"cuda:{device_id}")
+
+    output_shapes = _resolve_output_shapes(session, inputs)
+    if output_shapes is None:
+        return _numpy_inference(session, inputs, torch_device)
+
+    binding = session.io_binding()
+
+    # Keep python references to bound tensors alive for the duration of the run.
+    bound_inputs: list[torch.Tensor] = []
+    for name, tensor in inputs.items():
+        if tensor.dtype not in TORCH_TO_NP_DTYPE:
+            return _numpy_inference(session, inputs, torch_device)
+        tensor = tensor.to(torch_device).contiguous()
+        bound_inputs.append(tensor)
+        binding.bind_input(
+            name=name,
+            device_type="cuda",
+            device_id=device_id,
+            element_type=TORCH_TO_NP_DTYPE[tensor.dtype],
+            shape=tuple(tensor.shape),
+            buffer_ptr=tensor.data_ptr(),
+        )
+
+    output_tensors: list[torch.Tensor] = []
+    for meta, shape in zip(session.get_outputs(), output_shapes, strict=False):
+        np_dtype = ORT_TENSOR_STR_TO_NP_TYPE.get(meta.type)
+        if np_dtype is None or np.dtype(np_dtype) not in NP_TO_TORCH_DTYPE:
+            return _numpy_inference(session, inputs, torch_device)
+        tensor = torch.empty(
+            shape, dtype=NP_TO_TORCH_DTYPE[np.dtype(np_dtype)], device=torch_device
+        )
+        output_tensors.append(tensor)
+        binding.bind_output(
+            name=meta.name,
+            device_type="cuda",
+            device_id=device_id,
+            element_type=np_dtype,
+            shape=shape,
+            buffer_ptr=tensor.data_ptr(),
+        )
+
+    torch.cuda.synchronize()
+    session.run_with_iobinding(binding)
+    torch.cuda.synchronize()
+
+    if len(output_tensors) == 1:
+        return output_tensors[0]
+    return output_tensors
+
+
 def mock_torch_onnx_inference(
     session: onnxruntime.InferenceSession,
     *args: torch.Tensor,
     **kwargs: torch.Tensor,
 ) -> torch.Tensor | Collection[torch.Tensor]:
+    """Run an ONNX InferenceSession with a torch-like calling convention.
+
+    On a CUDA session this uses io-binding to keep tensors on-device (with a
+    numpy fallback when output shapes/dtypes can't be resolved); on a CPU
+    session it runs through numpy. The interface is unchanged: pass torch
+    tensors positionally or by name, get torch tensor(s) back.
+    """
     input_names = [inp.name for inp in session.get_inputs()]
+    inputs = kwargs_to_dict(input_names, *args, **kwargs)
 
-    inputs = {
-        k: v.cpu().detach().numpy()
-        for k, v in kwargs_to_dict(input_names, *args, **kwargs).items()
-    }
-    output_np = session.run(None, inputs)
-    output_tensors = [torch.from_numpy(out) for out in output_np]
+    if "CUDAExecutionProvider" in session.get_providers():
+        return _iobinding_inference(session, inputs)
 
-    if len(output_tensors) == 1:
-        return output_tensors[0]
-    return output_tensors
+    return _numpy_inference(session, inputs, "cpu")
 
 
 # Initializer proto definition: https://github.com/onnx/onnx/blob/main/onnx/onnx.proto#L499

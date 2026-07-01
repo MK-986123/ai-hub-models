@@ -55,6 +55,7 @@ def llm_chat_demo(
     # VLM parameters (optional)
     vision_encoder_cls: Any | None = None,
     hidden_size: int | None = None,
+    default_sequence_length: list[int] | int | None = None,
 ) -> None:
     """Shared Chat Demo App to generate output for provided input prompt.
 
@@ -76,6 +77,7 @@ def llm_chat_demo(
             supports_thinking=supports_thinking,
             vision_encoder_cls=vision_encoder_cls,
             hidden_size=hidden_size,
+            default_sequence_length=default_sequence_length,
         )
     else:
         _legacy_demo_impl(
@@ -110,6 +112,7 @@ def _demo_impl(
     supports_thinking: bool = False,
     vision_encoder_cls: Any | None = None,
     hidden_size: int | None = None,
+    default_sequence_length: list[int] | int | None = None,
 ) -> None:
     """Demo using make_generator (for models with GeneratorClass)."""
     parser = get_model_cli_parser(
@@ -117,6 +120,21 @@ def _demo_impl(
         suppress_help_arguments=["--host-device", "--fp-model", "--precision"],
     )
     parser = add_input_spec_args(model_cls, parser)
+
+    if default_sequence_length is None:
+        default_sequence_length = DEFAULT_EXPORT_SEQUENCE_LENGTHS
+    elif isinstance(default_sequence_length, int):
+        default_sequence_length = [default_sequence_length]
+
+    parser.add_argument(
+        "--sequence-length",
+        dest="sequence_length",
+        type=int,
+        nargs="+",
+        default=sorted(default_sequence_length),
+        help="One or more AR sequence-length buckets. With multiple values the "
+        "generator selects the smallest bucket that fits each step",
+    )
     parser.add_argument("--prompt", type=str, default=None, help="input prompt.")
     parser.add_argument(
         "--prompt-file", type=str, default=None, help="input prompt from file path."
@@ -298,7 +316,7 @@ def _demo_impl(
 
     generator = make_generator(
         model,
-        sequence_length=DEFAULT_EXPORT_SEQUENCE_LENGTHS,
+        sequence_length=args.sequence_length,
         context_length=args.context_length,
         vision_model=vision_model,
         model_cls=fp_model_cls,

@@ -17,6 +17,7 @@ def vlm_chat_demo(
     vision_encoder_cls: type,
     end_tokens: set[str],
     default_prompt: str,
+    default_sequence_length: int | list[int] | None = None,
     **kwargs: Any,
 ) -> None:
     """Run the VLM chat demo via the shared ``llm_chat_demo``.
@@ -30,5 +31,6 @@ def vlm_chat_demo(
         vision_encoder_cls=vision_encoder_cls,
         end_tokens=end_tokens,
         default_prompt=default_prompt,
+        default_sequence_length=default_sequence_length,
         **kwargs,
     )

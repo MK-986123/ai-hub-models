@@ -18,7 +18,9 @@ from qai_hub_models.evaluators.llm_evaluator import LLMEvaluator
 from qai_hub_models.models._shared.llm.generator import LLM_Generator
 from qai_hub_models.models._shared.llm.generator_factory import make_generator
 from qai_hub_models.models._shared.llm.model import (
+    DEFAULT_CALIBRATION_SEQ_LEN,
     DEFAULT_CONTEXT_LENGTH,
+    DEFAULT_EXPORT_SEQUENCE_LENGTHS,
     DEFAULT_SEQUENCE_LENGTH,
     LLM_QNN,
     LLM_AIMETOnnx,
@@ -199,7 +201,7 @@ def _evaluate_impl(
     )
     evaluator = fp_model.get_evaluator(
         dataset_cls.dataset_name(),
-        torch.device("cpu") if not is_fp else host_device,
+        host_device,
         **(task_kwargs or {}),
     )
     assert isinstance(evaluator, LLMEvaluator)
@@ -253,7 +255,7 @@ def _evaluate_impl(
         context_length=context_length,
         vision_model=vision_model,
         model_cls=fp_model_cls,
-        device=torch.device("cpu") if not is_fp else host_device,
+        device=host_device,
     )
 
     evaluator.add_from_dataset(
@@ -453,7 +455,7 @@ def llm_evaluate(
     fp_model_cls: type[LLMBase],
     qnn_model_cls: type[LLM_QNN],
     supported_precisions: list[Precision],
-    default_calibration_seqlen: int = 2048,
+    default_sequence_length: list[int] | int | None = None,
     vision_encoder_cls: Any = None,
     hf_repo_name: str | None = None,
     vlm_image_size: tuple[int, int] | None = None,
@@ -464,6 +466,25 @@ def llm_evaluate(
         suppress_help_arguments=["--host-device", "--fp-model", "--precision"],
     )
     parser = add_input_spec_args(quantized_model_cls, parser)
+
+    if default_sequence_length is None:
+        default_sequence_length = [
+            *DEFAULT_EXPORT_SEQUENCE_LENGTHS,
+            DEFAULT_CALIBRATION_SEQ_LEN,
+        ]
+    elif isinstance(default_sequence_length, int):
+        default_sequence_length = [default_sequence_length]
+    assert default_sequence_length is not None
+
+    parser.add_argument(
+        "--sequence-length",
+        dest="sequence_length",
+        type=int,
+        nargs="+",
+        default=sorted(default_sequence_length),
+        help="One or more AR sequence-length buckets. With multiple values the "
+        "generator selects the smallest bucket that fits each step",
+    )
     parser.add_argument(
         "--task",
         type=str,
@@ -522,15 +543,20 @@ def llm_evaluate(
         ),
     )
 
-    parser.set_defaults(sequence_length=default_calibration_seqlen)
     args = parser.parse_args()
 
     kwargs = dict(get_model_kwargs(quantized_model_cls, vars(args)))
 
     checkpoint_type = CheckpointType.from_checkpoint(kwargs["checkpoint"])
     if checkpoint_type == CheckpointType.GENIE_BUNDLE:
-        # The NPU does not support the higher sequence length we use on GPU
-        args.sequence_length = min(args.sequence_length, DEFAULT_SEQUENCE_LENGTH)
+        # The NPU does not support the higher sequence length we use on GPU.
+        # sequence_length may be a single int or a list of AR buckets.
+        if isinstance(args.sequence_length, list):
+            args.sequence_length = sorted(
+                {min(sl, DEFAULT_SEQUENCE_LENGTH) for sl in args.sequence_length}
+            )
+        else:
+            args.sequence_length = min(args.sequence_length, DEFAULT_SEQUENCE_LENGTH)
 
     # Collect VLM image size: CLI args override the caller-provided default
     if vision_encoder_cls is not None:
