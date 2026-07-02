@@ -216,6 +216,7 @@ jobs:
                      || 'ephemeral_test_assets' }}
       deployment: ${{ inputs.deployment }}
       device: ${{ inputs.test_devices }}
+      test_precisions: ${{ inputs.test_precisions }}
       run_eval: ${{ inputs.test_scope == 'accuracy' || inputs.test_scope == 'perf_and_accuracy' }}
 
   collect_results_split:

@@ -29,6 +29,12 @@ on:
           type: string
           default: 'all'
 
+        test_precisions:
+          description: |
+            Test Precisions (float, w8a8, etc.)
+          type: string
+          default: 'default'
+
         run_eval:
           description: |
             Run the on-device accuracy evaluation (100 default prompts). When
@@ -104,7 +110,8 @@ jobs:
     with:
       model: ${{ needs.determine_llm_models.outputs.models }}
       device: ${{ inputs.device }}
-      precision: all
+      # Map default and default variants to 'all' (see scorecard/envvars.py).
+      precision: ${{ contains(fromJSON('["default", "default_minus_float", "default_quantized", "bench"]'), inputs.test_precisions) && 'all' || inputs.test_precisions }}
       deployment: ${{ inputs.deployment }}
       run_eval: ${{ inputs.run_eval }}
       create_pr: false
