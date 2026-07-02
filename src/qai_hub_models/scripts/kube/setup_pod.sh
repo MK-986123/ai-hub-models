@@ -17,6 +17,7 @@ $SUDO apt-get install -y -qq \
   ca-certificates \
   curl \
   git \
+  jq \
   libgl1-mesa-glx \
   libglib2.0-0 \
   libgomp1 \
