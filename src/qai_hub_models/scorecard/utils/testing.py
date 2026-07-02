@@ -50,7 +50,7 @@ from qai_hub_models.utils.evaluate.helpers import (
 )
 from qai_hub_models.utils.hub_clients import (
     default_hub_client_as,
-    get_hub_client_or_raise,
+    get_hub_client,
 )
 from qai_hub_models.utils.inference import (
     AsyncOnDeviceResult,
@@ -154,15 +154,21 @@ def make_cached_from_pretrained_fixture(
     return cached_from_pretrained
 
 
-@pytest.fixture
+@pytest.fixture(scope="session", autouse=True)
 def hub_test_deployment() -> Generator[str, None, None]:
     """
-    Set the global Hub client to match ``QAIHM_TEST_DEPLOYMENT``.
+    Set the global Hub client to match ``QAIHM_TEST_DEPLOYMENT`` for the whole session.
 
     Reads the deployment from :func:`DeploymentEnvvar.get` and swaps the
-    global Hub client for the duration of the test via
-    :func:`default_hub_client_as`, so ``hub.*`` calls use the correct
-    deployment regardless of what ``~/.qai_hub/client.ini`` points at.
+    global Hub client via :func:`default_hub_client_as`, so ``hub.*`` calls
+    use the correct deployment regardless of what ``~/.qai_hub/client.ini``
+    points at. Runs autouse so every test — including compile/link/profile
+    submissions that don't explicitly request a fixture — hits the requested
+    deployment.
+
+    If no matching profile is configured under ``~/.qai_hub/``, the fixture
+    is a no-op so tests that never touch Hub can still run without
+    credentials.
 
     Yields
     ------
@@ -170,7 +176,11 @@ def hub_test_deployment() -> Generator[str, None, None]:
         The deployment name (e.g. ``"prod"``, ``"dev"``).
     """
     deployment = DeploymentEnvvar.get()
-    with default_hub_client_as(get_hub_client_or_raise(deployment)):
+    client = get_hub_client(deployment)
+    if client is None:
+        yield deployment
+        return
+    with default_hub_client_as(client):
         yield deployment
 
 

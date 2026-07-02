@@ -15,7 +15,6 @@ import qai_hub as hub
 from pydantic import GetCoreSchemaHandler
 from pydantic_core import core_schema
 from qai_hub.client import QuantizeDtype, QuantizeJob
-from qai_hub.hub import _global_client
 from qai_hub.public_rest_api import get_framework_list
 from typing_extensions import assert_never
 
@@ -232,11 +231,14 @@ class QAIRTVersion:
             Framework that corresponds with AI Hub Workbench default.
         """
         try:
-            api_url = _global_client.config.api_url
+            # Read the client lazily (not via an import-time binding) so that a
+            # swapped-in default client, e.g. via `default_hub_client_as`, is respected.
+            global_client = hub.hub._global_client
+            api_url = global_client.config.api_url
             if api_url not in QAIRTVersion._FRAMEWORKS:
                 QAIRTVersion._FRAMEWORKS[api_url] = [
                     QAIRTVersion.ParsedFramework.parse(f.full_version, list(f.api_tags))
-                    for f in get_framework_list(_global_client.config).frameworks
+                    for f in get_framework_list(global_client.config).frameworks
                     if f.name == "QAIRT"
                 ]
                 for framework in QAIRTVersion._FRAMEWORKS[api_url]:
