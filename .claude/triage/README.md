@@ -13,6 +13,7 @@ on newly created GitHub issues.
 | [historical-patterns.md](historical-patterns.md) | Recurring failure patterns from 6 months of nightly triage |
 | [runtime-guide.md](runtime-guide.md) | Runtime architecture context for disambiguation |
 | [examples.md](examples.md) | Real triage decisions with reasoning |
+| [LABELING.md](LABELING.md) | How to grade triage accuracy with `triage-correct` / `triage-wrong` / `triage-transient` labels (5 seconds at close time) |
 
 ## How It Works
 
@@ -40,3 +41,19 @@ on newly created GitHub issues.
 2. **Labels are the strongest signal** — route by label first, keyword second
 3. **Confidence matters** — flag ambiguous cases so the czar knows to investigate
 4. **Czar rotation** — never hardcode a person for nightly failure triage
+
+## Grading Triage Accuracy
+
+At close time on either a **nightly** OR a **scorecard** issue, please apply
+ONE of three labels so the weekly KB-update agent can score the agent's work
+against human ground truth (5 seconds, one click):
+
+- `triage-correct` — agent's analysis matched reality
+- `triage-wrong` — agent's analysis was wrong on a material dimension
+- `triage-transient` — flake / retry-passed / infra noise; no real RCA was required
+
+Leave it unlabeled if you cannot pick cleanly — the weekly agent will mark the
+issue `UNVERIFIED` / `NO-DATA`, which is the correct outcome when there is no
+ground truth.
+
+Full guide (with nightly vs scorecard semantics): [LABELING.md](LABELING.md).
