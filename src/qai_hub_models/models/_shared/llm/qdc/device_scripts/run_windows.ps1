@@ -79,7 +79,7 @@ $env:ADSP_LIBRARY_PATH = "$env:QAIRT_HOME\lib\hexagon-{HEXAGON_VERSION}\unsigned
 Invoke-GenieRetry -GenieArgs @("-c", "genie_config.json", "--prompt_file", "sample_prompt.txt") -OutFile "C:/Temp/QDC_logs/genie.log"
 
 for ($i = 1; $i -le {NUM_TRIALS}; $i++) {
-    $profileName = "profile$($i).txt"
+    $profileName = "profile$($i).json"
     $outputPath = "C:/Temp/QDC_logs/$profileName"
     (Get-Content genie_config.json) -replace '"seed": \d+', "`"seed`": $i" | Set-Content genie_config.json
     Invoke-GenieRetry -GenieArgs @("-c", "genie_config.json", "--prompt_file", "sample_prompt.txt", "--profile", $outputPath)

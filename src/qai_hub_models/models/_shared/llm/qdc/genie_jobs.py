@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import importlib
 import json
 import os
@@ -475,7 +476,9 @@ class GenieQDCJobs(QDCJobs):
                         if not displayed:
                             print(f"Warning: Could not read {genie_log_path}")
 
-                    if "profile" in job_log.filename:
+                    if fnmatch.fnmatch(
+                        os.path.basename(job_log.filename), "profile*.json"
+                    ):
                         shutil.unpack_archive(target_path, tmpdirname, "zip")
                         profile_path = os.path.join(
                             tmpdirname, job_log.filename.split("/")[-1]
@@ -532,6 +535,10 @@ class GenieQDCJobs(QDCJobs):
             )
 
         print("No performance metrics found.")
+        if job_log_files:
+            print("Available log files:")
+            for job_log in job_log_files:
+                print(f"  {job_log.filename}")
         return None, None, None
 
     @staticmethod

@@ -34,7 +34,7 @@ class TestGenie:
                 f'sed -i \'s/"seed": [0-9]*/"seed": {i}/\' genie_config.json'
             )
             trial_commands.append(
-                f"genie_retry genie-t2t-run -c genie_config.json --prompt_file sample_prompt.txt --profile /data/local/tmp/QDC_logs/profile{i}.txt 2>>/data/local/tmp/QDC_logs/genie_stderr.log"
+                f"genie_retry genie-t2t-run -c genie_config.json --prompt_file sample_prompt.txt --profile /data/local/tmp/QDC_logs/profile{i}.json 2>>/data/local/tmp/QDC_logs/genie_stderr.log"
             )
         full_genie_command = " && ".join(trial_commands)
         qairt_path = "/data/local/tmp/qairt/<<QAIRT_VERSION>>"
@@ -136,7 +136,7 @@ fi
         # actually produced its outputs. A green pytest with no genie.log was
         # the failure mode on QDC job 613912.
         expected = ["/data/local/tmp/QDC_logs/genie.log"] + [
-            f"/data/local/tmp/QDC_logs/profile{i}.txt" for i in range(num_trials)
+            f"/data/local/tmp/QDC_logs/profile{i}.json" for i in range(num_trials)
         ]
         ls = subprocess.run(
             ["adb", "shell", "ls", "-l", *expected],

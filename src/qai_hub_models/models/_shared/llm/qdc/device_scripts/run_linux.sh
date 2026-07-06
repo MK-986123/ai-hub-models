@@ -60,7 +60,7 @@ genie_retry genie-t2t-run -c genie_config.json --prompt_file sample_prompt.txt 2
 for i in $(seq 1 {NUM_TRIALS}); do
     sed -i "s/\"seed\": [0-9]*/\"seed\": $i/" genie_config.json
     genie_retry genie-t2t-run -c genie_config.json --prompt_file sample_prompt.txt \
-      --profile /data/local/tmp/QDC_logs/profile${i}.txt
+      --profile /data/local/tmp/QDC_logs/profile${i}.json
 done
 
 # Run evaluation over all prompt files
