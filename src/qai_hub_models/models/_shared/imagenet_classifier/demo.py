@@ -25,6 +25,7 @@ from qai_hub_models.utils.asset_loaders import (
     load_image,
     load_json,
 )
+from qai_hub_models.utils.image_processing import IMAGENET_TRANSFORM
 
 IMAGENET_LABELS_ASSET = CachedWebModelAsset(
     "https://raw.githubusercontent.com/anishathalye/imagenet-simple-labels/master/imagenet-simple-labels.json",
@@ -45,7 +46,7 @@ def imagenet_demo(
     model_id: str,
     is_test: bool = False,
     available_target_runtimes: list[TargetRuntime] | None = None,
-    transform: transforms.Compose | None = None,
+    transform: transforms.Compose = IMAGENET_TRANSFORM,
 ) -> None:
     # Demo parameters
     if available_target_runtimes is None:

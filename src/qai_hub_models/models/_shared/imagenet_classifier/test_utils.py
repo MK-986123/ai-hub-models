@@ -21,6 +21,7 @@ from qai_hub_models.utils.asset_loaders import (
     load_image,
     load_numpy,
 )
+from qai_hub_models.utils.image_processing import IMAGENET_TRANSFORM
 
 GROUP_NAME = "imagenet_classifier"
 TEST_IMAGENET_IMAGE = CachedWebModelAsset.from_asset_store(
@@ -51,7 +52,8 @@ def run_imagenet_classifier_test(
     diff_tol: float = 0.0,
     rtol: float = 0.0,
     atol: float = 1e-4,
-    transform: transforms.Compose | None = None,
+    transform: transforms.Compose = IMAGENET_TRANSFORM,
+    expected_class: int = TEST_IMAGENET_CLASS,
 ) -> None:
     """
     Evaluates the classifier on a test image and validates the output.
@@ -76,7 +78,11 @@ def run_imagenet_classifier_test(
     atol
         Absolute tolerance allowed for two numbers to be "close".
     transform
-        Optional custom preprocessing transform. If None, uses IMAGENET_TRANSFORM (224x224).
+        Torchvision transform to apply to the image before inference.
+        Defaults to the standard 224x224 ImageNet transform.
+    expected_class
+        Expected top-1 ImageNet class index. Defaults to TEST_IMAGENET_CLASS (258, Samoyed).
+        Override for models where the correct transform yields a different top-1 on the test image.
     """
     img = load_image(TEST_IMAGENET_IMAGE)
     app = ImagenetClassifierApp(model, transform=transform)
@@ -88,12 +94,12 @@ def run_imagenet_classifier_test(
     assert_most_close(probabilities.numpy(), expected_out, diff_tol, rtol, atol)
 
     predicted_class = torch.argmax(probabilities, dim=0)
-    predicted_probability = probabilities[TEST_IMAGENET_CLASS].item()
+    predicted_probability = probabilities[expected_class].item()
     assert predicted_probability > probability_threshold, (
         f"Predicted probability {predicted_probability:.3f} is below the threshold {probability_threshold}."
     )
-    assert predicted_class == TEST_IMAGENET_CLASS, (
-        f"Model predicted class {predicted_class} when correct class was {TEST_IMAGENET_CLASS}."
+    assert predicted_class == expected_class, (
+        f"Model predicted class {predicted_class} when correct class was {expected_class}."
     )
 
 
@@ -104,7 +110,7 @@ def run_imagenet_classifier_trace_test(
     atol: float = 1e-4,
     is_quantized: bool = False,
     check_trace: bool = True,
-    transform: transforms.Compose | None = None,
+    transform: transforms.Compose = IMAGENET_TRANSFORM,
 ) -> None:
     img = load_image(TEST_IMAGENET_IMAGE)
     app = ImagenetClassifierApp(model, transform=transform)

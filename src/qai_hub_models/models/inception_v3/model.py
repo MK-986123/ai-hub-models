@@ -27,6 +27,7 @@ from qai_hub_models.utils.input_spec import (
 )
 
 MODEL_ID = __name__.split(".")[-2]
+MODEL_ASSET_VERSION = 3
 DEFAULT_WEIGHTS = "IMAGENET1K_V1"
 INCEPTION_V3_DIM = 299
 

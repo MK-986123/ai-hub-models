@@ -4,11 +4,17 @@
 # ---------------------------------------------------------------------
 
 from qai_hub_models.models._shared.imagenet_classifier.demo import imagenet_demo
-from qai_hub_models.models.efficientnet_v2_s.model import MODEL_ID, EfficientNetV2s
+from qai_hub_models.models.efficientnet_v2_s.model import (
+    EFFICIENTNET_V2_S_TRANSFORM,
+    MODEL_ID,
+    EfficientNetV2s,
+)
 
 
 def main(is_test: bool = False) -> None:
-    imagenet_demo(EfficientNetV2s, MODEL_ID, is_test)
+    imagenet_demo(
+        EfficientNetV2s, MODEL_ID, is_test, transform=EFFICIENTNET_V2_S_TRANSFORM
+    )
 
 
 if __name__ == "__main__":

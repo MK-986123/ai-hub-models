@@ -11,6 +11,7 @@ from qai_hub_models.models._shared.imagenet_classifier.test_utils import (
 )
 from qai_hub_models.models.efficientnet_b4.demo import main as demo_main
 from qai_hub_models.models.efficientnet_b4.model import (
+    EFFICIENTNET_B4_TRANSFORM,
     MODEL_ASSET_VERSION,
     MODEL_ID,
     EfficientNetB4,
@@ -19,15 +20,21 @@ from qai_hub_models.models.efficientnet_b4.model import (
 
 def test_task() -> None:
     run_imagenet_classifier_test(
-        EfficientNetB4.from_pretrained(), MODEL_ID, asset_version=MODEL_ASSET_VERSION
+        EfficientNetB4.from_pretrained(),
+        MODEL_ID,
+        asset_version=MODEL_ASSET_VERSION,
+        probability_threshold=0.44,
+        transform=EFFICIENTNET_B4_TRANSFORM,
     )
 
 
 @pytest.mark.trace
 def test_trace() -> None:
-    run_imagenet_classifier_trace_test(EfficientNetB4.from_pretrained())
+    run_imagenet_classifier_trace_test(
+        EfficientNetB4.from_pretrained(),
+        transform=EFFICIENTNET_B4_TRANSFORM,
+    )
 
 
 def test_demo() -> None:
-    # Verify demo does not crash
     demo_main(is_test=True)

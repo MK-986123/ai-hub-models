@@ -19,7 +19,7 @@ from qai_hub_models.utils.image_processing import (
 def preprocess_image(
     image: Image,
     normalize: bool = False,
-    transform: transforms.Compose | None = None,
+    transform: transforms.Compose = IMAGENET_TRANSFORM,
 ) -> torch.Tensor:
     """
     Preprocesses images to be run through torch imagenet classifiers
@@ -33,14 +33,15 @@ def preprocess_image(
     normalize
         Perform normalization to the standard imagenet mean and standard deviation.
     transform
-        Optional custom transform. If None, uses IMAGENET_TRANSFORM (224x224).
+        Torchvision transform to apply to the image before inference.
+        Defaults to the standard 224x224 ImageNet transform.
 
     Returns
     -------
     preprocessed_tensor : torch.Tensor
         Torch tensor to be directly passed to the model.
     """
-    out_tensor = (transform or IMAGENET_TRANSFORM)(image)
+    out_tensor = transform(image)
     assert isinstance(out_tensor, torch.Tensor)
     if normalize:
         out_tensor = normalize_image_transform()(out_tensor)
@@ -63,7 +64,7 @@ class ImagenetClassifierApp:
         self,
         model: ExecutableModelProtocol,
         normalization_in_network: bool = True,
-        transform: transforms.Compose | None = None,
+        transform: transforms.Compose = IMAGENET_TRANSFORM,
     ) -> None:
         """
         Parameters
@@ -74,8 +75,8 @@ class ImagenetClassifierApp:
             Whether the classifier normalizes the input using the standard imagenet mean and standard deviation.
             If false, the app will preform the normalization in a preprocessing step.
         transform
-            Optional custom preprocessing transform. If None, uses IMAGENET_TRANSFORM (224x224).
-            Pass a model-specific transform when the model expects a different input resolution.
+            Torchvision transform to apply to the image before inference.
+            Defaults to the standard 224x224 ImageNet transform.
         """
         self.model = model
         self.normalization_in_network = normalization_in_network

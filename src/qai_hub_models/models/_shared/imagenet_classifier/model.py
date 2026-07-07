@@ -172,7 +172,12 @@ class ImagenetClassifierWithModelBuilder(ImagenetClassifier):
         transform_input: bool = False,
         normalize_input: bool = True,
     ) -> None:
-        super().__init__(net, transform_input, normalize_input)
+        super().__init__(
+            net,
+            transform_input,
+            normalize_input,
+            serialization_settings=SerializationSettings(use_pt2=False),
+        )
 
     @classmethod
     def from_pretrained(
