@@ -25,6 +25,7 @@ REPRESENTATIVE_EXPORT_MODELS = [
     "sinet",
     "whisper_tiny",
 ]
+CODEGEN_FALLBACK_LLM_MODEL = "llama_v3_2_1b_instruct"
 REPRESENTATIVE_EXPORT_FILES = [
     f"src/qai_hub_models/models/{model}/export.py"
     for model in REPRESENTATIVE_EXPORT_MODELS
@@ -65,11 +66,18 @@ LLM_GROUPS: list[list[str]] = [
     ],
 ]
 
-# _shared/llm/ + _shared/llama3/ route to llama; _shared/qwen3/ routes to qwen.
+# _shared/llm/, _shared/llama3/ route to llama; _shared/qwen3/, _shared/qwen2/
+# route to qwen (text); _shared/qwen2_vl/, _shared/qwen3_vl/, _shared/vlm/ route
+# to qwen (VL); _shared/lm_driver/ is used by both llama models and
+# _shared/qwen3_vl/, so it routes to llama + qwen VL reps.
 LLAMA_REPRESENTATIVE_EXPORT_FILE = (
     "src/qai_hub_models/models/llama_v3_2_1b_instruct/export.py"
 )
 QWEN_REPRESENTATIVE_EXPORT_FILE = "src/qai_hub_models/models/qwen3_4b/export.py"
+QWEN_VL_REPRESENTATIVE_EXPORT_FILE = (
+    "src/qai_hub_models/models/qwen3_vl_4b_instruct/export.py"
+)
+PI05_REPRESENTATIVE_EXPORT_FILE = "src/qai_hub_models/models/pi05/export.py"
 _SHARED_DIR = Path(REPO_ROOT, "src/qai_hub_models/models/_shared")
 _LLAMA_REP_FILES = sorted(
     p.relative_to(REPO_ROOT).as_posix()
@@ -77,8 +85,28 @@ _LLAMA_REP_FILES = sorted(
     for p in (_SHARED_DIR / sub).rglob("*.py")
 )
 _QWEN_REP_FILES = sorted(
-    p.relative_to(REPO_ROOT).as_posix() for p in (_SHARED_DIR / "qwen3").rglob("*.py")
+    p.relative_to(REPO_ROOT).as_posix()
+    for sub in ("qwen3", "qwen2")
+    for p in (_SHARED_DIR / sub).rglob("*.py")
 )
+_QWEN_VL_REP_FILES = sorted(
+    p.relative_to(REPO_ROOT).as_posix()
+    for sub in ("qwen2_vl", "qwen3_vl", "vlm")
+    for p in (_SHARED_DIR / sub).rglob("*.py")
+)
+_LM_DRIVER_REP_FILES = sorted(
+    p.relative_to(REPO_ROOT).as_posix()
+    for p in (_SHARED_DIR / "lm_driver").rglob("*.py")
+)
+
+# Utils used only by LLM text + LLM VL shared code.
+_LLM_TEXT_AND_VL_UTILS = [
+    "src/qai_hub_models/utils/system_info.py",
+]
+# aimet/encodings.py is used by text LLMs + VL LLMs + pi05.
+_LLM_AND_PI05_UTILS = [
+    "src/qai_hub_models/utils/aimet/encodings.py",
+]
 
 
 # For certain files that are imported by many models, manually override
@@ -98,6 +126,23 @@ MANUAL_EDGES = {
     ],
     **{f: [LLAMA_REPRESENTATIVE_EXPORT_FILE] for f in _LLAMA_REP_FILES},
     **{f: [QWEN_REPRESENTATIVE_EXPORT_FILE] for f in _QWEN_REP_FILES},
+    **{f: [QWEN_VL_REPRESENTATIVE_EXPORT_FILE] for f in _QWEN_VL_REP_FILES},
+    **{
+        f: [LLAMA_REPRESENTATIVE_EXPORT_FILE, QWEN_VL_REPRESENTATIVE_EXPORT_FILE]
+        for f in _LM_DRIVER_REP_FILES
+    },
+    **{
+        f: [LLAMA_REPRESENTATIVE_EXPORT_FILE, QWEN_VL_REPRESENTATIVE_EXPORT_FILE]
+        for f in _LLM_TEXT_AND_VL_UTILS
+    },
+    **{
+        f: [
+            LLAMA_REPRESENTATIVE_EXPORT_FILE,
+            QWEN_VL_REPRESENTATIVE_EXPORT_FILE,
+            PI05_REPRESENTATIVE_EXPORT_FILE,
+        ]
+        for f in _LLM_AND_PI05_UTILS
+    },
     "src/qai_hub_models/common.py": REPRESENTATIVE_EXPORT_FILES,
     "src/qai_hub_models/configs/_info_yaml_enums.py": REPRESENTATIVE_EXPORT_FILES,
     "src/qai_hub_models/configs/_info_yaml_llm_details.py": REPRESENTATIVE_EXPORT_FILES,
@@ -405,11 +450,15 @@ class PrintCITestModelsTask(Task):
         )
 
         out = model_or_yaml_changed
-        if only_code_generation_changed - model_or_yaml_changed:
+        codegen_only_models = only_code_generation_changed - model_or_yaml_changed
+        if codegen_only_models:
             # We don't run tests for every model whose codegen files was changed.
             # However, if there are models with only codegen changes,
             # we run a representative model set to make sure codegen didn't break for regular + component models.
             out = out.union(REPRESENTATIVE_EXPORT_MODELS)
+            llm_models = {m for group in LLM_GROUPS for m in group}
+            if codegen_only_models & llm_models:
+                out.add(CODEGEN_FALLBACK_LLM_MODEL)
 
         out = prune_llm_groups(out)
         print(",".join(sorted(out)))

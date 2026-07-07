@@ -176,10 +176,10 @@ def test_utils_not_in_manual_edges_fans_out() -> None:
     Utils files NOT in MANUAL_EDGES should follow real imports
     and find all affected models (potentially many).
     """
-    models = resolve_affected_models(["src/qai_hub_models/utils/checkpoint.py"])
-    # checkpoint.py is imported by SD models, LLM models, etc.
+    models = resolve_affected_models(["src/qai_hub_models/utils/dataset_util.py"])
+    # dataset_util.py fans through SD quantize + LLM quantize.
     assert "stable_diffusion_v1_5" in models
-    assert len(models) > 5
+    assert "llama_v3_2_1b_instruct" in models
 
 
 def test_aimet_onnx_utils_change_detects_sd() -> None:
