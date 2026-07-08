@@ -171,7 +171,7 @@ def export_model(
     skip_downloading: bool = False,
     skip_summary: bool = False,
     output_dir: str | None = None,
-    target_runtime: VALID_TARGET_RUNTIMES = TargetRuntime.GENIE,
+    target_runtime: VALID_TARGET_RUNTIMES = TargetRuntime.GENIEX_QAIRT,
     compile_options: str = "",
     link_options: str = "",
     profile_options: str = "",
@@ -783,7 +783,7 @@ def get_llm_parser(
     parser.set_defaults(
         _skip_quantsim_creation=True,
         precision=default_precision,
-        target_runtime=TargetRuntime.GENIE,
+        target_runtime=TargetRuntime.GENIEX_QAIRT,
     )
     parser.add_argument("--quantize", help=argparse.SUPPRESS)
     parser.add_argument("--precision", help=argparse.SUPPRESS)

@@ -14,7 +14,7 @@ from typing import Any
 
 from jinja2 import Environment, FileSystemLoader
 
-from qai_hub_models import TargetRuntime
+from qai_hub_models import Precision, TargetRuntime
 from qai_hub_models.configs.code_gen_yaml import QAIHMModelCodeGen
 from qai_hub_models.configs.info_yaml import QAIHMModelInfo
 from qai_hub_models.scripts.generate_global_readme import generate_global_readme
@@ -111,10 +111,14 @@ def _extract_runtime_and_precision_options(
     }
 
     # All runtime + precision pairs that are supported for this model, for use in the export script.
+    def _supported_runtimes(precision: Precision) -> list[str]:
+        rts = [r for r in TargetRuntime if export_options.is_supported(precision, r)]
+        # Demote legacy GENIE so GENIEX_QAIRT wins the CLI default; remove when GENIE is gone (tetracode#20247).
+        rts.sort(key=lambda r: 1 if r == TargetRuntime.GENIE else 0)
+        return [r.name for r in rts]
+
     supported_precision_runtimes: dict[str, list[str]] = {
-        str(precision): [
-            r.name for r in TargetRuntime if export_options.is_supported(precision, r)
-        ]
+        str(precision): _supported_runtimes(precision)
         for precision in export_options.supported_precisions
     }
     supported_precision_runtimes = {

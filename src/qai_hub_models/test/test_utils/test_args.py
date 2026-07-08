@@ -243,7 +243,7 @@ def test_parse_llama_export(llama_parser: argparse.ArgumentParser) -> None:
         "onnx_export_dir",
         "zip_assets",
     }
-    assert args.target_runtime == TargetRuntime.GENIE
+    assert args.target_runtime == TargetRuntime.GENIEX_QAIRT
 
     args = llama_parser.parse_args(["--do-inferencing"])
     assert args.skip_inferencing is False
