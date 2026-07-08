@@ -194,7 +194,7 @@ jobs:
       max_models_per_split: ${{ (inputs.test_scope == 'accuracy' || inputs.test_scope == 'perf_and_accuracy') && 30 || 60 }}
       max_num_splits: 8
       disable_override_workbench_job_timeout: true
-      skip_llm: ${{ inputs.skip_llm }}
+      skip_llm: ${{ inputs.skip_llm || false }}
 
   fix_flaky_jobs:
     name: Fix Flaky Profile Jobs
@@ -211,7 +211,7 @@ jobs:
   scorecard_llm_device_run:
     name: LLM On-Device Run (asset upload, perf, accuracy)
     needs: submit_split_jobs
-    if: ${{ !cancelled() && needs.submit_split_jobs.result != 'skipped' && !inputs.skip_llm_perf && !inputs.skip_llm && inputs.test_scope != 'compile_only' }}
+    if: ${{ !cancelled() && needs.submit_split_jobs.result != 'skipped' && !(inputs.skip_llm_perf || false) && !(inputs.skip_llm || false) && inputs.test_scope != 'compile_only' }}
     secrets: inherit
     uses: ./.github/workflows/scorecard_llm_device_run.yml
     with:
@@ -253,7 +253,7 @@ jobs:
       previous_results_branch: ${{ github.ref_name }}
       use_previous_results_branch_as_base: true
       publish_to_tableau: ${{ github.event_name == 'schedule' && github.workflow != 'QAI Hub Models Nightly' }}
-      tableau_branch_name: ${{ inputs.tableau_branch_name }}
+      tableau_branch_name: ${{ inputs.tableau_branch_name || '' }}
 
   combine_test_results:
     name: Combine Test Results
