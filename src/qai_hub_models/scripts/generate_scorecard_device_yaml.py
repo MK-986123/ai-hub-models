@@ -5,7 +5,9 @@
 
 import sys
 
-from qai_hub_models.configs.devices_and_chipsets_yaml import DevicesAndChipsetsYaml
+from qai_hub_models.scorecard.devices_and_chipsets_yaml import (
+    DevicesAndChipsetsYaml,
+)
 from qai_hub_models.utils.envvars import IsOnCIEnvvar
 
 if __name__ == "__main__":

@@ -32,9 +32,11 @@ from qai_hub_models.models._shared.llm.perf_collection import (
 from qai_hub_models.models._shared.llm.quantize import quantize
 from qai_hub_models.scorecard import ScorecardDevice, ScorecardProfilePath
 from qai_hub_models.scorecard.device import DEFAULT_QDC_DEVICE
+from qai_hub_models.scorecard.utils.fetch_prerelease_assets import (
+    download_prerelease_asset,
+)
 from qai_hub_models.scorecard.utils.testing import patch_qai_hub
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG
-from qai_hub_models.utils.fetch_prerelease_assets import download_prerelease_asset
 from qai_hub_models.utils.model_cache import CacheMode
 from qai_hub_models.utils.onnx.helpers import ONNXBundle
 

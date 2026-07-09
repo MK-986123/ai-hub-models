@@ -15,10 +15,10 @@ from qai_hub_models.models.hrnet_w48_ocr.model import (
     MODEL_ASSET_VERSION,
     MODEL_ID,
 )
-from qai_hub_models.scorecard.utils.testing import (
+from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
+from qai_hub_models.utils.test_helpers import (
     assert_most_same,
 )
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 
 # This image showcases the Cityscapes classes (but is not from the dataset)
 TEST_CITYSCAPES_LIKE_IMAGE_NAME = "cityscapes_like_demo_2048x1024.jpg"

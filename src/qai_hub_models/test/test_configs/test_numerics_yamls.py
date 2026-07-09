@@ -8,16 +8,16 @@ import tempfile
 import pandas as pd
 
 from qai_hub_models.configs.info_yaml import QAIHMModelInfo
-from qai_hub_models.configs.numerics_yaml import (
+from qai_hub_models.scorecard.artifacts import ScorecardArtifact
+from qai_hub_models.scorecard.numerics_yaml import (
     QAIHMModelNumerics,
     get_numerics_yaml_path,
 )
-from qai_hub_models.scorecard.artifacts import ScorecardArtifact
-from qai_hub_models.utils.asset_loaders import load_yaml
-from qai_hub_models.utils.numerics_yaml import (
+from qai_hub_models.scorecard.utils.numerics_yaml_helpers import (
     create_numerics_struct,
     get_chipset_registry,
 )
+from qai_hub_models.utils.asset_loaders import load_yaml
 from qai_hub_models.utils.path_helpers import MODEL_IDS
 
 

@@ -23,7 +23,7 @@ from qai_hub_models.models.yolo_world.model import (
 )
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs, resize_pad
-from qai_hub_models.utils.testing import assert_most_close
+from qai_hub_models.utils.test_helpers import assert_most_close
 
 WEIGHTS = DEFAULT_WEIGHTS
 PROMPT_TEXT = "bus,person"

@@ -44,7 +44,6 @@ from qai_hub_models.utils.kwarg_helpers import filter_kwargs, get_params
 from qai_hub_models.utils.qai_hub_helpers import (
     raise_if_fp_is_unsupported,
 )
-from qai_hub_models.utils.version_helpers import QAIHMVersion
 
 
 class ParseEnumAction(argparse.Action):
@@ -254,12 +253,7 @@ class QAIHMArgumentParser(argparse.ArgumentParser):
 
         # FP16 device-precision validation
         precision = getattr(parsed, "precision", None)
-        fetch_static_assets = getattr(parsed, "fetch_static_assets", None)
-        if (
-            parsed.device is not None
-            and precision is not None
-            and fetch_static_assets is None
-        ):
+        if parsed.device is not None and precision is not None:
             self._validate_fp16_support(parsed.device, precision)
 
         if self._dataset_name_to_cls and hasattr(parsed, "dataset_name"):
@@ -281,24 +275,13 @@ class QAIHMArgumentParser(argparse.ArgumentParser):
         Verifies that supported_precision_runtimes contains the precision + runtime pair chosen by the parsed argument namespace.
         If the namespace does not include both precision and runtime, then validation is skipped.
         """
-        # If fetch_static_assets is set, validation of whether a specific precision / runtime pair is supported
-        # is done downstream. This validation is only necessary when running the export script.
-        fetch_static_assets: str | None = getattr(
-            parsed_args, "fetch_static_assets", None
-        )
-
         # If precision or target_runtime are None, they aren't args used by this parser. This validation becomes a no-op.
         precision: Precision | None = getattr(parsed_args, "precision", None)
         target_runtime: TargetRuntime | None = getattr(
             parsed_args, "target_runtime", None
         )
 
-        if (
-            fetch_static_assets is not None
-            or precision is None
-            or target_runtime is None
-            or DevModeEnvvar.get()
-        ):
+        if precision is None or target_runtime is None or DevModeEnvvar.get():
             return
 
         if (
@@ -1078,7 +1061,6 @@ def _evaluate_export_common_parser(
 def add_export_function_args(
     export_fn: Callable,
     parser: QAIHMArgumentParser,
-    force_fetch_static_assets: bool = False,
     zip_assets: bool = False,
 ) -> None:
     """
@@ -1104,20 +1086,6 @@ def add_export_function_args(
         if key in signature:
             signature.pop(key)
 
-    if "fetch_static_assets" in signature:
-        signature.pop("fetch_static_assets")
-        parser.add_argument(
-            "--fetch-static-assets",
-            nargs="?",
-            const=QAIHMVersion.CURRENT_TAG_ALIAS,
-            default=QAIHMVersion.CURRENT_TAG_ALIAS
-            if force_fetch_static_assets
-            else None,
-            help="If set, known assets are fetched rather than re-computing them. Can be passed as:\n"
-            "    `--fetch-static-assets`            (get current release assets)\n"
-            "    `--fetch-static-assets latest`     (get latest release assets)\n"
-            "    `--fetch-static-assets v<version>` (get assets for a specific version)\n",
-        )
     if "zip_assets" in signature:
         signature.pop("zip_assets")
         parser.add_argument(
@@ -1162,7 +1130,6 @@ def export_parser(
     components: list[str] | None = None,
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] | None = None,
     default_export_device: str | None = None,
-    force_fetch_static_assets: bool = False,
     zip_assets: bool = False,
     omit_precision: bool = False,
     cli_mode: bool = False,
@@ -1186,8 +1153,6 @@ def export_parser(
         The list of supported (precision, runtime) pairs for this model.
     default_export_device
         Default device to set for export. Ignored when *cli_mode* is True.
-    force_fetch_static_assets
-        If set, fetch_static_assets is always enabled and cannot be turned off.
     zip_assets
         Zips downloaded assets. If set, adds --zip-assets argument to the parser.
     omit_precision
@@ -1212,7 +1177,7 @@ def export_parser(
         omit_precision=omit_precision,
         cli_mode=cli_mode,
     )
-    add_export_function_args(export_fn, parser, force_fetch_static_assets, zip_assets)
+    add_export_function_args(export_fn, parser, zip_assets)
     _add_device_args(
         parser,
         default_device=None if cli_mode else default_export_device,

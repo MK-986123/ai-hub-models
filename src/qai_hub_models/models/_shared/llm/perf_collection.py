@@ -24,8 +24,6 @@ from filelock import FileLock
 from qai_hub_models import Precision
 from qai_hub_models.configs.code_gen_yaml import QAIHMModelCodeGen
 from qai_hub_models.configs.info_yaml import QAIHMModelInfo
-from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
-from qai_hub_models.configs.release_assets_yaml import QAIHMModelReleaseAssets
 from qai_hub_models.scorecard import ScorecardDevice
 from qai_hub_models.scorecard.device import (
     LLM_COMPILE_DEVICES,
@@ -39,6 +37,8 @@ from qai_hub_models.scorecard.envvars import (
     SpecialLLMPerfPrecisionSetting,
 )
 from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
+from qai_hub_models.scorecard.perf_yaml import QAIHMModelPerf
+from qai_hub_models.scorecard.release_assets_yaml import QAIHMModelReleaseAssets
 from qai_hub_models.scorecard.results.yaml import ScorecardAssetYaml
 from qai_hub_models.utils.path_helpers import QAIHM_MODELS_ROOT
 

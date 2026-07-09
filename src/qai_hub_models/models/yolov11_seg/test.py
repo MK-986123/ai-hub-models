@@ -16,11 +16,11 @@ from qai_hub_models.models._shared.yolo.model import yolo_segment_postprocess
 from qai_hub_models.models.yolov11_seg.demo import IMAGE_ADDRESS, OUTPUT_IMAGE_ADDRESS
 from qai_hub_models.models.yolov11_seg.demo import main as demo_main
 from qai_hub_models.models.yolov11_seg.model import YoloV11Segmentor
-from qai_hub_models.scorecard.utils.testing import (
-    assert_most_close,
-)
 from qai_hub_models.utils.asset_loaders import load_image
 from qai_hub_models.utils.image_processing import preprocess_PIL_image
+from qai_hub_models.utils.test_helpers import (
+    assert_most_close,
+)
 
 WEIGHTS = "yolo11n-seg.pt"
 

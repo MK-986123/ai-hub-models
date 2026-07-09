@@ -319,7 +319,9 @@ class ModelMetadata(google.protobuf.message.Message):
 
     @property
     def chipset_attributes(self) -> platform_pb2.ChipsetInfo:
-        """Chipset attributes relevant to the compiled model asset (AoT only)."""
+        """Chipset identifiers for the compiled bundle. Populated for
+        AoT-compiled runtimes.
+        """
 
     def __init__(
         self,

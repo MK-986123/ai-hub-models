@@ -2,9 +2,19 @@
 # Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+"""
+ScorecardDevice: scorecard-specific device wrapper.
+
+Adds on top of the plain ``RegisteredDevice`` identity:
+- A reference vs. execution device name split (metadata vs. Hub-job target).
+- Compile / profile path selection.
+- Env-var-driven enablement (``QAIHM_ENABLED_DEVICES``, etc.).
+- Per-device disabled-model lists and ``include_in_all`` filtering.
+- The scorecard-only "universal" device concept.
+"""
+
 from __future__ import annotations
 
-from enum import Enum, unique
 from functools import cache, cached_property
 from typing import Any
 
@@ -13,6 +23,7 @@ from pydantic import GetCoreSchemaHandler
 from pydantic_core import core_schema
 from typing_extensions import assert_never
 
+import qai_hub_models.utils.device as registered_device
 from qai_hub_models import InferenceEngine, Precision, TargetRuntime
 from qai_hub_models.scorecard.envvars import (
     EnabledDevicesEnvvar,
@@ -21,8 +32,19 @@ from qai_hub_models.scorecard.envvars import (
 from qai_hub_models.scorecard.path_compile import ScorecardCompilePath
 from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
 from qai_hub_models.utils.ai_hub_access import can_access_qualcomm_ai_hub
-from qai_hub_models.utils.base_config import BaseQAIHMConfig
+from qai_hub_models.utils.device import (
+    CANARY_DEVICES,
+    FormFactor,
+    HubDeviceAttributes,
+    RegisteredDevice,
+    _get_cached_device,
+)
 
+# -----------------------------------------------------------------------------
+# Chipset helpers (scorecard-specific)
+# -----------------------------------------------------------------------------
+
+UNIVERSAL_DEVICE_NAME = "universal"
 FOR_GALAXY_SUFFIX = "-for-galaxy"
 
 
@@ -64,60 +86,77 @@ def get_chipset_workbench_variants(chipset: str) -> list[str]:
 
 
 _FRAMEWORK_ATTR_PREFIX = "framework"
-_DEVICE_CACHE: dict[str, hub.Device | None] = {}
-UNIVERSAL_DEVICE_SCORECARD_NAME = "universal"
 
 
-def _get_cached_device(device_name: str) -> hub.Device | None:
-    # Gets a device with attributes & OS. This only comes from hub.get_devices()
-    device = _DEVICE_CACHE.get(device_name)
-    if not device:
-        devices = hub.get_devices(device_name)
-        device = devices[0] if devices else None
-        _DEVICE_CACHE[device_name] = device
-    return device
+class ScorecardDevice(HubDeviceAttributes):
+    """
+    Scorecard device with reference / execution device split and scorecard
+    behavior (compile/profile paths, env-var filtering, disabled-model lists).
 
+    ScorecardDevice does not subclass RegisteredDevice: RegisteredDevice has a
+    single name, while ScorecardDevice keeps three (registry ``name`` slug,
+    ``reference_device_name`` for metadata, ``execution_device_name`` for
+    Hub-job scheduling).
 
-class ScorecardDevice:
+    Chipset-attribute properties (``chipset``, ``os``, ``form_factor``, etc.)
+    come from ``HubDeviceAttributes``, which reads them off the reference
+    device.
+    """
+
     _registry: dict[str, ScorecardDevice] = {}
 
     @classmethod
     def get(
         cls, device_name: str, return_unregistered: bool = False
     ) -> ScorecardDevice:
-        if device_name == "default":
-            for device in cls._registry.values():
-                if device.is_default:
-                    return device
-            raise ValueError("No default device found.")
-        # If the name is a device name in the registry, return that device
-        if device_name in ScorecardDevice._registry:
-            return ScorecardDevice._registry[device_name]
+        """
+        Look up a scorecard device by its registry name, reference device
+        name, or execution device name.
 
-        # Check for universal device
-        if device_name == cs_universal.reference_device_name:
-            # Sanity check in case universal device changes
-            assert (
-                cs_universal.reference_device_name == cs_8_gen_3.reference_device_name
+        Parameters
+        ----------
+        device_name
+            The scorecard-registry slug (e.g. ``cs_8_gen_1``), the reference
+            device name, or the execution device name of a registered
+            scorecard device. The literal string ``"default"`` returns the
+            device flagged ``is_default=True``.
+        return_unregistered
+            If True and no match is found, return a new unregistered
+            ScorecardDevice with all three names set to ``device_name``.
+
+        Returns
+        -------
+        ScorecardDevice
+        """
+        if device_name == "default":
+            return cls.get_default()
+
+        if device_name in cls._registry:
+            return cls._registry[device_name]
+
+        for device in cls.all_devices(check_available_in_hub=False):
+            if device_name in {
+                device.reference_device_name,
+                device.execution_device_name,
+            }:
+                return device
+
+        if return_unregistered:
+            return cls(
+                name=device_name,
+                reference_device_name=device_name,
+                register=False,
             )
 
-            # Don't return cs_universal for a specific device name.
-            # Always return the specific device instead
-            return cs_8_gen_3
-
-        # Return any device with a matching reference device name
-        if out := [
-            x
-            for x in ScorecardDevice.all_devices(check_available_in_hub=False)
-            if device_name in {x.reference_device_name, x.execution_device_name}
-        ]:
-            return out[0]
-
-        # Return a new unregistered device
-        if return_unregistered:
-            return ScorecardDevice(device_name, device_name, register=False)
-
         raise ValueError(f"Unknown Scorecard Device {device_name}")
+
+    @classmethod
+    def get_default(cls) -> ScorecardDevice:
+        """Return the registered scorecard device with ``is_default=True``."""
+        for device in cls._registry.values():
+            if device.is_default:
+                return device
+        raise ValueError("No default scorecard device found.")
 
     @classmethod
     def parse(cls, obj: str | ScorecardDevice) -> ScorecardDevice:
@@ -134,7 +173,7 @@ class ScorecardDevice:
         npu_supports_precision: Precision | None = None,
         supports_compile_path: ScorecardCompilePath | None = None,
         supports_profile_path: ScorecardProfilePath | None = None,
-        form_factors: list[ScorecardDevice.FormFactor] | None = None,
+        form_factors: list[FormFactor] | None = None,
         is_mirror: bool | None = None,
         include_universal: bool = True,
         check_available_in_hub: bool = True,
@@ -148,7 +187,7 @@ class ScorecardDevice:
             for device in cls._registry.values()
             if (
                 (enabled is None or enabled == device.enabled)
-                and (include_universal or device != cs_universal)
+                and (include_universal or device.name != UNIVERSAL_DEVICE_NAME)
                 and (
                     not check_available_in_hub
                     # Ignore availability check if AI Hub Workbench is not accessible
@@ -175,89 +214,107 @@ class ScorecardDevice:
     @cache
     def canary_devices() -> set[ScorecardDevice]:
         """Get 'canary' devices used in for continuous integration testing."""
-        return {ScorecardDevice.get(x) for x in CANARY_DEVICES}
-
-    @unique
-    class FormFactor(Enum):
-        PHONE = "Phone"
-        TABLET = "Tablet"
-        AUTO = "Auto"
-        XR = "XR"
-        COMPUTE = "Compute"
-        IOT = "IoT"
-
-    @unique
-    class OperatingSystemType(Enum):
-        ANDROID = "Android"
-        WINDOWS = "Windows"
-        LINUX = "Linux"
-        QC_LINUX = "Qualcomm Linux"
-        UBUNTU = "Ubuntu"
-
-    class OperatingSystem(BaseQAIHMConfig):
-        ostype: ScorecardDevice.OperatingSystemType
-        version: str
-
-        def __str__(self) -> str:
-            return f"{self.ostype.name} {self.version}"
+        return {ScorecardDevice.get(device_name) for device_name in CANARY_DEVICES}
 
     def __init__(
         self,
         name: str,
         reference_device_name: str,
         execution_device_name: str | None = None,
+        npu_count: int | None = None,
+        is_default: bool = False,
         disabled_models: list[str] | None = None,
         compile_paths: list[ScorecardCompilePath] | None = None,
         profile_paths: list[ScorecardProfilePath] | None = None,
-        npu_count: int | None = None,
         register: bool = True,
-        is_default: bool = False,
         include_in_all: bool = True,
     ) -> None:
         """
         Parameters
         ----------
         name
-            Name of this device for scorecard use.
+            Programmatic slug (e.g. ``cs_8_gen_1``). Registry key.
         reference_device_name
-            The name of the "reference" device used by the scorecard for metadata when collating results.
+            Hub device name to use for metadata lookups (chipset, OS, form
+            factor, etc.). Distinct from ``execution_device_name`` so a
+            specific model can be used for metadata while jobs run against a
+            family pool.
         execution_device_name
-            The name of the device to be used by associated Hub jobs.
-            If not provided, jobs will be submitted with the chipset of the reference device.
-            Hub will decide what device to use depending on availability.
+            Hub device name to use when submitting jobs. Defaults to
+            ``reference_device_name`` (i.e. metadata device == job device).
+        npu_count
+            How many NPUs this device has. If undefined, defaults to 1.
+        is_default
+            Whether this device represents the user's default choice.
         disabled_models
             List of model IDs that should be disabled for this device.
         compile_paths
-            The set of compile paths valid for this device. If unset, will use the default set of paths for this device's form factor.
+            The set of compile paths valid for this device. If unset, defaults
+            based on this device's form factor.
         profile_paths
-            The set of profile paths valid for this device. If unset, will use the default set of paths for this device's form factor.
-        npu_count
-            How many NPUs this device has. If undefined, uses the NPU count of the mirror device or defaults to 1.
+            The set of profile paths valid for this device. If unset, defaults
+            based on this device's form factor.
         register
-            Whether to register this device in the list of all devices.
-        is_default
-            Whether this device represents the user choosing the default device.
+            Whether to register this device in the scorecard registry.
         include_in_all
-            Whether this device is enabled when SpecialDeviceSetting.ALL is selected.
-            If False, the device only runs when its name is explicitly listed in
-            EnabledDevicesEnvvar (e.g. test_devices=cs_8_gen_2). Use for devices
-            that should be opt-in via manual scorecard dispatch but not picked up
-            by routine "all" runs (typically experimental or expensive devices).
+            Whether this device is enabled when ``SpecialDeviceSetting.ALL``
+            is selected. If False, the device only runs when its name is
+            explicitly listed in ``EnabledDevicesEnvvar``.
         """
         if register and name in ScorecardDevice._registry:
-            raise ValueError("Device " + name + "already registered.")
+            raise ValueError(f"Device {name} already registered.")
 
         self.name = name
         self.reference_device_name = reference_device_name
         self.execution_device_name = execution_device_name
-        self._compile_paths = compile_paths
-        self._profile_paths = profile_paths
         self._npu_count = npu_count
         self.is_default = is_default
+        self.disabled_models = disabled_models or []
+        self._compile_paths = compile_paths
+        self._profile_paths = profile_paths
         self.include_in_all = include_in_all
 
         if register:
             ScorecardDevice._registry[name] = self
+
+    @classmethod
+    def from_registered(
+        cls,
+        base: RegisteredDevice,
+        name: str,
+        reference_device_name: str | None = None,
+        disabled_models: list[str] | None = None,
+        compile_paths: list[ScorecardCompilePath] | None = None,
+        profile_paths: list[ScorecardProfilePath] | None = None,
+        register: bool = True,
+        include_in_all: bool = True,
+    ) -> ScorecardDevice:
+        """
+        Build a ScorecardDevice from an existing ``RegisteredDevice``.
+
+        The execution device name is always set to ``base.device_name`` -- i.e.
+        Hub jobs run against the same target the RegisteredDevice was
+        instantiated with (typically a Family alias).
+
+        ``reference_device_name`` defaults to ``base.device_name``; callers
+        override it when metadata should come from a specific device (e.g.
+        pass "Samsung Galaxy S22 5G" while jobs still schedule on the
+        S22 Family pool).
+
+        ``is_default`` and ``npu_count`` are inherited from ``base``.
+        """
+        return cls(
+            name=name,
+            reference_device_name=reference_device_name or base.device_name,
+            execution_device_name=base.device_name,
+            npu_count=base._npu_count,
+            is_default=base.is_default,
+            disabled_models=disabled_models,
+            compile_paths=compile_paths,
+            profile_paths=profile_paths,
+            register=register,
+            include_in_all=include_in_all,
+        )
 
     def __str__(self) -> str:
         return self.reference_device_name
@@ -293,33 +350,15 @@ class ScorecardDevice:
             ),
         )
 
-    @property
-    def enabled(self) -> bool:
-        """
-        Whether the scorecard should include this scorecard device.
-        This applies both to submitted jobs and analyses applied to an existing scorecard job yaml.
-        """
-        valid_test_devices = EnabledDevicesEnvvar.get()
-        if self.name in valid_test_devices and not self.available_in_hub:
-            raise ValueError(
-                f"Device {self.name} is not available in AI Hub Workbench."
-            )
-
-        return self.name in ScorecardDevice._registry and (
-            (SpecialDeviceSetting.ALL in valid_test_devices and self.include_in_all)
-            or self.name == UNIVERSAL_DEVICE_SCORECARD_NAME
-            or self.name in valid_test_devices
-            or (
-                SpecialDeviceSetting.CANARY in valid_test_devices
-                and self in ScorecardDevice.canary_devices()
-            )
-        )
+    # ------------------------------------------------------------------
+    # Chipset-attribute properties (against reference or execution device)
+    # ------------------------------------------------------------------
 
     @cached_property
     def reference_device(self) -> hub.Device:
         """
-        Get the "reference" device used by the scorecard for metadata when collating results.
-        This is not used by any actual scorecard jobs.
+        Get the "reference" device used for metadata.
+        This is not used by any actual Hub jobs.
         """
         device = _get_cached_device(self.reference_device_name)
         if not device:
@@ -328,7 +367,7 @@ class ScorecardDevice:
 
     @cached_property
     def execution_device(self) -> hub.Device:
-        """Get the device used by the scorecard for job submission."""
+        """Get the device used for Hub job submission."""
         if self.execution_device_name is not None:
             device = _get_cached_device(self.execution_device_name)
             if not device:
@@ -346,135 +385,39 @@ class ScorecardDevice:
             or _get_cached_device(self.execution_device_name) is not None
         )
 
-    @cached_property
-    def chipset(self) -> str:
-        """The chipset used by this device."""
-        device = (
-            self.execution_device
-            if self.execution_device_name
-            else self.reference_device
-        )
-        for attr in device.attributes:
-            if attr.startswith("chipset:"):
-                return attr[8:]
-        raise ValueError(f"Chipset not found for device: {self.name}")
+    @property
+    def _hub_device(self) -> hub.Device:
+        """Metadata source for ``HubDeviceAttributes``: the reference device."""
+        return self.reference_device
 
-    @cached_property
-    def chipset_aliases(self) -> list[str]:
-        """The aliases for the chipset used by this device."""
-        device = (
-            self.execution_device
-            if self.execution_device_name
-            else self.reference_device
-        )
+    def _display_name(self) -> str:
+        return self.name
 
-        return [attr[8:] for attr in device.attributes if attr.startswith("chipset:")]
+    # ------------------------------------------------------------------
+    # Scorecard-specific behavior
+    # ------------------------------------------------------------------
 
-    @cached_property
-    def npu_count(self) -> int:
-        """Returns the number of NPUs on this device."""
-        if self._npu_count is not None:
-            return self._npu_count
-        return 1
-
-    @cached_property
-    def extended_supported_chipsets(self) -> set[str]:
+    @property
+    def enabled(self) -> bool:
         """
-        If this device can run a model, get a set of all chipsets that should also be supported.
-        This device's chipset will be included in the list.
-
-        The device's own chipset is returned as its workbench name (e.g.
-        ``qualcomm-snapdragon-8-elite-for-galaxy``) so that Hub API queries
-        match the exact chipset ID. Consumers that need the canonical name
-        should call ``get_canonical_chipset_name`` explicitly.
+        Whether the scorecard should include this scorecard device.
+        This applies both to submitted jobs and analyses applied to an existing scorecard job yaml.
         """
-        if self.form_factor in [
-            ScorecardDevice.FormFactor.PHONE,
-            ScorecardDevice.FormFactor.TABLET,
-        ]:
-            mobile_chips = [
-                "qualcomm-snapdragon-8-elite-gen5",
-                "qualcomm-snapdragon-8-elite",
-                "qualcomm-snapdragon-8gen3",
-                "qualcomm-snapdragon-8gen2",
-                "qualcomm-snapdragon-8gen1",
-                "qualcomm-snapdragon-888",
-            ]
-            # Look up by canonical name, but return the workbench name for
-            # the device's own chipset so Hub queries match the exact ID.
-            canonical_chipset = get_canonical_chipset_name(self.chipset)
-            if canonical_chipset in mobile_chips:
-                idx = mobile_chips.index(canonical_chipset)
-                # Return this chipset and all older chipsets as proxies —
-                # we don't run older devices in the scorecard.
-                return {self.chipset} | set(mobile_chips[idx + 1 :])
-        if self.form_factor == ScorecardDevice.FormFactor.COMPUTE:
-            # If either compute chip works, both work
-            compute_chips = {
-                "qualcomm-snapdragon-x-elite",
-                "qualcomm-snapdragon-x-plus-8-core",
-            }
-            if self.chipset in compute_chips:
-                return compute_chips
-        return {self.chipset}
+        valid_test_devices = EnabledDevicesEnvvar.get()
+        if self.name in valid_test_devices and not self.available_in_hub:
+            raise ValueError(
+                f"Device {self.name} is not available in AI Hub Workbench."
+            )
 
-    @cached_property
-    def os(self) -> OperatingSystem:
-        """The operating system used by this device."""
-        for attr in self.reference_device.attributes:
-            if attr.startswith("os:"):
-                return ScorecardDevice.OperatingSystem(
-                    ostype=ScorecardDevice.OperatingSystemType[
-                        attr.split(":")[-1].upper()
-                    ],
-                    version=self.reference_device.os,
-                )
-        raise ValueError(f"OS not found for device: {self.name}")
-
-    @cached_property
-    def vendor(self) -> str:
-        """The vendor that manufactures this device."""
-        for attr in self.reference_device.attributes:
-            if attr.startswith("vendor:"):
-                return attr.split(":")[-1]
-        raise ValueError(f"Vendor not found for device: {self.name}")
-
-    @cached_property
-    def form_factor(self) -> FormFactor:
-        """The device form factor (eg. Auto, IoT, Mobile, ...)"""
-        for attr in self.reference_device.attributes:
-            if attr.startswith("format:"):
-                return ScorecardDevice.FormFactor[attr.split(":")[-1].upper()]
-        raise ValueError(f"Format not found for device: {self.name}")
-
-    @cached_property
-    def hexagon_version(self) -> int:
-        """The chipset hexagon version number"""
-        for attr in self.reference_device.attributes:
-            if attr.startswith("hexagon:v"):
-                return int(attr[len("hexagon:v") :])
-        raise ValueError(f"Hexagon version not found for device: {self.name}")
-
-    @cached_property
-    def soc_model(self) -> int:
-        for attr in self.reference_device.attributes:
-            if attr.startswith("soc-model:"):
-                return int(attr[len("soc-model:") :])
-        raise ValueError(f"SoC model not found for device: {self.name}")
-
-    @cached_property
-    def supports_fp16_npu(self) -> bool:
-        """Whether this device's NPU supports FP16 inference."""
-        return "htp-supports-fp16:true" in self.reference_device.attributes
-
-    @cached_property
-    def supports_weight_sharing(self) -> bool:
-        """Whether this device's NPU supports FP16 inference."""
-        return "htp-supports-weight-sharing:true" in self.reference_device.attributes
-
-    def npu_supports_precision(self, precision: Precision) -> bool:
-        """Whether this device's NPU supports the given quantization spec."""
-        return not precision.has_float_activations or self.supports_fp16_npu
+        return self.name in ScorecardDevice._registry and (
+            (SpecialDeviceSetting.ALL in valid_test_devices and self.include_in_all)
+            or self.name == UNIVERSAL_DEVICE_NAME
+            or self.name in valid_test_devices
+            or (
+                SpecialDeviceSetting.CANARY in valid_test_devices
+                and self in ScorecardDevice.canary_devices()
+            )
+        )
 
     @cached_property
     def supported_runtimes(self) -> list[TargetRuntime]:
@@ -522,12 +465,12 @@ class ScorecardDevice:
         paths_to_test: list[ScorecardProfilePath] = []
         inference_engines_to_test: list[InferenceEngine] = []
         if (
-            self.form_factor == ScorecardDevice.FormFactor.PHONE  # noqa: PLR1714 | Can't merge comparisons and use assert_never
-            or self.form_factor == ScorecardDevice.FormFactor.TABLET
-            or self.form_factor == ScorecardDevice.FormFactor.IOT
+            self.form_factor == FormFactor.PHONE  # noqa: PLR1714
+            or self.form_factor == FormFactor.TABLET
+            or self.form_factor == FormFactor.IOT
         ):
             inference_engines_to_test = list(InferenceEngine)
-        elif self.form_factor == ScorecardDevice.FormFactor.AUTO:
+        elif self.form_factor == FormFactor.AUTO:
             inference_engines_to_test = [
                 InferenceEngine.QNN,
                 InferenceEngine.TFLITE,
@@ -535,9 +478,9 @@ class ScorecardDevice:
             paths_to_test.extend(
                 [ScorecardProfilePath.GENIE, ScorecardProfilePath.GENIEX_QAIRT]
             )
-        elif self.form_factor == ScorecardDevice.FormFactor.XR:
+        elif self.form_factor == FormFactor.XR:
             inference_engines_to_test = [InferenceEngine.QNN, InferenceEngine.TFLITE]
-        elif self.form_factor == ScorecardDevice.FormFactor.COMPUTE:
+        elif self.form_factor == FormFactor.COMPUTE:
             inference_engines_to_test = [
                 InferenceEngine.QNN,
                 InferenceEngine.ONNX,
@@ -583,161 +526,191 @@ class ScorecardDevice:
             and not path.compile_path.is_universal
         ]
 
+    @cached_property
+    def extended_supported_chipsets(self) -> set[str]:
+        """
+        If this device can run a model, get a set of all chipsets that should also be supported.
+        This device's chipset will be included in the list.
+
+        The device's own chipset is returned as its workbench name (e.g.
+        ``qualcomm-snapdragon-8-elite-for-galaxy``) so that Hub API queries
+        match the exact chipset ID. Consumers that need the canonical name
+        should call ``get_canonical_chipset_name`` explicitly.
+        """
+        if self.form_factor in [
+            FormFactor.PHONE,
+            FormFactor.TABLET,
+        ]:
+            mobile_chips = [
+                "qualcomm-snapdragon-8-elite-gen5",
+                "qualcomm-snapdragon-8-elite",
+                "qualcomm-snapdragon-8gen3",
+                "qualcomm-snapdragon-8gen2",
+                "qualcomm-snapdragon-8gen1",
+                "qualcomm-snapdragon-888",
+            ]
+            # Look up by canonical name, but return the workbench name for
+            # the device's own chipset so Hub queries match the exact ID.
+            canonical_chipset = get_canonical_chipset_name(self.chipset)
+            if canonical_chipset in mobile_chips:
+                idx = mobile_chips.index(canonical_chipset)
+                # Return this chipset and all older chipsets as proxies —
+                # we don't run older devices in the scorecard.
+                return {self.chipset} | set(mobile_chips[idx + 1 :])
+        if self.form_factor == FormFactor.COMPUTE:
+            # If either compute chip works, both work
+            compute_chips = {
+                "qualcomm-snapdragon-x-elite",
+                "qualcomm-snapdragon-x-plus-8-core",
+            }
+            if self.chipset in compute_chips:
+                return compute_chips
+        return {self.chipset}
+
 
 # ----------------------
-# DEVICE DEFINITIONS
+# SCORECARD DEVICE DEFINITIONS
 #
-# This list is the set of devices we use by default when benchmarking models.
-#
-# Typically we define one device per chipset, and devices are named after that chipset:
-# cs_8_gen_3 == device representative of the 8 gen 3 chipset
+# Wrap each RegisteredDevice from utils.device with scorecard-specific
+# augmentations.
 # ----------------------
 
-##
-# Universal Chipset
-#
-# A placeholder for compiling universal assets (that are applicable to any device)
-#
-# .tflite, .onnx, and .dlc are always universal, so they are compiled once for this device
-# and used for inference on all other devices.
-#
-##
-cs_universal = ScorecardDevice(
-    name=UNIVERSAL_DEVICE_SCORECARD_NAME,
+# Mobile chipsets. S22-S26 override reference_device_name so metadata comes
+# from the specific device even though Hub jobs schedule on the family pool.
+cs_8_gen_1 = ScorecardDevice.from_registered(
+    registered_device.cs_8_gen_1,
+    name="cs_8_gen_1",
+    reference_device_name="Samsung Galaxy S22 5G",
+)
+
+cs_8_gen_2 = ScorecardDevice.from_registered(
+    registered_device.cs_8_gen_2,
+    name="cs_8_gen_2",
+    reference_device_name="Samsung Galaxy S23",
+    include_in_all=False,
+)
+
+cs_8_gen_3 = ScorecardDevice.from_registered(
+    registered_device.cs_8_gen_3,
+    name="cs_8_gen_3",
     reference_device_name="Samsung Galaxy S24",
+)
+
+cs_8_elite = ScorecardDevice.from_registered(
+    registered_device.cs_8_elite,
+    name="cs_8_elite",
+    reference_device_name="Samsung Galaxy S25",
+)
+
+cs_8_elite_qrd = ScorecardDevice.from_registered(
+    registered_device.cs_8_elite_qrd,
+    name="cs_8_elite_qrd",
+    compile_paths=[
+        ScorecardCompilePath.GENIE,
+        ScorecardCompilePath.GENIEX_QAIRT,
+    ],
+    profile_paths=[
+        ScorecardProfilePath.GENIE,
+        ScorecardProfilePath.GENIEX_QAIRT,
+    ],
+)
+
+cs_7_gen_4 = ScorecardDevice.from_registered(
+    registered_device.cs_7_gen_4,
+    name="cs_7_gen_4",
+)
+
+cs_8_elite_gen_5 = ScorecardDevice.from_registered(
+    registered_device.cs_8_elite_gen_5,
+    name="cs_8_elite_gen_5",
+    reference_device_name="Samsung Galaxy S26",
+)
+
+cs_8_elite_gen_5_qrd = ScorecardDevice.from_registered(
+    registered_device.cs_8_elite_gen_5_qrd,
+    name="cs_8_elite_gen_5_qrd",
+    compile_paths=[
+        ScorecardCompilePath.GENIE,
+        ScorecardCompilePath.GENIEX_QAIRT,
+    ],
+    profile_paths=[
+        ScorecardProfilePath.GENIE,
+        ScorecardProfilePath.GENIEX_QAIRT,
+    ],
+)
+
+# Compute chipsets
+cs_x_elite = ScorecardDevice.from_registered(
+    registered_device.cs_x_elite,
+    name="cs_x_elite",
+)
+
+cs_x_plus_8_core = ScorecardDevice.from_registered(
+    registered_device.cs_x_plus_8_core,
+    name="cs_x_plus_8_core",
+    compile_paths=[
+        ScorecardCompilePath.GENIE,
+        ScorecardCompilePath.GENIEX_QAIRT,
+    ],
+    profile_paths=[
+        ScorecardProfilePath.GENIE,
+        ScorecardProfilePath.GENIEX_QAIRT,
+    ],
+)
+
+cs_x2_elite = ScorecardDevice.from_registered(
+    registered_device.cs_x2_elite,
+    name="cs_x2_elite",
+)
+
+# Auto chipsets
+cs_auto_monaco_7255 = ScorecardDevice.from_registered(
+    registered_device.cs_auto_monaco_7255,
+    name="cs_auto_monaco_7255",
+)
+
+cs_auto_makena_8295 = ScorecardDevice.from_registered(
+    registered_device.cs_auto_makena_8295,
+    name="cs_auto_makena_8295",
+)
+
+cs_auto_lemans_8775 = ScorecardDevice.from_registered(
+    registered_device.cs_auto_lemans_8775,
+    name="cs_auto_lemans_8775",
+)
+
+# IoT chipsets
+cs_6490 = ScorecardDevice.from_registered(
+    registered_device.cs_6490,
+    name="cs_6490",
+)
+
+cs_6690 = ScorecardDevice.from_registered(
+    registered_device.cs_6690,
+    name="cs_6690",
+)
+
+cs_8550 = ScorecardDevice.from_registered(
+    registered_device.cs_8550,
+    name="cs_8550",
+)
+
+cs_9075 = ScorecardDevice.from_registered(
+    registered_device.cs_9075,
+    name="cs_9075",
+)
+
+# Universal device: compile-only, borrows the default scorecard device's
+# reference so metadata lookups still resolve.
+cs_universal = ScorecardDevice(
+    name=UNIVERSAL_DEVICE_NAME,
+    reference_device_name=ScorecardDevice.get_default().reference_device_name,
     compile_paths=[path for path in ScorecardCompilePath if path.is_universal],
     profile_paths=[],
 )
 
 
-##
-# Mobile Chipsets (cs)
-##
-cs_8_gen_1 = ScorecardDevice(
-    name="cs_8_gen_1",
-    reference_device_name="Samsung Galaxy S22 5G",
-    execution_device_name="Samsung Galaxy S22 (Family)",
-)
-
-cs_8_gen_2 = ScorecardDevice(
-    name="cs_8_gen_2",
-    reference_device_name="Samsung Galaxy S23",
-    execution_device_name="Samsung Galaxy S23 (Family)",
-    include_in_all=False,
-)
-
-cs_8_gen_3 = ScorecardDevice(
-    name="cs_8_gen_3",
-    reference_device_name="Samsung Galaxy S24",
-    execution_device_name="Samsung Galaxy S24 (Family)",
-)
-
-cs_8_elite = ScorecardDevice(
-    name="cs_8_elite",
-    reference_device_name="Samsung Galaxy S25",
-    execution_device_name="Samsung Galaxy S25 (Family)",
-    is_default=True,
-)
-
-cs_8_elite_qrd = ScorecardDevice(
-    name="cs_8_elite_qrd",
-    reference_device_name="Snapdragon 8 Elite QRD",
-    compile_paths=[ScorecardCompilePath.GENIE, ScorecardCompilePath.GENIEX_QAIRT],
-    profile_paths=[ScorecardProfilePath.GENIE, ScorecardProfilePath.GENIEX_QAIRT],
-)
-
-cs_7_gen_4 = ScorecardDevice(
-    name="cs_7_gen_4",
-    reference_device_name="Snapdragon 7 Gen 4 QRD",
-)
-
-cs_8_elite_gen_5 = ScorecardDevice(
-    name="cs_8_elite_gen_5",
-    reference_device_name="Samsung Galaxy S26",
-    execution_device_name="Samsung Galaxy S26 (Family)",
-)
-
-cs_8_elite_gen_5_qrd = ScorecardDevice(
-    name="cs_8_elite_gen_5_qrd",
-    reference_device_name="Snapdragon 8 Elite Gen 5 QRD",
-    compile_paths=[ScorecardCompilePath.GENIE, ScorecardCompilePath.GENIEX_QAIRT],
-    profile_paths=[ScorecardProfilePath.GENIE, ScorecardProfilePath.GENIEX_QAIRT],
-)
-
-
-##
-# Compute Chipsets (cs)
-##
-cs_x_elite = ScorecardDevice(
-    name="cs_x_elite",
-    reference_device_name="Snapdragon X Elite CRD",
-)
-
-cs_x_plus_8_core = ScorecardDevice(
-    name="cs_x_plus_8_core",
-    reference_device_name="Snapdragon X Plus 8-Core CRD",
-    compile_paths=[ScorecardCompilePath.GENIE, ScorecardCompilePath.GENIEX_QAIRT],
-    profile_paths=[ScorecardProfilePath.GENIE, ScorecardProfilePath.GENIEX_QAIRT],
-)
-
-cs_x2_elite = ScorecardDevice(
-    name="cs_x2_elite",
-    reference_device_name="Snapdragon X2 Elite CRD",
-)
-
-
-##
-# Auto Chipsets (cs)
-##
-cs_auto_monaco_7255 = ScorecardDevice(
-    name="cs_auto_monaco_7255",
-    reference_device_name="SA7255P ADP",
-)
-
-cs_auto_makena_8295 = ScorecardDevice(
-    name="cs_auto_makena_8295",
-    reference_device_name="SA8295P ADP",
-)
-
-cs_auto_lemans_8775 = ScorecardDevice(
-    name="cs_auto_lemans_8775",
-    reference_device_name="SA8775P ADP",
-    npu_count=2,
-)
-
-
-##
-# IoT Chipsets (cs)
-##
-cs_6490 = ScorecardDevice(
-    name="cs_6490",
-    reference_device_name="Dragonwing RB3 Gen 2 Vision Kit",
-)
-
-cs_6690 = ScorecardDevice(
-    name="cs_6690",
-    reference_device_name="Dragonwing Q-6690 MTP",
-)
-
-cs_8550 = ScorecardDevice(name="cs_8550", reference_device_name="QCS8550 (Proxy)")
-
-cs_9075 = ScorecardDevice(
-    name="cs_9075",
-    reference_device_name="Dragonwing IQ-9075 EVK",
-    npu_count=2,
-)
-
-
-DEFAULT_SCORECARD_DEVICE = ScorecardDevice.get("default")
-DEFAULT_EXPORT_DEVICE = (
-    ScorecardDevice.get("default").execution_device_name
-    or ScorecardDevice.get("default").reference_device_name
-)
-CANARY_DEVICES = {
-    DEFAULT_EXPORT_DEVICE,
-    "Snapdragon X Elite CRD",
-    "Dragonwing IQ-9075 EVK",
-}
+DEFAULT_SCORECARD_DEVICE = ScorecardDevice.get_default()
 
 
 # Devices LLM models compile against by default (any precision).

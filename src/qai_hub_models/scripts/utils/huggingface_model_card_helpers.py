@@ -15,19 +15,19 @@ import ruamel.yaml
 from qai_hub_models import Precision
 from qai_hub_models._version import __version__ as qaihm_version
 from qai_hub_models.configs._info_yaml_llm_details import LLM_CALL_TO_ACTION
-from qai_hub_models.configs.devices_and_chipsets_yaml import DevicesAndChipsetsYaml
 from qai_hub_models.configs.info_yaml import QAIHMModelInfo
-from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
-from qai_hub_models.configs.release_assets_yaml import QAIHMModelReleaseAssets
 from qai_hub_models.scorecard.device import ScorecardDevice
+from qai_hub_models.scorecard.devices_and_chipsets_yaml import DevicesAndChipsetsYaml
 from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
+from qai_hub_models.scorecard.perf_yaml import QAIHMModelPerf
+from qai_hub_models.scorecard.release_assets_yaml import QAIHMModelReleaseAssets
 from qai_hub_models.scorecard.results.chipset_helpers import WEBSITE_CHIPSET_ORDER
+from qai_hub_models.scorecard.utils.fetch_static_assets import fetch_static_assets
 from qai_hub_models.scripts.generate_model_readme import get_shared_template_args
 from qai_hub_models.utils.asset_loaders import (
     ASSET_CONFIG,
     QAIHM_WEB_ASSET,
 )
-from qai_hub_models.utils.fetch_static_assets import fetch_static_assets
 
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
 JINJA_ENV = jinja2.Environment(

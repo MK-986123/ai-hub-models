@@ -10,13 +10,12 @@ from typing import Generic, final
 from qai_hub import JobType
 
 from qai_hub_models import Precision
-from qai_hub_models.configs.devices_and_chipsets_yaml import DevicesAndChipsetsYaml
 from qai_hub_models.configs.info_yaml import QAIHMModelInfo
-from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
 from qai_hub_models.scorecard import (
     ScorecardDevice,
     ScorecardProfilePath,
 )
+from qai_hub_models.scorecard.devices_and_chipsets_yaml import DevicesAndChipsetsYaml
 from qai_hub_models.scorecard.execution_helpers import (
     get_enabled_paths_for_testing,
     get_evaluation_parameterized_pytest_config,
@@ -27,6 +26,7 @@ from qai_hub_models.scorecard.params import (
     ScJobParams,
     ScorecardPathT,
 )
+from qai_hub_models.scorecard.perf_yaml import QAIHMModelPerf
 from qai_hub_models.scorecard.results.chipset_helpers import (
     get_supported_devices,
     sorted_chipsets,

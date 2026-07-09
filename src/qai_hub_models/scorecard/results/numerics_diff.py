@@ -11,13 +11,14 @@ from prettytable import PrettyTable
 
 from qai_hub_models import Precision
 from qai_hub_models.configs.code_gen_yaml import QAIHMModelCodeGen
-from qai_hub_models.configs.devices_and_chipsets_yaml import DevicesAndChipsetsYaml
 from qai_hub_models.configs.info_yaml import NumericsAccuracyBenchmark
-from qai_hub_models.configs.numerics_yaml import QAIHMModelNumerics
 from qai_hub_models.scorecard.device import ScorecardDevice
+from qai_hub_models.scorecard.devices_and_chipsets_yaml import DevicesAndChipsetsYaml
+from qai_hub_models.scorecard.numerics_yaml import QAIHMModelNumerics
 from qai_hub_models.scorecard.params import ScJobParams
 from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
 from qai_hub_models.scorecard.results.yaml import InferenceScorecardJobYaml
+from qai_hub_models.utils.device import FormFactor
 
 
 class NumericsDiff:
@@ -123,7 +124,7 @@ class NumericsDiff:
         self._excluded_device_names: set[str] = {
             name
             for name, details in yaml_config.devices.items()
-            if details.form_factor == ScorecardDevice.FormFactor.AUTO
+            if details.form_factor == FormFactor.AUTO
         }
 
         # tuple<Model ID, Dataset Name, Metric Name, Device, Precision, Path, FP Accuracy, Current Device Accuracy, Difference, Difference Threshold, Newly Disabled>

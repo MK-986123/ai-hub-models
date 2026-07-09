@@ -18,10 +18,10 @@ from qai_hub_models.models.detectron2_detection.model import (
     DEFAULT_CONFIG,
     Detectron2Detection,
 )
-from qai_hub_models.scorecard.utils.testing import (
+from qai_hub_models.utils.asset_loaders import load_image
+from qai_hub_models.utils.test_helpers import (
     assert_most_close,
 )
-from qai_hub_models.utils.asset_loaders import load_image
 
 
 def run_source_model() -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:

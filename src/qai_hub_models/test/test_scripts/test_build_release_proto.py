@@ -16,12 +16,12 @@ from qai_hub_models_cli.proto import manifest_pb2
 
 from qai_hub_models._version import __version__
 from qai_hub_models.configs._info_yaml_enums import MODEL_USE_CASE
-from qai_hub_models.configs.devices_and_chipsets_yaml import (
+from qai_hub_models.scorecard.devices_and_chipsets_yaml import (
     ALLOWED_SIMILAR_DEVICES,
     DevicesAndChipsetsYaml,
     _load_similar_devices_raw,
 )
-from qai_hub_models.configs.release_assets_yaml import QAIHMModelReleaseAssets
+from qai_hub_models.scorecard.release_assets_yaml import QAIHMModelReleaseAssets
 from qai_hub_models.scripts.build_release_proto import (
     _manifest_filter_fields,
     _simplify_enum_values_for_website_import,
@@ -97,7 +97,7 @@ def test_release_asset_chipsets_match_published_proto() -> None:
         "perf is borrowed rather than measured):\n"
         + "\n".join(f"  {c}: used by {sorted(models)}" for c, models in missing.items())
         + "\n\nAdd the corresponding device(s) to ALLOWED_SIMILAR_DEVICES in "
-        "qai_hub_models/configs/devices_and_chipsets_yaml.py so the chipset is "
+        "qai_hub_models/scorecard/devices_and_chipsets_yaml.py so the chipset is "
         "kept in the platform proto."
     )
 
@@ -113,7 +113,7 @@ def test_release_asset_chipsets_match_published_proto() -> None:
         "their chipset:\n"
         + "\n".join(f"  {name} ({chipset})" for name, chipset in unused.items())
         + "\n\nRemove them from ALLOWED_SIMILAR_DEVICES in "
-        "qai_hub_models/configs/devices_and_chipsets_yaml.py; keeping them re-adds "
+        "qai_hub_models/scorecard/devices_and_chipsets_yaml.py; keeping them re-adds "
         "borrowed-perf chipsets to the published platform proto for no reason."
     )
 

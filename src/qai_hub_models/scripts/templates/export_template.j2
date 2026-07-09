@@ -37,7 +37,6 @@ def build_parser(cli_mode: bool = False) -> argparse.ArgumentParser:
         export_fn=export_model,
         supported_precision_runtimes=SUPPORTED_PRECISION_RUNTIMES,
         default_export_device=DEFAULT_EXPORT_DEVICE,
-        {{- "force_fetch_static_assets=True," if freeze_perf_yaml else "" }}
         {{- "omit_precision=True," if separate_quantize_script else "" }}
         cli_mode=cli_mode,
     )

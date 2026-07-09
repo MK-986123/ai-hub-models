@@ -14,11 +14,11 @@ from pydantic import Field, model_validator
 
 from qai_hub_models import Precision, TargetRuntime
 from qai_hub_models.configs.model_disable_reasons import ModelDisableReasonsMapping
-from qai_hub_models.scorecard.device import (
+from qai_hub_models.utils.base_config import BaseQAIHMConfig
+from qai_hub_models.utils.device import (
     CANARY_DEVICES,
     DEFAULT_EXPORT_DEVICE,
 )
-from qai_hub_models.utils.base_config import BaseQAIHMConfig
 from qai_hub_models.utils.path_helpers import QAIHM_MODELS_ROOT
 
 

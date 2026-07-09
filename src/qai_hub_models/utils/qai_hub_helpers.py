@@ -360,39 +360,12 @@ def raise_if_fp_is_unsupported(device: hub.Device, precision: Precision) -> None
     Raise ValueError if the device does not support FP16 but the precision
     requires floating-point activations on the NPU.
 
-    Checks the local devices_and_chipsets YAML first (fast, offline),
-    then falls back to the hub device attributes.
+    Checks the hub device attributes for htp-supports-fp16:true.
     """
     if not precision.has_float_activations:
         return
 
-    # Try YAML first (fast, offline)
-    supports_fp16: bool | None = None
-    try:
-        from qai_hub_models.configs.devices_and_chipsets_yaml import (
-            DevicesAndChipsetsYaml,
-        )
-
-        yaml_data = DevicesAndChipsetsYaml.load()
-        _device_name, device_details = yaml_data.get_device_details_without_aihub(
-            device
-        )
-        chipset_info = yaml_data.chipsets.get(device_details.chipset)
-        if chipset_info is not None:
-            supports_fp16 = chipset_info.supports_fp16
-    except (ValueError, FileNotFoundError, KeyError):
-        pass
-
-    if supports_fp16 is not None:
-        if not supports_fp16:
-            raise ValueError(
-                f"The selected precision ({precision}) requires FP16 support, "
-                "but the selected device does not support FP16. "
-                "Please try a different precision or target device."
-            )
-        return
-
-    # Fall back to hub device attributes
+    # Check hub device attributes
     if not device.attributes:
         devices = hub.get_devices(device.name, device.os)
         if len(devices) == 0:

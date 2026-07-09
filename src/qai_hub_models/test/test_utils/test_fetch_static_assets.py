@@ -13,8 +13,8 @@ import pytest
 import qai_hub as hub
 
 from qai_hub_models import Precision, TargetRuntime
-from qai_hub_models.configs.devices_and_chipsets_yaml import DevicesAndChipsetsYaml
-from qai_hub_models.utils.fetch_static_assets import fetch_static_assets
+from qai_hub_models.scorecard.devices_and_chipsets_yaml import DevicesAndChipsetsYaml
+from qai_hub_models.scorecard.utils.fetch_static_assets import fetch_static_assets
 
 
 def requests_head_patch(status_code: int = 200) -> mock._patch[object]:
@@ -25,7 +25,9 @@ def requests_head_patch(status_code: int = 200) -> mock._patch[object]:
         response.status_code = status_code
         return response
 
-    return mock.patch("qai_hub_models.utils.fetch_static_assets.requests.head", _head)
+    return mock.patch(
+        "qai_hub_models.scorecard.utils.fetch_static_assets.requests.head", _head
+    )
 
 
 def download_file_patch(success: bool = True) -> mock._patch[object]:
@@ -37,13 +39,16 @@ def download_file_patch(success: bool = True) -> mock._patch[object]:
         return dst_path
 
     return mock.patch(
-        "qai_hub_models.utils.fetch_static_assets.download_file", _download_file
+        "qai_hub_models.scorecard.utils.fetch_static_assets.download_file",
+        _download_file,
     )
 
 
 def version_patch(version: str) -> mock._patch[object]:
     """Patches __version__ in fetch_static_assets to simulate release or dev installs."""
-    return mock.patch("qai_hub_models.utils.fetch_static_assets.__version__", version)
+    return mock.patch(
+        "qai_hub_models.scorecard.utils.fetch_static_assets.__version__", version
+    )
 
 
 def fetch_prerelease_assets_patch(
@@ -68,7 +73,7 @@ def fetch_prerelease_assets_patch(
         return Path(return_path or "/mock/prerelease/asset.tflite")
 
     return mock.patch(
-        "qai_hub_models.utils.fetch_static_assets.fetch_prerelease_assets",
+        "qai_hub_models.scorecard.utils.fetch_static_assets.fetch_prerelease_assets",
         _fetch_prerelease_assets,
     )
 
@@ -130,7 +135,7 @@ class TestFetchStaticAssetsPublicAsset:
             requests_head_patch(200),
             download_file_patch(success=True),
             mock.patch(
-                "qai_hub_models.utils.fetch_static_assets._load_chipsets_from_previous_release",
+                "qai_hub_models.scorecard.utils.fetch_static_assets._load_chipsets_from_previous_release",
                 _load_chipsets_from_previous_release,
             ),
             TemporaryDirectory() as tmpdir,

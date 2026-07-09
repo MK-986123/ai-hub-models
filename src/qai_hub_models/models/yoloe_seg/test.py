@@ -21,11 +21,11 @@ from qai_hub_models.models.yoloe_seg.model import (
     MODEL_ID,
     YoloESegmentor,
 )
-from qai_hub_models.scorecard.utils.testing import (
-    assert_most_close,
-)
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 from qai_hub_models.utils.image_processing import preprocess_PIL_image
+from qai_hub_models.utils.test_helpers import (
+    assert_most_close,
+)
 
 WEIGHTS = DEFAULT_WEIGHTS
 PROMPT_TEXT = "bus,person"

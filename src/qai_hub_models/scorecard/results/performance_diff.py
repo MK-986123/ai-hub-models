@@ -12,16 +12,17 @@ from prettytable import PrettyTable
 from pydantic import ConfigDict, Field, model_validator
 
 from qai_hub_models import Precision
-from qai_hub_models.configs.devices_and_chipsets_yaml import DevicesAndChipsetsYaml
-from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
 from qai_hub_models.scorecard.device import ScorecardDevice
+from qai_hub_models.scorecard.devices_and_chipsets_yaml import DevicesAndChipsetsYaml
 from qai_hub_models.scorecard.params import ScJobParams
 from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
+from qai_hub_models.scorecard.perf_yaml import QAIHMModelPerf
 from qai_hub_models.scorecard.results.yaml import (
     CompileScorecardJobYaml,
     ToolVersionChange,
 )
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
+from qai_hub_models.utils.device import FormFactor
 
 InferenceInfo = tuple[
     str,  # Model ID
@@ -179,7 +180,7 @@ class PerformanceDiff:
         self._excluded_device_names: set[str] = {
             name
             for name, details in yaml_config.devices.items()
-            if details.form_factor == ScorecardDevice.FormFactor.AUTO
+            if details.form_factor == FormFactor.AUTO
         }
 
     @staticmethod

@@ -27,11 +27,6 @@ from qai_hub_models_cli.proto import (
 from qai_hub_models_cli.proto.shared import tensor_spec_pb2, tool_versions_pb2
 
 from qai_hub_models.configs._info_yaml_llm_details import LLMDetails
-from qai_hub_models.configs.devices_and_chipsets_yaml import (
-    ChipsetYaml,
-    DeviceDetailsYaml,
-    FormFactorYaml,
-)
 from qai_hub_models.configs.info_yaml import NumericsAccuracyBenchmark, QAIHMModelInfo
 from qai_hub_models.configs.model_metadata import (
     ChipsetAttributes,
@@ -44,15 +39,19 @@ from qai_hub_models.configs.model_metadata import (
     ModelFileMetadata,
     ModelMetadata,
 )
-from qai_hub_models.configs.numerics_yaml import QAIHMModelNumerics
-from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
-from qai_hub_models.configs.release_assets_yaml import QAIHMModelReleaseAssets
 from qai_hub_models.configs.tensor_spec import (
     ImageMetadata,
     QuantizationParameters,
     TensorSpec,
 )
 from qai_hub_models.configs.tool_versions import ToolVersions
+from qai_hub_models.scorecard.devices_and_chipsets_yaml import (
+    DeviceDetailsYaml,
+    FormFactorYaml,
+)
+from qai_hub_models.scorecard.numerics_yaml import QAIHMModelNumerics
+from qai_hub_models.scorecard.perf_yaml import QAIHMModelPerf
+from qai_hub_models.scorecard.release_assets_yaml import QAIHMModelReleaseAssets
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
 
 
@@ -92,14 +91,15 @@ class TestModelMetadataFieldCoverage:
         _check_coverage(
             ModelMetadata,
             model_metadata_pb2.ModelMetadata.DESCRIPTOR,
-            proto_only={"aihm_version"},
+            proto_only={
+                "aihm_version",
+            },
         )
 
     def test_chipset_attributes(self) -> None:
         _check_coverage(
             ChipsetAttributes,
             platform_pb2.ChipsetInfo.DESCRIPTOR,
-            proto_only={"aliases", "marketing_name", "world", "reference_device"},
         )
 
     def test_model_file_metadata(self) -> None:
@@ -225,13 +225,6 @@ class TestPlatformFieldCoverage:
         _check_coverage(
             DeviceDetailsYaml,
             platform_pb2.DeviceInfo.DESCRIPTOR,
-            proto_only={"name"},
-        )
-
-    def test_chipset_yaml(self) -> None:
-        _check_coverage(
-            ChipsetYaml,
-            platform_pb2.ChipsetInfo.DESCRIPTOR,
             proto_only={"name"},
         )
 

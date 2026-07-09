@@ -10,7 +10,7 @@ from typing import Any
 
 from pydantic import model_validator
 
-from qai_hub_models.scorecard import ScorecardProfilePath
+from qai_hub_models import TargetRuntime
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
 
 
@@ -40,9 +40,7 @@ class LLMDetails(BaseQAIHMConfig):
 
     # Dict<Device Name, Dict<Long Runtime Name, LLMDeviceRuntimeDetails>
     # Used when genie_compatible is True (QNN context binary models)
-    devices: dict[str, dict[ScorecardProfilePath, LLMDeviceRuntimeDetails]] | None = (
-        None
-    )
+    devices: dict[str, dict[TargetRuntime, LLMDeviceRuntimeDetails]] | None = None
 
     def __init__(self, **kwargs: Any) -> None:
         val_dict = kwargs

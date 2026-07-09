@@ -11,7 +11,7 @@ from unittest import mock
 
 from qai_hub_models._version import __version__ as qaihm_version
 from qai_hub_models.configs.info_yaml import QAIHMModelInfo
-from qai_hub_models.configs.release_assets_yaml import QAIHMModelReleaseAssets
+from qai_hub_models.scorecard.release_assets_yaml import QAIHMModelReleaseAssets
 from qai_hub_models.scripts.release_huggingface_model_cards import (
     HF_REPO_NAMES_TO_NEVER_DEPRECATE,
     release_hf_model_cards,

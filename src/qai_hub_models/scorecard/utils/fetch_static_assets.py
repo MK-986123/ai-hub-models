@@ -17,14 +17,14 @@ from qai_hub_models_cli.fetch import get_asset_url
 
 from qai_hub_models import Precision, TargetRuntime
 from qai_hub_models._version import __version__
-from qai_hub_models.configs.devices_and_chipsets_yaml import DevicesAndChipsetsYaml
+from qai_hub_models.scorecard.devices_and_chipsets_yaml import DevicesAndChipsetsYaml
+from qai_hub_models.scorecard.utils.fetch_prerelease_assets import (
+    fetch_prerelease_assets,
+)
 from qai_hub_models.utils.asset_loaders import (
     ASSET_CONFIG,
     ModelZooAssetConfig,
     download_file,
-)
-from qai_hub_models.utils.fetch_prerelease_assets import (
-    fetch_prerelease_assets,
 )
 from qai_hub_models.utils.version_helpers import QAIHMVersion
 

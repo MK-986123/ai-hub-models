@@ -40,6 +40,7 @@ from qai_hub_models.scorecard.static.model_exec import (
     get_static_model_test_parameterizations,
 )
 from qai_hub_models.scripts.run_codegen import _extract_runtime_and_precision_options
+from qai_hub_models.utils.device import FormFactor
 
 # Scorecard limits
 SC_DAYTIME_START_TIME = time(17, 0)  # 5:00 PM
@@ -179,7 +180,7 @@ def count_device_jobs(
 ) -> tuple[
     int,
     dict[ScorecardDevice, int],
-    dict[ScorecardDevice.FormFactor, int],
+    dict[FormFactor, int],
     dict[ScorecardProfilePath, int],
     dict[str, int],
     dict[str, dict[str, int]],
@@ -207,7 +208,7 @@ def count_device_jobs(
         Total number of jobs.
     job_count_by_device : dict[ScorecardDevice, int]
         Dictionary mapping device to job count.
-    job_count_by_form_factor : dict[ScorecardDevice.FormFactor, int]
+    job_count_by_form_factor : dict[FormFactor, int]
         Dictionary mapping form factor to job count.
     job_count_by_scorecard_path : dict[ScorecardProfilePath, int]
         Dictionary mapping scorecard path to job count.
@@ -236,9 +237,7 @@ def count_device_jobs(
     job_count_by_device: dict[ScorecardDevice, int] = dict.fromkeys(
         ScorecardDevice.all_devices(enabled=True, is_mirror=False), 0
     )
-    job_count_by_form_factor: dict[ScorecardDevice.FormFactor, int] = dict.fromkeys(
-        ScorecardDevice.FormFactor, 0
-    )
+    job_count_by_form_factor: dict[FormFactor, int] = dict.fromkeys(FormFactor, 0)
     del job_count_by_device[cs_universal]  # compile only device
     job_count_by_path: dict[ScorecardProfilePath, int] = {
         p: 0 for p in ScorecardProfilePath if p.enabled
@@ -336,7 +335,7 @@ def count_device_jobs(
 def device_job_counts_to_printstr(
     total_jobs: int,
     job_count_by_device: dict[ScorecardDevice, int],
-    job_count_by_form_factor: dict[ScorecardDevice.FormFactor, int],
+    job_count_by_form_factor: dict[FormFactor, int],
     job_count_by_path: dict[ScorecardProfilePath, int],
     job_count_by_pytorch_recipe: dict[str, int],
     job_count_by_pytorch_recipe_component: dict[str, dict[str, int]],
@@ -521,7 +520,7 @@ def main() -> None:
 
         auto_jobs = 0
         for device, count in job_count_by_device.items():
-            if device.form_factor == ScorecardDevice.FormFactor.AUTO:
+            if device.form_factor == FormFactor.AUTO:
                 auto_jobs += count
         if auto_jobs > MAX_DAYTIME_AUTO_DEVICE_JOBS:
             print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")

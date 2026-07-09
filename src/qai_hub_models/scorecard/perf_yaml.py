@@ -27,7 +27,7 @@ from qai_hub_models.utils.path_helpers import QAIHM_MODELS_ROOT
 @cache
 def _similar_device_names() -> frozenset[str]:
     """Names of "similar" (non-workbench) devices excluded from the perf proto."""
-    from qai_hub_models.configs.devices_and_chipsets_yaml import (
+    from qai_hub_models.scorecard.devices_and_chipsets_yaml import (
         _load_similar_devices_raw,
     )
 
@@ -160,7 +160,8 @@ class QAIHMModelPerf(BaseQAIHMConfig):
             real_chipset is added to ``supported_chipsets`` when perf data is placed.
         """
         similar_device_objs = {
-            name: ScorecardDevice(name, name, register=False) for name in mapping
+            name: ScorecardDevice(name=name, reference_device_name=name, register=False)
+            for name in mapping
         }
 
         # Names this call actually copied perf data onto. Only these drive the

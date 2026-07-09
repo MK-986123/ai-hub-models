@@ -13,10 +13,10 @@ from qai_hub_models.models.hrnet_pose.model import (
     MODEL_ID,
     HRNetPose,
 )
-from qai_hub_models.scorecard.utils.testing import (
+from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
+from qai_hub_models.utils.test_helpers import (
     assert_most_close,
 )
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 
 OUTPUT_IMAGE_LOCAL_PATH = "hrnetpose_output.png"
 OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(

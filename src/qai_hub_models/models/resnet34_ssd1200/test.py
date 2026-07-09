@@ -12,12 +12,12 @@ from qai_hub_models.models.resnet34_ssd1200.model import (
     MODEL_ASSET_VERSION,
     MODEL_ID,
 )
-from qai_hub_models.scorecard.utils.testing import (
-    assert_most_same,
-)
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     load_image,
+)
+from qai_hub_models.utils.test_helpers import (
+    assert_most_same,
 )
 
 EXP_IMG = CachedWebModelAsset.from_asset_store(

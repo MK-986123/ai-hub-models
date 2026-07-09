@@ -13,12 +13,12 @@ from qai_hub_models.models.yolov11_det.model import (
     MODEL_ID,
     YoloV11Detector,
 )
-from qai_hub_models.scorecard.utils.testing import (
-    assert_most_close,
-)
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     load_image,
+)
+from qai_hub_models.utils.test_helpers import (
+    assert_most_close,
 )
 
 OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(

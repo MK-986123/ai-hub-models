@@ -13,10 +13,10 @@ from qai_hub_models.models.salsanext.model import (
     MODEL_ID,
     SalsaNext,
 )
-from qai_hub_models.scorecard.utils.testing import (
+from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
+from qai_hub_models.utils.test_helpers import (
     assert_most_same,
 )
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 
 OUTPUT_LIDAR_ADDRESS = CachedWebModelAsset.from_asset_store(
     MODEL_ID, MODEL_ASSET_VERSION, "expected_output/000000.label"

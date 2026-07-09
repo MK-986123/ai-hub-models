@@ -14,13 +14,13 @@ from qai_hub_models.models.pspnet.model import (
     MODEL_ID,
     PSPNet,
 )
-from qai_hub_models.scorecard.utils.testing import (
-    assert_most_same,
-)
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 from qai_hub_models.utils.image_processing import (
     pil_resize_pad,
     pil_undo_resize_pad,
+)
+from qai_hub_models.utils.test_helpers import (
+    assert_most_same,
 )
 
 OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(

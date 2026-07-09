@@ -14,6 +14,7 @@ from pydantic import Field
 from qai_hub_models_cli.proto import platform_pb2
 from typing_extensions import assert_never
 
+from qai_hub_models.configs.chipset_yaml import ChipsetYaml, WebsiteWorld
 from qai_hub_models.configs.proto_helpers import form_factor_to_proto, runtime_to_proto
 from qai_hub_models.scorecard.device import (
     ScorecardDevice,
@@ -21,6 +22,7 @@ from qai_hub_models.scorecard.device import (
 )
 from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
+from qai_hub_models.utils.device import FormFactor, OperatingSystem
 from qai_hub_models.utils.path_helpers import QAIHM_PACKAGE_ROOT
 from qai_hub_models.utils.qai_hub_helpers import get_device_and_chipset_name
 
@@ -28,30 +30,55 @@ SCORECARD_DEVICE_YAML_PATH = QAIHM_PACKAGE_ROOT / "devices_and_chipsets.yaml"
 SIMILAR_DEVICES_YAML_PATH = QAIHM_PACKAGE_ROOT / "similar_devices.yaml"
 
 
-@unique
-class WebsiteWorld(Enum):
-    Mobile = "Mobile"
-    Compute = "Compute"
-    Automotive = "Automotive"
-    IoT = "IoT"
-    XR = "XR"
+def chipset_marketing_name(chipset: str, world: WebsiteWorld | None = None) -> str:
+    """Sanitize chip name to match marketing."""
+    chipset = get_canonical_chipset_name(chipset)
+    chip = " ".join([word.capitalize() for word in chipset.split("-")])
+    chip = chip.replace(
+        "Qualcomm Snapdragon", "Snapdragon®"
+    )  # Marketing name for Qualcomm Snapdragon is Snapdragon®
+    chip = chip.replace(
+        "Qualcomm", "Qualcomm®"
+    )  # All other Qualcomm brand names should include a registered trademark
 
-    @staticmethod
-    def from_form_factor(form_factor: ScorecardDevice.FormFactor) -> WebsiteWorld:
-        if (
-            form_factor == ScorecardDevice.FormFactor.PHONE  # noqa: PLR1714 | Can't merge comparisons and use assert_never
-            or form_factor == ScorecardDevice.FormFactor.TABLET
-        ):
-            return WebsiteWorld.Mobile
-        if form_factor == ScorecardDevice.FormFactor.XR:
-            return WebsiteWorld.XR
-        if form_factor == ScorecardDevice.FormFactor.COMPUTE:
-            return WebsiteWorld.Compute
-        if form_factor == ScorecardDevice.FormFactor.IOT:
-            return WebsiteWorld.IoT
-        if form_factor == ScorecardDevice.FormFactor.AUTO:
-            return WebsiteWorld.Automotive
-        assert_never(form_factor)
+    chip = chip.replace("Proxy", "(Proxy)")
+
+    # 8cxgen2 -> 8cx Gen 2
+    # 8gen2 -> 8 Gen 2
+    # Gen5 -> Gen 5
+    chip = re.sub(
+        r"(\w*)[g|G]en(\d+)",
+        lambda m: f"{m.group(1)} Gen {m.group(2)}".strip(),
+        chip,
+    )
+
+    # 8 Core -> 8-Core
+    chip = re.sub(r"(\d+) Core", r"\g<1>-Core", chip)
+
+    # qcs6490 -> QCS6490
+    # sa8775p -> SA8775P
+    chip = re.sub(
+        r"(Qcs|Qcm|Sa)\s*(\w+)",
+        lambda m: f"{m.group(1).upper()}{m.group(2).upper()}",
+        chip,
+    )
+
+    return chip + (f" {world.value}" if world == WebsiteWorld.Mobile else "")
+
+
+def create_chipset_yaml(device: ScorecardDevice) -> ChipsetYaml:
+    """Create ChipsetYaml from a ScorecardDevice with scorecard-specific formatting."""
+    world = WebsiteWorld.from_form_factor(device.form_factor)
+    return ChipsetYaml(
+        aliases=device.chipset_aliases,
+        marketing_name=chipset_marketing_name(device.chipset, world),
+        world=world,
+        supports_fp16=device.supports_fp16_npu,
+        htp_version=device.hexagon_version,
+        soc_model=device.soc_model,
+        reference_device=device.reference_device_name,
+        supports_weight_sharing=device.supports_weight_sharing,
+    )
 
 
 @unique
@@ -72,7 +99,7 @@ class WebsiteIcon(Enum):
 
     @staticmethod
     def from_device(device: ScorecardDevice) -> WebsiteIcon:
-        if device.form_factor == ScorecardDevice.FormFactor.PHONE:
+        if device.form_factor == FormFactor.PHONE:
             if device.chipset == "qualcomm-snapdragon-888":
                 return WebsiteIcon.Phone_S21
             if device.chipset == "qualcomm-snapdragon-8gen1":
@@ -86,7 +113,7 @@ class WebsiteIcon(Enum):
                     return WebsiteIcon.Phone_S24_Ultra
                 return WebsiteIcon.Phone_S24
             return WebsiteIcon.Phone_S21
-        if device.form_factor == ScorecardDevice.FormFactor.COMPUTE:
+        if device.form_factor == FormFactor.COMPUTE:
             if device.chipset in [
                 "qualcomm-snapdragon-8cxgen3",
                 "qualcomm-snapdragon-x-plus-8-core",
@@ -94,11 +121,11 @@ class WebsiteIcon(Enum):
             ]:
                 return WebsiteIcon.Laptop_X_Elite
             return WebsiteIcon.Laptop_Generic
-        if device.form_factor == ScorecardDevice.FormFactor.TABLET:
+        if device.form_factor == FormFactor.TABLET:
             return WebsiteIcon.Tablet_Android
-        if device.form_factor == ScorecardDevice.FormFactor.XR:
+        if device.form_factor == FormFactor.XR:
             return WebsiteIcon.XR_Headset
-        if device.form_factor == ScorecardDevice.FormFactor.IOT:
+        if device.form_factor == FormFactor.IOT:
             if device.chipset in [
                 "qualcomm-qcs6490-proxy",
                 "qualcomm-qcs8250-proxy",
@@ -110,7 +137,7 @@ class WebsiteIcon(Enum):
             ]:
                 return WebsiteIcon.IoT_Chip
             return WebsiteIcon.IoT_Drone
-        if device.form_factor == ScorecardDevice.FormFactor.AUTO:
+        if device.form_factor == FormFactor.AUTO:
             return WebsiteIcon.Car
         assert_never(device.form_factor)
 
@@ -153,15 +180,13 @@ class FormFactorYaml(BaseQAIHMConfig):
     world: WebsiteWorld
 
     @staticmethod
-    def from_form_factor(form_factor: ScorecardDevice.FormFactor) -> FormFactorYaml:
+    def from_form_factor(form_factor: FormFactor) -> FormFactorYaml:
         return FormFactorYaml(
             display_name=FormFactorYaml._form_factor_to_display_name(form_factor),
             world=WebsiteWorld.from_form_factor(form_factor),
         )
 
-    def to_proto(
-        self, form_factor: ScorecardDevice.FormFactor
-    ) -> platform_pb2.FormFactorInfo:
+    def to_proto(self, form_factor: FormFactor) -> platform_pb2.FormFactorInfo:
         return platform_pb2.FormFactorInfo(
             form_factor=form_factor_to_proto(form_factor),
             display_name=self.display_name,
@@ -169,8 +194,8 @@ class FormFactorYaml(BaseQAIHMConfig):
         )
 
     @staticmethod
-    def _form_factor_to_display_name(ff: ScorecardDevice.FormFactor) -> str:
-        if ff == ScorecardDevice.FormFactor.AUTO:
+    def _form_factor_to_display_name(ff: FormFactor) -> str:
+        if ff == FormFactor.AUTO:
             return "Automotive"
         return ff.value
 
@@ -182,8 +207,8 @@ class DeviceDetailsYaml(BaseQAIHMConfig):
     # to `supported_chipsets` in perf.yaml; `reference_chipset` is the lookup
     # key used to find a workbench device with results to copy.
     reference_chipset: str | None = None
-    os: ScorecardDevice.OperatingSystem
-    form_factor: ScorecardDevice.FormFactor
+    os: OperatingSystem
+    form_factor: FormFactor
     vendor: str
     icon: WebsiteIcon
     npu_count: int = 1
@@ -279,79 +304,6 @@ def load_similar_devices() -> dict[str, tuple[str, list[str]]]:
     return resolved
 
 
-class ChipsetYaml(BaseQAIHMConfig):
-    aliases: list[str]
-    marketing_name: str
-    world: WebsiteWorld
-    supports_fp16: bool = False
-    htp_version: int
-    soc_model: int
-    reference_device: str
-    supports_weight_sharing: bool = False
-
-    @staticmethod
-    def from_device(device: ScorecardDevice) -> ChipsetYaml:
-        world = WebsiteWorld.from_form_factor(device.form_factor)
-        return ChipsetYaml(
-            aliases=device.chipset_aliases,
-            marketing_name=ChipsetYaml.chipset_marketing_name(device.chipset, world),
-            world=world,
-            supports_fp16=device.supports_fp16_npu,
-            htp_version=device.hexagon_version,
-            soc_model=device.soc_model,
-            reference_device=device.reference_device_name,
-            supports_weight_sharing=device.supports_weight_sharing,
-        )
-
-    def to_proto(self, name: str) -> platform_pb2.ChipsetInfo:
-        return platform_pb2.ChipsetInfo(
-            name=name,
-            aliases=self.aliases,
-            marketing_name=self.marketing_name,
-            world=_WEBSITE_WORLD_TO_PROTO[self.world.value],
-            supports_fp16=self.supports_fp16,
-            htp_version=self.htp_version,
-            soc_model=self.soc_model,
-            reference_device=self.reference_device,
-        )
-
-    @staticmethod
-    def chipset_marketing_name(chipset: str, world: WebsiteWorld | None = None) -> str:
-        """Sanitize chip name to match marketing."""
-        chipset = get_canonical_chipset_name(chipset)
-        chip = " ".join([word.capitalize() for word in chipset.split("-")])
-        chip = chip.replace(
-            "Qualcomm Snapdragon", "Snapdragon®"
-        )  # Marketing name for Qualcomm Snapdragon is Snapdragon®
-        chip = chip.replace(
-            "Qualcomm", "Qualcomm®"
-        )  # All other Qualcomm brand names should include a registered trademark
-
-        chip = chip.replace("Proxy", "(Proxy)")
-
-        # 8cxgen2 -> 8cx Gen 2
-        # 8gen2 -> 8 Gen 2
-        # Gen5 -> Gen 5
-        chip = re.sub(
-            r"(\w*)[g|G]en(\d+)",
-            lambda m: f"{m.group(1)} Gen {m.group(2)}".strip(),
-            chip,
-        )
-
-        # 8 Core -> 8-Core
-        chip = re.sub(r"(\d+) Core", r"\g<1>-Core", chip)
-
-        # qcs6490 -> QCS6490
-        # sa8775p -> SA8775P
-        chip = re.sub(
-            r"(Qcs|Qcm|Sa)\s*(\w+)",
-            lambda m: f"{m.group(1).upper()}{m.group(2).upper()}",
-            chip,
-        )
-
-        return chip + (f" {world.value}" if world == WebsiteWorld.Mobile else "")
-
-
 class DevicesAndChipsetsYaml(BaseQAIHMConfig):
     """
     Storage for device and chipset metadata.
@@ -375,9 +327,7 @@ class DevicesAndChipsetsYaml(BaseQAIHMConfig):
     scorecard_path_extensions: dict[ScorecardProfilePath, str] = Field(
         default_factory=dict
     )
-    form_factors: dict[ScorecardDevice.FormFactor, FormFactorYaml] = Field(
-        default_factory=dict
-    )
+    form_factors: dict[FormFactor, FormFactorYaml] = Field(default_factory=dict)
     devices: dict[str, DeviceDetailsYaml] = Field(default_factory=dict)
     chipsets: dict[str, ChipsetYaml] = Field(default_factory=dict)
 
@@ -389,7 +339,7 @@ class DevicesAndChipsetsYaml(BaseQAIHMConfig):
         """
         out = DevicesAndChipsetsYaml()
         out.form_factors = {
-            ff: FormFactorYaml.from_form_factor(ff) for ff in ScorecardDevice.FormFactor
+            ff: FormFactorYaml.from_form_factor(ff) for ff in FormFactor
         }
 
         for profile_path in ScorecardProfilePath:
@@ -428,7 +378,7 @@ class DevicesAndChipsetsYaml(BaseQAIHMConfig):
                 device
             )
             if device.chipset not in out.chipsets:
-                out.chipsets[device.chipset] = ChipsetYaml.from_device(device)
+                out.chipsets[device.chipset] = create_chipset_yaml(device)
             out.chipsets[device.chipset].supports_fp16 |= (
                 "htp-supports-fp16:true" in hub_device.attributes
             )

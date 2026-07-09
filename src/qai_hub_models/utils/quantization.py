@@ -119,7 +119,7 @@ def get_calibration_data(
     except UnfetchableDatasetError as e:
         if e.installation_steps is None:
             raise ValueError(
-                f"The calibration dataset ({e.dataset_name}) for this model is not publicly available. If you are running `export.py`, run export again and add `--fetch-static-assets`. This will fetch a pre-quantized model file, and skips the step that requires fetching this dataset."
+                f"The calibration dataset ({e.dataset_name}) for this model is not publicly available. Run `qai-hub-models fetch <model>` to fetch a pre-quantized model file, which skips the step that requires fetching this dataset."
             ) from None
         raise
     num_samples = num_samples or dataset.default_num_calibration_samples()

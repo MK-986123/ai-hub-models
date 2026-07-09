@@ -13,10 +13,10 @@ from qai_hub_models.models.real_esrgan_x4plus.model import (
     MODEL_ID,
     Real_ESRGAN_x4plus,
 )
-from qai_hub_models.scorecard.utils.testing import (
+from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
+from qai_hub_models.utils.test_helpers import (
     assert_most_same,
 )
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 
 OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
     MODEL_ID, MODEL_ASSET_VERSION, "real_esrgan_x4plus_demo_output.png"

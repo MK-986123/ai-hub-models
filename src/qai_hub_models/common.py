@@ -421,7 +421,8 @@ class InferenceEngine(Enum):
                     + f"\n\nAI Hub Workbench no longer supports the standard QAIRT version ({qairt_version}) used by this version of AI Hub Models.\n"
                     + runtime_version_str
                     + "You have two options:\n"
-                    f" 1. Pass --fetch-static-assets to the export.py script, to fetch numbers / model files created for this release, that are compatible with QAIRT {qairt_version}.\n"
+                    " 1. Run `qai-hub-models fetch <model>` to fetch pre-released "
+                    f"assets compatible with QAIRT {qairt_version}.\n"
                     f" OR\n"
                     f" 2. Pass --compile-options='--qairt_version=default' and/or --profile-options='--qairt_version=default' to use the current default available on AI Hub Workbench. "
                     "DO THIS AT YOUR OWN RISK -- Older versions of AI Hub Models are not guaranteed to work with newer versions of QAIRT."

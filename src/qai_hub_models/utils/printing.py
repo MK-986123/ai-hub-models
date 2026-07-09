@@ -19,14 +19,9 @@ from qai_hub.public_rest_api import DatasetEntries
 from tabulate import tabulate
 
 from qai_hub_models import TargetRuntime
-from qai_hub_models.configs.devices_and_chipsets_yaml import (
-    DeviceDetailsYaml,
-    DevicesAndChipsetsYaml,
-)
-from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
 from qai_hub_models.configs.tool_versions import ToolVersions
-from qai_hub_models.scorecard.device import ScorecardDevice
 from qai_hub_models.utils.compare import METRICS_FUNCTIONS, generate_comparison_metrics
+from qai_hub_models.utils.device import OperatingSystem, OperatingSystemType
 
 _INFO_DASH = "-" * 60
 
@@ -121,129 +116,62 @@ def print_inference_metrics(
         print(last_line)
 
 
+_BYTES_PER_MB = 1024 * 1024
+
+
 def print_profile_metrics_from_job(
     profile_job: hub.ProfileJob,
     profile_data: dict[str, Any],
 ) -> None:
     compute_unit_counts = Counter(
-        [
-            op.get("compute_unit", "UNK").lower()
-            for op in profile_data["execution_detail"]
-        ]
+        op.get("compute_unit", "UNK").lower() for op in profile_data["execution_detail"]
     )
+    npu_ops = compute_unit_counts.get("npu", 0)
+    gpu_ops = compute_unit_counts.get("gpu", 0)
+    cpu_ops = compute_unit_counts.get("cpu", 0)
+
     execution_summary = profile_data["execution_summary"]
     low_mem_bytes, high_mem_bytes = execution_summary["inference_memory_peak_range"]
+    mem_min_mb = low_mem_bytes // _BYTES_PER_MB
+    mem_max_mb = high_mem_bytes // _BYTES_PER_MB
+    inf_time_ms = execution_summary["estimated_inference_time"] / 1000
+
+    runtime = TargetRuntime.from_hub_model_type(profile_job.model.model_type)
+    device_name = profile_job.device.name
+
+    # Read OS from hub.Device.attributes
+    os_str = None
+    for attr in profile_job.device.attributes:
+        if attr.startswith("os:"):
+            os_type = OperatingSystemType[attr.split(":")[-1].upper()]
+            os_obj = OperatingSystem(ostype=os_type, version=profile_job.device.os)
+            os_str = str(os_obj)
+            break
+
+    rows = [
+        ["Device", f"{device_name} ({os_str})" if os_str else device_name],
+        ["Runtime", runtime.name],
+        [
+            "Estimated inference time (ms)",
+            "<0.1" if inf_time_ms < 0.1 else f"{inf_time_ms:.1f}",
+        ],
+        ["Estimated peak memory usage (MB)", f"[{mem_min_mb}, {mem_max_mb}]"],
+        ["Total # Ops", str(npu_ops + gpu_ops + cpu_ops)],
+        [
+            "Compute Unit(s)",
+            f"npu ({npu_ops} ops) gpu ({gpu_ops} ops) cpu ({cpu_ops} ops)",
+        ],
+    ]
+    table = PrettyTable(align="l", header=False, border=False, padding_width=0)
+    for label, value in rows:
+        table.add_row([label, f": {value}"])
+
     print(f"\n{_INFO_DASH}")
     print(f"Performance results on-device for {profile_job.name.title()}.")
     print(_INFO_DASH)
-
-    runtime = TargetRuntime.from_hub_model_type(profile_job.model.model_type)
-    perf_details = QAIHMModelPerf.PerformanceDetails(
-        job_id=profile_job.job_id,
-        inference_time_milliseconds=execution_summary["estimated_inference_time"]
-        / 1000,
-        estimated_peak_memory_range_mb=QAIHMModelPerf.PerformanceDetails.PeakMemoryRangeMB.from_bytes(
-            low_mem_bytes, high_mem_bytes
-        ),
-        layer_counts=QAIHMModelPerf.PerformanceDetails.LayerCounts.from_layers(
-            npu=compute_unit_counts.get("npu", 0),
-            gpu=compute_unit_counts.get("gpu", 0),
-            cpu=compute_unit_counts.get("cpu", 0),
-        ),
-    )
-
-    print_profile_metrics(profile_job.device.name, runtime, perf_details)
+    print(table.get_string())
     print(_INFO_DASH)
-    last_line = f"More details: {profile_job.url}\n"
-    print(last_line)
-
-
-def get_profile_metrics(
-    device_name: str,
-    runtime: TargetRuntime,
-    perf_details: QAIHMModelPerf.PerformanceDetails,
-    can_access_qualcomm_ai_hub: bool = True,
-) -> str:
-    if not can_access_qualcomm_ai_hub:
-        device_name = device_name.removesuffix(" (Family)")
-        device_info = DevicesAndChipsetsYaml.load().devices[device_name]
-    else:
-        device_info = DeviceDetailsYaml.from_device(
-            ScorecardDevice.get(device_name, return_unregistered=True)
-        )
-
-    rows = [
-        ["Device", f"{device_name} ({device_info.os})"],
-        ["Runtime", runtime.name],
-    ]
-
-    if perf_details.llm_metrics is not None:
-        # LLM metrics - show all context lengths
-        for ctx in perf_details.llm_metrics:
-            assert ctx.tokens_per_second
-            assert ctx.time_to_first_token_range_milliseconds
-            ctx_label = (
-                f" (ctx={ctx.context_length})"
-                if len(perf_details.llm_metrics) > 1
-                else ""
-            )
-            rows.extend(
-                [
-                    [
-                        f"Response Rate (Tokens/Second){ctx_label}",
-                        str(ctx.tokens_per_second),
-                    ],
-                    [
-                        f"Time to First Token (Seconds){ctx_label}",
-                        f"min={ctx.time_to_first_token_range_milliseconds.min / 1000}, max={ctx.time_to_first_token_range_milliseconds.max / 1000}",
-                    ],
-                ]
-            )
-    else:
-        assert perf_details.inference_time_milliseconds
-        assert perf_details.estimated_peak_memory_range_mb
-        assert perf_details.layer_counts
-        inf_time_ms = perf_details.inference_time_milliseconds
-        mem_min = perf_details.estimated_peak_memory_range_mb.min
-        mem_max = perf_details.estimated_peak_memory_range_mb.max
-        compute_units = [
-            f"{unit} ({num_ops} ops)"
-            for unit, num_ops in [
-                ("npu", perf_details.layer_counts.npu),
-                ("gpu", perf_details.layer_counts.gpu),
-                ("cpu", perf_details.layer_counts.cpu),
-            ]
-        ]
-
-        rows.extend(
-            [
-                [
-                    "Estimated inference time (ms)",
-                    "<0.1" if inf_time_ms < 0.1 else f"{inf_time_ms:.1f}",
-                ],
-                ["Estimated peak memory usage (MB)", f"[{mem_min}, {mem_max}]"],
-                ["Total # Ops", str(perf_details.layer_counts.total)],
-                ["Compute Unit(s)", " ".join(compute_units)],
-            ]
-        )
-
-    table = PrettyTable(align="l", header=False, border=False, padding_width=0)
-    for row in rows:
-        table.add_row([row[0], f": {row[1]}"])
-    return table.get_string()
-
-
-def print_profile_metrics(
-    device_name: str,
-    runtime: TargetRuntime,
-    perf_details: QAIHMModelPerf.PerformanceDetails,
-    can_access_qualcomm_ai_hub: bool = True,
-) -> None:
-    print(
-        get_profile_metrics(
-            device_name, runtime, perf_details, can_access_qualcomm_ai_hub
-        )
-    )
+    print(f"More details: {profile_job.url}\n")
 
 
 def print_on_target_demo_cmd(

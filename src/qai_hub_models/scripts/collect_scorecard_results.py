@@ -19,12 +19,10 @@ import pandas as pd
 import ruamel.yaml
 
 from qai_hub_models.configs.code_gen_yaml import QAIHMModelCodeGen
-from qai_hub_models.configs.devices_and_chipsets_yaml import load_similar_devices
 from qai_hub_models.configs.info_yaml import QAIHMModelInfo
-from qai_hub_models.configs.numerics_yaml import QAIHMModelNumerics
-from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
 from qai_hub_models.scorecard.artifacts import ScorecardArtifact
 from qai_hub_models.scorecard.device import ScorecardDevice
+from qai_hub_models.scorecard.devices_and_chipsets_yaml import load_similar_devices
 from qai_hub_models.scorecard.envvars import (
     ArtifactsDirEnvvar,
     BranchEnvvar,
@@ -37,6 +35,8 @@ from qai_hub_models.scorecard.envvars import (
     SpecialPrecisionSetting,
     StaticModelsDirEnvvar,
 )
+from qai_hub_models.scorecard.numerics_yaml import QAIHMModelNumerics
+from qai_hub_models.scorecard.perf_yaml import QAIHMModelPerf
 from qai_hub_models.scorecard.results.code_gen import (
     remove_numerics_failures,
     remove_perf_failures,
@@ -66,16 +66,16 @@ from qai_hub_models.scorecard.static.list_models import (
     validate_and_split_enabled_models,
 )
 from qai_hub_models.scorecard.static.model_config import ScorecardModelConfig
+from qai_hub_models.scorecard.utils.numerics_yaml_helpers import (
+    create_numerics_yaml,
+    get_chipset_registry,
+)
 from qai_hub_models.utils.hub_clients import (
     default_hub_client_as,
     deployment_is_prod,
     get_default_hub_deployment,
     get_scorecard_client_or_raise,
     set_default_hub_client,
-)
-from qai_hub_models.utils.numerics_yaml import (
-    create_numerics_yaml,
-    get_chipset_registry,
 )
 from qai_hub_models.utils.path_helpers import MODEL_IDS
 

@@ -33,6 +33,7 @@ from qai_hub_models.scorecard.path_profile import (
 )
 from qai_hub_models.utils.asset_loaders import EXECUTING_IN_CI_ENVIRONMENT
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
+from qai_hub_models.utils.device import FormFactor
 from qai_hub_models.utils.hub_clients import get_scorecard_client
 
 DEFAULT_MODELS_DIR = Path(os.path.dirname(__file__)) / "models"
@@ -120,10 +121,10 @@ class ScorecardModelConfig(BaseQAIHMConfig):
     # Valid device form factors for this model. If set, all supported scorecard devices of these form factors are tested.
     # If unspecified, enabled_devices are used instead. Cannot be specified at the same time as enabled_devices.
     #
-    # See the FormFactor enum (https://github.com/search?q=repo%3Aqualcomm%2Fai-hub-models+ScorecardDevice.FormFactor&type=code) for valid values.
+    # See the FormFactor enum (https://github.com/search?q=repo%3Aqualcomm%2Fai-hub-models+FormFactor&type=code) for valid values.
     # "all" may also be used here if all Qualcomm hardware should be targeted.
     # All devices should only apply sparingly, as the resources required to run said models are very expensive.
-    enabled_device_form_factors: list[ScorecardDevice.FormFactor] | None = None
+    enabled_device_form_factors: list[FormFactor] | None = None
 
     # Device names to test. Must be the names defined in qai_hub_models/scorecard/device.py or "default"
     # If "default" is set, it resolves to DEFAULT_SCORECARD_DEVICE

@@ -19,15 +19,15 @@ import qai_hub as hub
 from qai_hub_models_cli.proto import model_metadata_pb2, platform_pb2
 
 from qai_hub_models import Precision, TargetRuntime
-from qai_hub_models.configs.devices_and_chipsets_yaml import ChipsetYaml
+from qai_hub_models.configs.chipset_yaml import ChipsetYaml, WebsiteWorld
 from qai_hub_models.configs.proto_helpers import precision_to_proto, runtime_to_proto
 from qai_hub_models.configs.tensor_spec import (
     QuantizationParameters,
     TensorSpec,
 )
 from qai_hub_models.configs.tool_versions import ToolVersions
-from qai_hub_models.scorecard.device import ScorecardDevice
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
+from qai_hub_models.utils.device import RegisteredDevice
 from qai_hub_models.utils.input_spec import InputSpec, OutputSpec
 
 
@@ -94,12 +94,13 @@ class ModelFileMetadata(BaseQAIHMConfig):
 
         return cls(inputs=inputs, outputs=outputs)
 
-    def to_yaml(  # type: ignore[override]
+    def to_yaml(
         self,
         path: str | Path,
         write_if_empty: bool = False,
         delete_if_empty: bool = True,
         flow_lists: bool = True,
+        exclude_defaults: bool = True,
         **kwargs: Any,
     ) -> bool:
         """
@@ -113,6 +114,7 @@ class ModelFileMetadata(BaseQAIHMConfig):
             write_if_empty=write_if_empty,
             delete_if_empty=delete_if_empty,
             flow_lists=flow_lists,
+            exclude_defaults=exclude_defaults,
             **kwargs,
         )
 
@@ -253,6 +255,8 @@ class GenieMetadata(BaseQAIHMConfig):
 
 
 class ChipsetAttributes(ChipsetYaml):
+    """Chipset attributes for model metadata - adds name field to ChipsetYaml."""
+
     name: str
 
     def to_proto(self) -> platform_pb2.ChipsetInfo:  # type: ignore[override]
@@ -262,19 +266,18 @@ class ChipsetAttributes(ChipsetYaml):
     def from_hub_device(hub_device: hub.Device | None) -> ChipsetAttributes | None:
         if not hub_device:
             return None
-
-        device = ScorecardDevice.get(hub_device.name, return_unregistered=True)
-        csa = ChipsetAttributes.from_device(device)
+        device = RegisteredDevice.get(hub_device.name, return_unregistered=True)
+        world = WebsiteWorld.from_form_factor(device.form_factor)
         return ChipsetAttributes(
             name=device.chipset,
-            aliases=csa.aliases,
-            marketing_name=csa.marketing_name,
-            world=csa.world,
-            supports_fp16=csa.supports_fp16,
-            htp_version=csa.htp_version,
-            soc_model=csa.soc_model,
-            reference_device=csa.reference_device,
-            supports_weight_sharing=csa.supports_weight_sharing,
+            aliases=device.chipset_aliases,
+            marketing_name=device.chipset,  # raw slug, no marketing formatting
+            world=world,
+            supports_fp16=device.supports_fp16_npu,
+            htp_version=device.hexagon_version,
+            soc_model=device.soc_model,
+            reference_device=device.device_name,
+            supports_weight_sharing=device.supports_weight_sharing,
         )
 
 
@@ -329,12 +332,13 @@ class ModelMetadata(BaseQAIHMConfig):
     genie: GenieMetadata | None = None
     chipset_attributes: ChipsetAttributes | None = None
 
-    def to_yaml(  # type: ignore[override]
+    def to_yaml(
         self,
         path: str | Path,
         write_if_empty: bool = False,
         delete_if_empty: bool = True,
         flow_lists: bool = True,
+        exclude_defaults: bool = True,
         **kwargs: Any,
     ) -> bool:
         """

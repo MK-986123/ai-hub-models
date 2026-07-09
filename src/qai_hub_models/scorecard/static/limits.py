@@ -3,12 +3,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-from qai_hub_models.scorecard.device import ScorecardDevice
+from qai_hub_models.utils.device import FormFactor
 
 # Number of AI Hub Workbench device jobs for static models that can be submitted per-BU.
 BU_DEVICE_JOB_LIMIT = 100
 
 # Number of AI Hub Workbench device jobs for static models that can be submitted for each device form factor per-BU.
-BU_DEVICE_JOB_LIMIT_BY_FORM_FACTOR: dict[ScorecardDevice.FormFactor, int] = {
-    ScorecardDevice.FormFactor.AUTO: 50
-}
+BU_DEVICE_JOB_LIMIT_BY_FORM_FACTOR: dict[FormFactor, int] = {FormFactor.AUTO: 50}

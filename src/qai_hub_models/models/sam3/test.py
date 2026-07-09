@@ -23,7 +23,7 @@ from qai_hub_models.models.sam3.model_patches import (
     patch_decoder_rpb_device,
 )
 from qai_hub_models.utils.asset_loaders import load_image
-from qai_hub_models.utils.testing import assert_most_close
+from qai_hub_models.utils.test_helpers import assert_most_close
 
 
 def _preprocess_image(pil_image: Image.Image, img_h: int, img_w: int) -> torch.Tensor:

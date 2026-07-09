@@ -23,7 +23,6 @@ from typing_extensions import assert_never
 
 from qai_hub_models import Precision, TargetRuntime
 from qai_hub_models.configs.code_gen_yaml import QAIHMModelCodeGen
-from qai_hub_models.configs.release_assets_yaml import QAIHMModelReleaseAssets
 from qai_hub_models.configs.tool_versions import ToolVersions
 from qai_hub_models.datasets.common import BaseDataset
 from qai_hub_models.scorecard import (
@@ -43,6 +42,7 @@ from qai_hub_models.scorecard.envvars import (
 )
 from qai_hub_models.scorecard.errors import CachedScorecardJobError
 from qai_hub_models.scorecard.params import ScExportTestParams
+from qai_hub_models.scorecard.release_assets_yaml import QAIHMModelReleaseAssets
 from qai_hub_models.scorecard.results.scorecard_job import (
     JobTypeVar,
     ScorecardJobTypeVar,
@@ -59,6 +59,21 @@ from qai_hub_models.scorecard.results.yaml import (
     ScorecardAssetYaml,
     ScorecardJobYaml,
     ToolVersionsByPathYaml,
+)
+from qai_hub_models.scorecard.utils.testing import (
+    get_and_sync_datasets_cache_dir,
+    get_hub_val_dataset,
+    mock_get_calibration_data,
+    mock_on_device_model_call,
+    mock_tabulate_fn,
+)
+from qai_hub_models.scorecard.utils.testing_async_utils import (
+    CompileJobsAreIdenticalCache,
+    append_line_to_file,
+    cache_dataset,
+    callable_side_effect,
+    get_cached_dataset_entries,
+    write_accuracy,
 )
 from qai_hub_models.utils.asset_loaders import load_yaml
 from qai_hub_models.utils.aws import (
@@ -101,21 +116,6 @@ from qai_hub_models.utils.inference import AsyncOnDeviceModel
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.onnx.helpers import ONNXBundle
 from qai_hub_models.utils.qai_hub_helpers import assert_success_and_get_target_models
-from qai_hub_models.utils.testing import (
-    get_and_sync_datasets_cache_dir,
-    get_hub_val_dataset,
-    mock_get_calibration_data,
-    mock_on_device_model_call,
-    mock_tabulate_fn,
-)
-from qai_hub_models.utils.testing_async_utils import (
-    CompileJobsAreIdenticalCache,
-    append_line_to_file,
-    cache_dataset,
-    callable_side_effect,
-    get_cached_dataset_entries,
-    write_accuracy,
-)
 
 __all__ = [
     "ExportFunc",

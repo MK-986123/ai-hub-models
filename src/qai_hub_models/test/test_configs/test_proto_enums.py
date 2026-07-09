@@ -48,7 +48,7 @@ from qai_hub_models.configs.tensor_spec import (
     ColorFormat,
     IoType,
 )
-from qai_hub_models.scorecard.device import ScorecardDevice
+from qai_hub_models.utils.device import FormFactor
 
 _ALL_PRECISIONS = [
     Precision.float,
@@ -105,7 +105,7 @@ class TestRuntimeMapping:
 
 class TestFormFactorMapping:
     def test_python_to_proto(self) -> None:
-        for ff in ScorecardDevice.FormFactor:
+        for ff in FormFactor:
             assert ff.value in _FORM_FACTOR_TO_PROTO, (
                 f"FormFactor.{ff.name} has no proto mapping"
             )

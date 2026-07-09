@@ -36,13 +36,13 @@ from qai_hub_models.configs.proto_helpers import (
     tag_to_proto,
     use_case_to_proto,
 )
-from qai_hub_models.scorecard import ScorecardDevice
 from qai_hub_models.utils.asset_loaders import (
     ASSET_CONFIG,
     LOCAL_STORE_DEFAULT_PATH,
     QAIHM_WEB_ASSET,
 )
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
+from qai_hub_models.utils.device import FormFactor
 from qai_hub_models.utils.metrics import VALID_METRIC_PAIRS
 from qai_hub_models.utils.path_helpers import (
     MODEL_IDS,
@@ -217,7 +217,7 @@ class QAIHMModelInfo(BaseQAIHMConfig):
 
     # A list of device types for which this model could be useful.
     # If unsure what to put here, default to `Phone` and `Tablet`.
-    form_factors: list[ScorecardDevice.FormFactor]
+    form_factors: list[FormFactor]
 
     # Whether the model has a static image uploaded in S3. All published models must have this.
     has_static_banner: bool
@@ -249,7 +249,7 @@ class QAIHMModelInfo(BaseQAIHMConfig):
     license_type: MODEL_LICENSE
 
     # Device form factors for which we don't publish performance data.
-    private_perf_form_factors: list[ScorecardDevice.FormFactor] | None = None
+    private_perf_form_factors: list[FormFactor] | None = None
 
     # Some models are made by company
     model_maker_id: str | None = None

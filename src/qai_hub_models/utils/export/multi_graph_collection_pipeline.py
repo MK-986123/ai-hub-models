@@ -44,10 +44,10 @@ from qai_hub_models.utils.export.summary import (
     print_profile_summary,
 )
 from qai_hub_models.utils.export.upload import upload_multi_graph_collection_source
-from qai_hub_models.utils.export_without_hub_access import export_without_hub_access
 from qai_hub_models.utils.kwarg_helpers import filter_kwargs
 from qai_hub_models.utils.printing import print_tool_versions
 from qai_hub_models.utils.qai_hub_helpers import (
+    _AIHUB_URL,
     assert_success_and_get_target_models,
     get_device_and_chipset_name,
 )
@@ -65,7 +65,6 @@ def export_model(
     output_dir: str | None = None,
     compile_options: str = "",
     profile_options: str = "",
-    fetch_static_assets: str | None = None,
     zip_assets: bool = False,
     **additional_model_kwargs: Any,
 ) -> MultiGraphCollectionExportResult:
@@ -105,14 +104,10 @@ def export_model(
         Extra options for the compile job.
     profile_options
         Extra options for the profile job.
-    fetch_static_assets
-        If set, known assets are fetched rather than re-computed. Pass
-        "latest" or "v<version>".
     zip_assets
         If set, zip the assets after downloading.
     **additional_model_kwargs
-        Extra kwargs forwarded to ``model_cls.from_pretrained`` and
-        ``model.get_input_spec``.
+        Any additional keyword arguments passed to ``Model.from_pretrained``.
 
     Returns
     -------
@@ -121,6 +116,14 @@ def export_model(
     """
     warnings.filterwarnings("ignore")
 
+    if not can_access_qualcomm_ai_hub():
+        raise RuntimeError(
+            "Could not find AI Hub credentials. Sign up at "
+            f"{_AIHUB_URL} for free access. To use pre-released assets "
+            "without AI Hub credentials, run "
+            f"`qai-hub-models fetch {model_id}` instead."
+        )
+
     model_cls = resolve_model_cls(model_id)
     display_name = resolve_model_display_name(model_id)
     additional_model_kwargs["precision"] = precision
@@ -128,23 +131,6 @@ def export_model(
         model_cls, model_id, precision, additional_model_kwargs
     )
     output_path = Path(output_dir or Path.cwd() / "export_assets")
-
-    if fetch_static_assets or not can_access_qualcomm_ai_hub():
-        static_model_path = export_without_hub_access(
-            model_id,
-            device,
-            skip_profiling,
-            True,  # skip_inferencing — no inference for these LLMs
-            skip_downloading,
-            skip_summary,
-            output_path,
-            target_runtime,
-            precision,
-            compile_options + profile_options,
-            components,
-            qaihm_version_tag=fetch_static_assets,
-        )
-        return MultiGraphCollectionExportResult(download_path=static_model_path)
 
     hub_device = hub.get_devices(
         name=device.name, attributes=device.attributes, os=device.os

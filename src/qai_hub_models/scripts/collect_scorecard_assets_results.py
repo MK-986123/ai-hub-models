@@ -8,7 +8,6 @@ import argparse
 from pathlib import Path
 
 from qai_hub_models.configs.info_yaml import QAIHMModelInfo
-from qai_hub_models.configs.release_assets_yaml import QAIHMModelReleaseAssets
 from qai_hub_models.scorecard.artifacts import ScorecardArtifact
 from qai_hub_models.scorecard.envvars import (
     ArtifactsDirEnvvar,
@@ -19,6 +18,7 @@ from qai_hub_models.scorecard.envvars import (
     EnabledPrecisionsEnvvar,
     SpecialModelSetting,
 )
+from qai_hub_models.scorecard.release_assets_yaml import QAIHMModelReleaseAssets
 from qai_hub_models.scorecard.results.code_gen import (
     remove_asset_failures,
     update_model_publish_status,

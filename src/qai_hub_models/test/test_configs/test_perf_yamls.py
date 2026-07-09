@@ -3,16 +3,16 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-from qai_hub_models.configs.devices_and_chipsets_yaml import (
+from qai_hub_models.configs.info_yaml import QAIHMModelInfo
+from qai_hub_models.scorecard.device import ScorecardDevice
+from qai_hub_models.scorecard.devices_and_chipsets_yaml import (
     SCORECARD_DEVICE_YAML_PATH,
     SIMILAR_DEVICES_YAML_PATH,
     DevicesAndChipsetsYaml,
     _load_similar_devices_raw,
     load_similar_devices,
 )
-from qai_hub_models.configs.info_yaml import QAIHMModelInfo
-from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
-from qai_hub_models.scorecard.device import ScorecardDevice
+from qai_hub_models.scorecard.perf_yaml import QAIHMModelPerf
 from qai_hub_models.utils.path_helpers import MODEL_IDS
 
 
@@ -127,7 +127,7 @@ def test_similar_devices_chipsets_resolve() -> None:
 
 def test_platform_to_proto_excludes_similar_devices() -> None:
     """The platform proto omits similar devices/chipsets, except the allowlist."""
-    from qai_hub_models.configs.devices_and_chipsets_yaml import (
+    from qai_hub_models.scorecard.devices_and_chipsets_yaml import (
         ALLOWED_SIMILAR_DEVICES,
     )
 

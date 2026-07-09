@@ -9,13 +9,13 @@ from qai_hub_models.models.fomm.app import FOMMApp, load_video_frames
 from qai_hub_models.models.fomm.demo import DRIVING_VIDEO_ADDRESS, SOURCE_IMAGE_ADDRESS
 from qai_hub_models.models.fomm.demo import main as demo_main
 from qai_hub_models.models.fomm.model import FOMM, MODEL_ASSET_VERSION, MODEL_ID
-from qai_hub_models.scorecard.utils.testing import (
-    assert_most_close,
-)
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     load_image,
     load_numpy,
+)
+from qai_hub_models.utils.test_helpers import (
+    assert_most_close,
 )
 
 OUTPUT_ADDRESS = CachedWebModelAsset.from_asset_store(

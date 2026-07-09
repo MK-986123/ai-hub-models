@@ -136,7 +136,6 @@ def test_parse_resnet18_export() -> None:
         "skip_summary",
         "output_dir",
         "quantized_model_id",
-        "fetch_static_assets",
         "zip_assets",
     }
     assert set(vars(args).keys()) == gt_set
@@ -307,7 +306,6 @@ def test_parse_whisper_export() -> None:
         "skip_summary",
         "output_dir",
         "quantized_model_id",
-        "fetch_static_assets",
         "components",
         "zip_assets",
     }
@@ -338,7 +336,6 @@ def test_parse_qwen2_7b_export() -> None:
         "skip_downloading",
         "skip_summary",
         "output_dir",
-        "fetch_static_assets",
         "components",
         "zip_assets",
         "precision",

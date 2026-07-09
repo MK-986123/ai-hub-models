@@ -15,8 +15,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pytest
 
-from qai_hub_models.configs.devices_and_chipsets_yaml import DevicesAndChipsetsYaml
-from qai_hub_models.configs.release_assets_yaml import QAIHMModelReleaseAssets
+from qai_hub_models.scorecard.devices_and_chipsets_yaml import DevicesAndChipsetsYaml
+from qai_hub_models.scorecard.release_assets_yaml import QAIHMModelReleaseAssets
 from qai_hub_models.utils.aws import (
     QAIHM_PRIVATE_S3_BUCKET,
     can_access_private_s3,

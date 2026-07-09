@@ -15,13 +15,13 @@ from qai_hub_models.models.statetransformer.model import (
     MODEL_PATH,
     StateTransformer,
 )
-from qai_hub_models.scorecard.utils.testing import (
-    assert_most_close,
-    assert_most_same,
-)
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     load_image,
+)
+from qai_hub_models.utils.test_helpers import (
+    assert_most_close,
+    assert_most_same,
 )
 
 TRACE_ASSET = CachedWebModelAsset.from_asset_store(

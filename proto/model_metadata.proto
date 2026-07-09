@@ -88,6 +88,7 @@ message GenieMetadata {
   }
 }
 
+
 // Metadata for a model that may have multiple model files.
 //
 // For single-file models (e.g., ResNet50), this will have one entry.
@@ -114,6 +115,7 @@ message ModelMetadata {
   // Optional Genie SDK metadata for on-device deployment.
   optional GenieMetadata genie = 9;
 
-  // Chipset attributes relevant to the compiled model asset (AoT only).
+  // Chipset identifiers for the compiled bundle. Populated for
+  // AoT-compiled runtimes.
   optional ChipsetInfo chipset_attributes = 10;
 }

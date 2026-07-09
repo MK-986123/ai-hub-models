@@ -23,22 +23,22 @@ from qai_hub_models_cli.proto.release_assets_pb2 import ModelReleaseAssets
 from qai_hub_models import Precision, TargetRuntime
 from qai_hub_models._version import __version__
 from qai_hub_models.configs._info_yaml_enums import MODEL_STATUS
-from qai_hub_models.configs.devices_and_chipsets_yaml import (
-    DevicesAndChipsetsYaml,
-    _load_similar_devices_raw,
-)
 from qai_hub_models.configs.info_yaml import QAIHMModelInfo
-from qai_hub_models.configs.numerics_yaml import QAIHMModelNumerics
-from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
 from qai_hub_models.configs.proto_helpers import (
     domain_to_proto,
     runtime_to_proto,
     tag_to_proto,
     use_case_to_proto,
 )
-from qai_hub_models.configs.release_assets_yaml import QAIHMModelReleaseAssets
 from qai_hub_models.scorecard import ScorecardDevice, ScorecardProfilePath
+from qai_hub_models.scorecard.devices_and_chipsets_yaml import (
+    DevicesAndChipsetsYaml,
+    _load_similar_devices_raw,
+)
 from qai_hub_models.scorecard.envvars import EnabledModelsEnvvar, SpecialModelSetting
+from qai_hub_models.scorecard.numerics_yaml import QAIHMModelNumerics
+from qai_hub_models.scorecard.perf_yaml import QAIHMModelPerf
+from qai_hub_models.scorecard.release_assets_yaml import QAIHMModelReleaseAssets
 from qai_hub_models.scorecard.static.list_models import (
     validate_and_split_enabled_models,
 )

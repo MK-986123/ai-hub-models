@@ -16,7 +16,7 @@ from qai_hub_models.configs._info_yaml_enums import (
     MODEL_USE_CASE,
 )
 from qai_hub_models.configs._info_yaml_llm_details import LLM_CALL_TO_ACTION
-from qai_hub_models.scorecard.device import ScorecardDevice
+from qai_hub_models.utils.device import FormFactor
 
 _PRECISION_TO_PROTO: dict[str, int] = {
     "float": precision_pb2.PRECISION_FLOAT,
@@ -72,7 +72,7 @@ _FORM_FACTOR_TO_PROTO: dict[str, int] = {
 }
 
 
-def form_factor_to_proto(ff: ScorecardDevice.FormFactor) -> int:
+def form_factor_to_proto(ff: FormFactor) -> int:
     if ff.value not in _FORM_FACTOR_TO_PROTO:
         raise ValueError(f"Unknown form factor: {ff.value}")
     return _FORM_FACTOR_TO_PROTO[ff.value]

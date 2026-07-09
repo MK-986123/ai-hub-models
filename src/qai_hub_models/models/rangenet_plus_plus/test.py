@@ -17,7 +17,7 @@ from qai_hub_models.models.rangenet_plus_plus.model import (
     SAMPLE_POINT_CLOUD_ADDRESS,
     RangeNetPlusPlus,
 )
-from qai_hub_models.scorecard.utils.testing import (
+from qai_hub_models.utils.test_helpers import (
     assert_most_same,
 )
 

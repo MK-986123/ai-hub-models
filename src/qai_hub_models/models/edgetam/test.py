@@ -21,11 +21,11 @@ from qai_hub_models.models.edgetam.model import (
     EdgeTAM,
     EdgeTAMLoader,
 )
-from qai_hub_models.scorecard.utils.testing import (
-    assert_most_close,
-)
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_numpy
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
+from qai_hub_models.utils.test_helpers import (
+    assert_most_close,
+)
 
 INPUT_MASK = CachedWebModelAsset.from_asset_store(
     MODEL_ID, MODEL_ASSET_VERSION, "input_mask.npy"

@@ -12,9 +12,9 @@ import pytest
 import qai_hub as hub
 
 from qai_hub_models import Precision, TargetRuntime
-from qai_hub_models.configs.release_assets_yaml import QAIHMModelReleaseAssets
 from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
-from qai_hub_models.utils.fetch_prerelease_assets import (
+from qai_hub_models.scorecard.release_assets_yaml import QAIHMModelReleaseAssets
+from qai_hub_models.scorecard.utils.fetch_prerelease_assets import (
     fetch_prerelease_assets,
 )
 
@@ -27,7 +27,7 @@ def s3_download_patch(success: bool = True) -> mock._patch[object]:
             raise ValueError("TEST: BAD DOWNLOAD!")
 
     return mock.patch(
-        "qai_hub_models.utils.fetch_prerelease_assets.s3_download",
+        "qai_hub_models.scorecard.utils.fetch_prerelease_assets.s3_download",
         _s3_download,
     )
 
@@ -39,7 +39,7 @@ def s3_file_exists_patch(exists: bool = True) -> mock._patch[object]:
         return exists
 
     return mock.patch(
-        "qai_hub_models.utils.fetch_prerelease_assets.s3_file_exists",
+        "qai_hub_models.scorecard.utils.fetch_prerelease_assets.s3_file_exists",
         _s3_file_exists,
     )
 
@@ -48,7 +48,7 @@ def get_qaihm_s3_patch() -> mock._patch:
     """Patches get_qaihm_s3 to return a mock bucket."""
     mock_bucket = mock.MagicMock()
     return mock.patch(
-        "qai_hub_models.utils.fetch_prerelease_assets.get_qaihm_s3",
+        "qai_hub_models.scorecard.utils.fetch_prerelease_assets.get_qaihm_s3",
         return_value=(mock_bucket, None),
     )
 
@@ -66,7 +66,7 @@ def release_assets_from_model_patch(
         return assets
 
     return mock.patch(
-        "qai_hub_models.utils.fetch_prerelease_assets.QAIHMModelReleaseAssets.from_model",
+        "qai_hub_models.scorecard.utils.fetch_prerelease_assets.QAIHMModelReleaseAssets.from_model",
         _from_model,
     )
 

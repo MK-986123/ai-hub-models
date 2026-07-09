@@ -14,10 +14,10 @@ from qai_hub_models.models.yolo26_pose.model import (
     MODEL_ID,
     Yolo26PoseDetector,
 )
-from qai_hub_models.scorecard.utils.testing import (
+from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
+from qai_hub_models.utils.test_helpers import (
     assert_most_close,
 )
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 
 OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
     MODEL_ID, MODEL_ASSET_VERSION, "yolo26_pose_demo_output.png"

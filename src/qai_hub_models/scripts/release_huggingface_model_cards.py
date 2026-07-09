@@ -16,8 +16,8 @@ from huggingface_hub import HfApi
 
 from qai_hub_models._version import __version__ as qaihm_version
 from qai_hub_models.configs.info_yaml import MODEL_STATUS, QAIHMModelInfo
-from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
 from qai_hub_models.scorecard.envvars import EnabledModelsEnvvar
+from qai_hub_models.scorecard.perf_yaml import QAIHMModelPerf
 from qai_hub_models.scorecard.static.list_models import (
     validate_and_split_enabled_models,
 )

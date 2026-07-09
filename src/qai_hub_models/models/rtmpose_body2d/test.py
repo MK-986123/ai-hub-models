@@ -13,10 +13,10 @@ from qai_hub_models.models.rtmpose_body2d.model import (
     MODEL_ID,
     RTMPosebody2d,
 )
-from qai_hub_models.scorecard.utils.testing import (
+from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
+from qai_hub_models.utils.test_helpers import (
     assert_most_close,
 )
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 
 OUTPUT_IMAGE_LOCAL_PATH = "rtmpose_output.npy"
 OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(

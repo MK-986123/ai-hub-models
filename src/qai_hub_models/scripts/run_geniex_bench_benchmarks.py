@@ -15,7 +15,6 @@ from pathlib import Path
 from qai_hub_models import Precision, TargetRuntime
 from qai_hub_models.configs.code_gen_yaml import QAIHMModelCodeGen
 from qai_hub_models.configs.model_metadata import ModelMetadata
-from qai_hub_models.configs.release_assets_yaml import QAIHMModelReleaseAssets
 from qai_hub_models.models._shared.llm.perf_collection import (
     load_release_assets_for_model,
     update_perf_yaml,
@@ -30,8 +29,11 @@ from qai_hub_models.scorecard.envvars import (
     LLMPerfPrecisionsEnvvar,
     SpecialLLMPerfPrecisionSetting,
 )
+from qai_hub_models.scorecard.release_assets_yaml import QAIHMModelReleaseAssets
+from qai_hub_models.scorecard.utils.fetch_prerelease_assets import (
+    download_prerelease_asset,
+)
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG
-from qai_hub_models.utils.fetch_prerelease_assets import download_prerelease_asset
 from qai_hub_models.utils.path_helpers import MODEL_IDS
 
 DEFAULT_DEVICES = "cs_x2_elite,cs_x_elite"

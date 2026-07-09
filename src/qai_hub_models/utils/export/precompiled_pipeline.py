@@ -42,9 +42,8 @@ from qai_hub_models.utils.export.summary import (
     extract_tool_versions,
     print_profile_summary,
 )
-from qai_hub_models.utils.export_without_hub_access import export_without_hub_access
 from qai_hub_models.utils.printing import print_tool_versions
-from qai_hub_models.utils.qai_hub_helpers import get_device_and_chipset_name
+from qai_hub_models.utils.qai_hub_helpers import _AIHUB_URL, get_device_and_chipset_name
 
 _GENIE_BLURB = (
     "These models can be deployed on-device using the Genie SDK. "
@@ -189,7 +188,6 @@ def export_model(
     skip_summary: bool = False,
     output_dir: str | None = None,
     profile_options: str = "",
-    fetch_static_assets: str | None = None,
     zip_assets: bool = False,
     **additional_model_kwargs: Any,
 ) -> ExportResult | CollectionExportResult:
@@ -220,13 +218,10 @@ def export_model(
         Directory to store generated assets. Defaults to ``<cwd>/export_assets``.
     profile_options
         Extra options for the profile job.
-    fetch_static_assets
-        If set, known assets are fetched rather than re-computed. Pass
-        "latest" or "v<version>".
     zip_assets
-        If set, zip the assets after copying.
+        If set, zip the assets after downloading.
     **additional_model_kwargs
-        Extra kwargs forwarded to ``model_cls.from_pretrained``.
+        Any additional keyword arguments passed to ``Model.from_pretrained``.
 
     Returns
     -------
@@ -235,31 +230,20 @@ def export_model(
     """
     warnings.filterwarnings("ignore")
 
+    if not can_access_qualcomm_ai_hub():
+        raise RuntimeError(
+            "Could not find AI Hub credentials. Sign up at "
+            f"{_AIHUB_URL} for free access. To use pre-released assets "
+            "without AI Hub credentials, run "
+            f"`qai-hub-models fetch {model_id}` instead."
+        )
+
     code_gen = QAIHMModelCodeGen.from_model(model_id)
     model_cls = resolve_model_cls(model_id)
     precision = code_gen.default_precision
     target_runtime = TargetRuntime.QNN_CONTEXT_BINARY
     output_path = Path(output_dir or Path.cwd() / "export_assets")
     is_collection = issubclass(model_cls, PrecompiledCollectionModel)
-
-    if fetch_static_assets or not can_access_qualcomm_ai_hub():
-        static_model_path = export_without_hub_access(
-            model_id,
-            device,
-            skip_profiling,
-            True,  # skip_inferencing
-            skip_downloading,
-            skip_summary,
-            output_path,
-            target_runtime,
-            precision,
-            profile_options,
-            components if is_collection else None,
-            qaihm_version_tag=fetch_static_assets,
-        )
-        if is_collection:
-            return CollectionExportResult(download_path=static_model_path)
-        return ExportResult(download_path=static_model_path)
 
     hub_device = hub.get_devices(
         name=device.name, attributes=device.attributes, os=device.os

@@ -75,7 +75,7 @@ def ensure_aimet_onnx_installed(
             errstr += f"`pip install {install_target}` to install the correct version of AIMET-ONNX."
 
         if model_id is not None:
-            errstr += f"\nAlternatively, for model export, you may run `python -m qai_hub_models.models.{model_id}.export.py --fetch-static-assets` to fetch pre-compiled assets for this model."
+            errstr += f"\nAlternatively, run `qai-hub-models fetch {model_id}` to fetch pre-compiled assets for this model."
 
         raise RuntimeError(errstr)
 
