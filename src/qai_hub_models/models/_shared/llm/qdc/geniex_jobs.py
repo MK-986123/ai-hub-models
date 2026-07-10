@@ -19,7 +19,7 @@ from qai_hub_models.models._shared.llm.qdc.qdc_jobs import (
     QDCJobs,
 )
 
-GENIEX_BENCH_JOB_TIMEOUT = 7200  # 2 hours
+GENIEX_BENCH_JOB_TIMEOUT = 21600  # 6 hours
 _QDC_EXECUTION_MAX_ATTEMPTS = 2
 
 # Versioned URLs follow the geniex release workflow's flat S3 layout
@@ -500,13 +500,17 @@ def submit_geniex_bench_to_qdc_device(
     last_failure_reason: str | None = None
     for attempt in range(1, _QDC_EXECUTION_MAX_ATTEMPTS + 1):
         job_id = geniex_job.submit_automated_job(
-            qdc_device, job_artifacts, entry_script, job_name=job_name
+            qdc_device,
+            job_artifacts,
+            entry_script,
+            job_name=job_name,
+            timeout=GENIEX_BENCH_JOB_TIMEOUT,
         )
         if job_id is None:
             raise RuntimeError("Job submission failed.")
 
         print(f"Submitted QDC job with ID: {job_id}")
-        job_status = geniex_job.status(job_id, timeout=GENIEX_BENCH_JOB_TIMEOUT)
+        job_status = geniex_job.status(job_id)
         job_result = geniex_job.result(job_id)
         print(
             f"QDC job {job_id} completed with status: {job_status}, "

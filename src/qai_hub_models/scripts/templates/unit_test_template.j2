@@ -418,6 +418,9 @@ def test_export(precision: Precision, scorecard_path: ScorecardProfilePath, devi
     from qai_hub_models.models._shared.llama3.model import (
         LlamaDynamicQuantizablePreSplitMixin,
     )
+    from qai_hub_models.models._shared.llm.model import (
+        DynamicQuantizablePreSplitMixin,
+    )
     from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 
     def _stub_resolve_default_checkpoint(
@@ -443,6 +446,16 @@ def test_export(precision: Precision, scorecard_path: ScorecardProfilePath, devi
         return str(ckpt), None
 
     with pytest.MonkeyPatch.context() as mp:
+        # Patch both the base mixin and the Llama override. Non-Llama LLMs
+        # (Qwen, Qwen-VL) inherit resolve_default_checkpoint from the base
+        # directly; patching only the Llama subclass leaves them calling
+        # the base implementation, which downloads a ~14 GB zip and loads
+        # the FP torch model on every parameterized test.
+        mp.setattr(
+            DynamicQuantizablePreSplitMixin,
+            "resolve_default_checkpoint",
+            classmethod(_stub_resolve_default_checkpoint),
+        )
         mp.setattr(
             LlamaDynamicQuantizablePreSplitMixin,
             "resolve_default_checkpoint",

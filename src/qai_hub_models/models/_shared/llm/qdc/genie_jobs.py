@@ -27,6 +27,8 @@ from qai_hub_models.models._shared.llm.qdc.qdc_jobs import (
     QDCJobs,
 )
 
+GENIE_JOB_TIMEOUT = 21600  # 6 hours
+
 DEFAULT_LLM_SYSTEM_PROMPT = LLMBase.default_system_prompt
 
 DEFAULT_EVAL_PROMPTS_PATH = os.path.normpath(
@@ -787,7 +789,11 @@ def submit_genie_bundle_to_qdc_device(
         and empty_logs_attempts_left > 0
     ):
         job_id = genie_job.submit_automated_job(
-            qdc_device, job_artifacts, entry_script, job_name=job_name
+            qdc_device,
+            job_artifacts,
+            entry_script,
+            job_name=job_name,
+            timeout=GENIE_JOB_TIMEOUT,
         )
         if job_id is None:
             raise RuntimeError("Job submission failed.")
