@@ -15,7 +15,7 @@ from pathlib import Path
 from qai_hub.client import JobType
 
 from qai_hub_models import Precision, TargetRuntime
-from qai_hub_models.configs.code_gen_yaml import QAIHMModelCodeGen
+from qai_hub_models.configs.code_gen_yaml import QAIHMModelCodeGen, TestRunnerSplit
 from qai_hub_models.scorecard.device import ScorecardDevice, cs_universal
 from qai_hub_models.scorecard.envvars import (
     EnabledDevicesEnvvar,
@@ -250,6 +250,14 @@ def count_device_jobs(
     if bu_owner is not None and bu_owner != ScorecardModelConfig.BU.AI_HUB:
         # BUs do not own PyTorch model recipes.
         enabled_torch_models = set()
+    # LLMs run through the separate LLM On-Device workflow, not the profile
+    # path enumerated here — counting them inflates the total and trips the
+    # daytime quota on splits that will never submit those jobs.
+    enabled_torch_models = {
+        m
+        for m in enabled_torch_models
+        if QAIHMModelCodeGen.from_model(m).test_split is not TestRunnerSplit.LLM
+    }
     for model_id in enabled_torch_models:
         # Get profile & inference job paramaterizations, concat them
         jobs = get_torch_recipe_profile_parameterizations(model_id)
