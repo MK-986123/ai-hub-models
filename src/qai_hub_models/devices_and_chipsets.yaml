@@ -597,7 +597,7 @@ chipsets:
     aliases:
     - qualcomm-qcs8550-proxy
     - qualcomm-dragonwing-qcs8550-proxy
-    marketing_name: Qualcomm® QCS8550 (Proxy)
+    marketing_name: Qualcomm® Dragonwing™ QCS8550 (Proxy)
     world: IoT
     supports_fp16: true
     htp_version: 73
@@ -758,7 +758,7 @@ chipsets:
     - qualcomm-qcm6690
     - qcm6690
     - qualcomm-dragonwing-q-6690
-    marketing_name: Qualcomm® QCM6690
+    marketing_name: Qualcomm® Dragonwing™ Q-6690
     world: IoT
     htp_version: 73
     soc_model: 78
@@ -769,7 +769,7 @@ chipsets:
     - qualcomm-qcs8275-proxy
     - qcs8275
     - qualcomm-dragonwing-iq-8275-proxy
-    marketing_name: Qualcomm® QCS8275 (Proxy)
+    marketing_name: Qualcomm® Dragonwing™ IQ-8275 (Proxy)
     world: IoT
     supports_fp16: true
     htp_version: 75
@@ -781,7 +781,7 @@ chipsets:
     - qualcomm-qcs6490
     - qcs6490
     - qualcomm-dragonwing-qcs6490
-    marketing_name: Qualcomm® QCS6490
+    marketing_name: Qualcomm® Dragonwing™ QCS6490
     world: IoT
     htp_version: 68
     soc_model: 93
@@ -791,7 +791,7 @@ chipsets:
     - qualcomm-qcs9075
     - qcs9075
     - qualcomm-dragonwing-iq-9075
-    marketing_name: Qualcomm® QCS9075
+    marketing_name: Qualcomm® Dragonwing™ IQ-9075
     world: IoT
     supports_fp16: true
     htp_version: 73
@@ -831,7 +831,8 @@ chipsets:
   qualcomm-qcs7790:
     aliases:
     - qualcomm-qcs7790
-    marketing_name: Qualcomm® QCS7790
+    - qualcomm-dragonwing-q-7790
+    marketing_name: Qualcomm® Dragonwing™ Q-7790
     world: IoT
     supports_fp16: true
     htp_version: 73
@@ -841,7 +842,8 @@ chipsets:
   qualcomm-qcs8750:
     aliases:
     - qualcomm-qcs8750
-    marketing_name: Qualcomm® QCS8750
+    - qualcomm-dragonwing-q-8750
+    marketing_name: Qualcomm® Dragonwing™ Q-8750
     world: IoT
     supports_fp16: true
     htp_version: 79
@@ -861,7 +863,8 @@ chipsets:
   qualcomm-qcs7181:
     aliases:
     - qualcomm-qcs7181
-    marketing_name: Qualcomm® QCS7181
+    - qualcomm-dragonwing-iq-x7181
+    marketing_name: Qualcomm® Dragonwing™ IQ-X7181
     world: IoT
     supports_fp16: true
     htp_version: 73

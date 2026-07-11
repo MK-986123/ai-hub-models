@@ -30,9 +30,36 @@ SCORECARD_DEVICE_YAML_PATH = QAIHM_PACKAGE_ROOT / "devices_and_chipsets.yaml"
 SIMILAR_DEVICES_YAML_PATH = QAIHM_PACKAGE_ROOT / "similar_devices.yaml"
 
 
-def chipset_marketing_name(chipset: str, world: WebsiteWorld | None = None) -> str:
-    """Sanitize chip name to match marketing."""
+def chipset_marketing_name(
+    chipset: str,
+    aliases: list[str] | None = None,
+    world: WebsiteWorld | None = None,
+) -> str:
+    """Sanitize chip name to match marketing.
+
+    If ``aliases`` contains a ``qualcomm-dragonwing-*`` entry, the marketing
+    name is derived from that alias so IoT chipsets pick up the Dragonwing™
+    brand automatically (e.g. ``qualcomm-dragonwing-qcs8550-proxy`` ->
+    ``Qualcomm® Dragonwing™ QCS8550 (Proxy)``).
+    """
     chipset = get_canonical_chipset_name(chipset)
+    for alias in aliases or ():
+        if not alias.startswith("qualcomm-dragonwing-"):
+            continue
+        parts = alias.removeprefix("qualcomm-dragonwing-").split("-")
+        # QCS/QCM/SA families fuse the prefix with the digits (QCS8550).
+        # Short prefixes (Q, IQ) keep the dash to the model number (Q-6690, IQ-8275).
+        if parts[0].startswith(("qcs", "qcm", "sa")):
+            product = parts[0].upper()
+            extras = parts[1:]
+        else:
+            # Enurues Q- and IQ- are capitalized
+            product = "-".join(p.upper() for p in parts[:2])
+            extras = parts[2:]
+        out = f"Qualcomm® Dragonwing™ {product}"
+        for extra in extras:
+            out += " (Proxy)" if extra == "proxy" else f" {extra.upper()}"
+        return out
     chip = " ".join([word.capitalize() for word in chipset.split("-")])
     chip = chip.replace(
         "Qualcomm Snapdragon", "Snapdragon®"
@@ -69,9 +96,10 @@ def chipset_marketing_name(chipset: str, world: WebsiteWorld | None = None) -> s
 def create_chipset_yaml(device: ScorecardDevice) -> ChipsetYaml:
     """Create ChipsetYaml from a ScorecardDevice with scorecard-specific formatting."""
     world = WebsiteWorld.from_form_factor(device.form_factor)
+    aliases = device.chipset_aliases
     return ChipsetYaml(
-        aliases=device.chipset_aliases,
-        marketing_name=chipset_marketing_name(device.chipset, world),
+        aliases=aliases,
+        marketing_name=chipset_marketing_name(device.chipset, aliases, world),
         world=world,
         supports_fp16=device.supports_fp16_npu,
         htp_version=device.hexagon_version,

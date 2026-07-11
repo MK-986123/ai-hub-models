@@ -119,7 +119,8 @@ chipsets:
   qualcomm-qcs7790:
     aliases:
     - qualcomm-qcs7790
-    marketing_name: Qualcomm® QCS7790
+    - qualcomm-dragonwing-q-7790
+    marketing_name: Qualcomm® Dragonwing™ Q-7790
     world: IoT
     supports_fp16: true
     htp_version: 73
@@ -129,7 +130,8 @@ chipsets:
   qualcomm-qcs8750:
     aliases:
     - qualcomm-qcs8750
-    marketing_name: Qualcomm® QCS8750
+    - qualcomm-dragonwing-q-8750
+    marketing_name: Qualcomm® Dragonwing™ Q-8750
     world: IoT
     supports_fp16: true
     htp_version: 79
@@ -149,7 +151,8 @@ chipsets:
   qualcomm-qcs7181:
     aliases:
     - qualcomm-qcs7181
-    marketing_name: Qualcomm® QCS7181
+    - qualcomm-dragonwing-iq-x7181
+    marketing_name: Qualcomm® Dragonwing™ IQ-X7181
     world: IoT
     supports_fp16: true
     htp_version: 73
