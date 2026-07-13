@@ -53,6 +53,7 @@ EXCLUDED_CHANNEL_IDS: set[str] = {
 GITHUB_REPOS: list[str] = [
     "qualcomm/ai-hub-models",
     "qualcomm/ai-hub-apps",
+    "qualcomm/aimet",
 ]
 
 DEPENDABOT_LOGINS: set[str] = {"app/dependabot", "dependabot", "dependabot[bot]"}
