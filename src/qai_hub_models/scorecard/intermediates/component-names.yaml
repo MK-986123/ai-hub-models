@@ -227,9 +227,6 @@ qwen3_8b:
 - part3_of_5
 - part4_of_5
 - part5_of_5
-yolo_world:
-- detector
-- text_encoder
 qwen3_vl_8b_instruct:
 - vision_encoder
 - part1_of_6
@@ -246,3 +243,6 @@ qwen3_1_7b:
 sam3:
 - vision_backbone
 - head
+yolo_world:
+- detector
+- text_encoder
