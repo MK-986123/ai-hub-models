@@ -219,3 +219,57 @@ precisions:
                   max: 8138.287
                 prefill_tokens_per_second: 503.3
                 desired_compute_unit: npu
+  w4a16:
+    components:
+      Qwen3-1.7B:
+        performance_metrics:
+          Snapdragon 8 Elite QRD:
+            geniex_qairt:
+              llm_metrics:
+              - context_length: 4096
+                tokens_per_second: 53.947266
+                time_to_first_token_range_milliseconds:
+                  min: 31.209
+                  max: 998.688
+                prefill_tokens_per_second: 1025.345253
+                desired_compute_unit: npu
+          Snapdragon X Elite CRD:
+            geniex_qairt:
+              llm_metrics:
+              - context_length: 4096
+                tokens_per_second: 42.15045
+                time_to_first_token_range_milliseconds:
+                  min: 51.809
+                  max: 1657.888
+                prefill_tokens_per_second: 617.653303
+                desired_compute_unit: npu
+          Snapdragon X2 Elite CRD:
+            geniex_qairt:
+              llm_metrics:
+              - context_length: 4096
+                tokens_per_second: 79.944645
+                time_to_first_token_range_milliseconds:
+                  min: 24.206
+                  max: 774.592
+                prefill_tokens_per_second: 1321.986284
+                desired_compute_unit: npu
+          Dragonwing IQ-9075 EVK:
+            geniex_qairt:
+              llm_metrics:
+              - context_length: 4096
+                tokens_per_second: 36.221416
+                time_to_first_token_range_milliseconds:
+                  min: 50.954
+                  max: 1630.528
+                prefill_tokens_per_second: 628.017427
+                desired_compute_unit: npu
+          Snapdragon 8 Elite Gen 5 QRD:
+            geniex_qairt:
+              llm_metrics:
+              - context_length: 4096
+                tokens_per_second: 62.028636
+                time_to_first_token_range_milliseconds:
+                  min: 25.602
+                  max: 819.264
+                prefill_tokens_per_second: 1249.902351
+                desired_compute_unit: npu

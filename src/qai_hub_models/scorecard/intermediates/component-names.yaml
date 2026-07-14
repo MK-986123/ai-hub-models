@@ -241,3 +241,8 @@ qwen3_vl_8b_instruct:
 - part4_of_6
 - part5_of_6
 - part6_of_6
+qwen3_1_7b:
+- part1_of_4
+- part2_of_4
+- part3_of_4
+- part4_of_4
