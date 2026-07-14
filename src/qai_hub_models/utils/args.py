@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import inspect
 import sys
+import warnings
 from collections.abc import Callable, Mapping, Sequence
 from enum import Enum
 from functools import partial
@@ -226,6 +227,14 @@ class QAIHMArgumentParser(argparse.ArgumentParser):
 
                 # If all else fails, use TFLITE
                 parsed.target_runtime = next(all_runtimes, TargetRuntime.TFLITE)
+
+        if getattr(parsed, "target_runtime", None) == TargetRuntime.GENIE:
+            warnings.warn(
+                "--target-runtime genie is deprecated and will be removed in a "
+                "future release. Please migrate to --target-runtime geniex_qairt.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
         quantized_model_id_arg = getattr(parsed, "quantized_model_id", None)
         if quantized_model_id_arg:
