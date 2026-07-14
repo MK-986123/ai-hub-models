@@ -32,7 +32,7 @@ def submit_single_profile_job(
     client: Client,
     model_name: str,
     compile_job_info: dict,
-    project_id: str,
+    project_id: str | None,
     profile_by_model: dict,
     extra_profile_options: str | None,
 ) -> tuple[str, dict | None, Exception | None]:
@@ -147,7 +147,7 @@ def submit_single_profile_job(
 def submit_profile_jobs(
     client: Client,
     compile_jobs: dict,
-    project_id: str,
+    project_id: str | None,
     profile_config: dict | None = None,
     extra_profile_options: str | None = None,
     max_workers: int = DEFAULT_MAX_WORKERS,

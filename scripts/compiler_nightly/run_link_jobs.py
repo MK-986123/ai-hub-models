@@ -44,7 +44,7 @@ def submit_single_link_job(
     client: Client,
     model_name: str,
     compile_job_info: dict,
-    project_id: str,
+    project_id: str | None,
     link_by_model: dict,
     extra_link_options: str | None,
 ) -> tuple[str, dict | None, Exception | None]:
@@ -123,7 +123,7 @@ def submit_single_link_job(
 def submit_link_jobs(
     client: Client,
     compile_jobs: dict,
-    project_id: str,
+    project_id: str | None,
     link_config: dict | None = None,
     extra_link_options: str | None = None,
     max_workers: int = DEFAULT_MAX_WORKERS,

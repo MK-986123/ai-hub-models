@@ -148,12 +148,12 @@ def log_and_print(message: str, logger: logging.Logger) -> None:
     print(message)
 
 
-def get_aihw_compiler_nightly_project() -> str:
-    if not AIHW_COMPILER_NIGHTLY_PROJECT:
-        raise RuntimeError(
-            "COMPILER_NIGHTLY_PROJECT_ID environment variable is required but not set"
-        )
-    return AIHW_COMPILER_NIGHTLY_PROJECT
+def get_aihw_compiler_nightly_project() -> str | None:
+    # Returns None when unset (e.g. bespoke sandbox HUB_ENVs that have no fixed
+    # project). Passing project=None to Hub lets the backend pick the default
+    # project for the authenticated deployment. On 'dev' the env var pins the
+    # shared compiler-nightly project so all runs land in the same place.
+    return AIHW_COMPILER_NIGHTLY_PROJECT or None
 
 
 def strip_device_suffix(model_name: str) -> str:

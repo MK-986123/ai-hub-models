@@ -35,11 +35,20 @@ on:
         required: false
         type: boolean
         default: false
+      hub_env:
+        description: 'Target hub env/profile to compile against (e.g. dev, or a bespoke sandbox like myfeature.sandbox). Defaults to dev.'
+        required: false
+        type: string
+        default: dev
 
 env:
   PYTHON_VERSION: "3.10"
   VENV_PATH: build/ci-envs/qaihm-build
-  COMPILER_NIGHTLY_PROJECT_ID: ${{ secrets.COMPILER_NIGHTLY_PROJECT_ID }}
+  # Hub env/profile to compile against: 'dev' on schedule, bespoke sandbox on manual dispatch.
+  HUB_ENV: ${{ inputs.hub_env || 'dev' }}
+  # Pin the shared compiler-nightly project only on 'dev'. Bespoke sandboxes have no
+  # fixed project, so leave it empty and let the backend pick the default project.
+  COMPILER_NIGHTLY_PROJECT_ID: ${{ (inputs.hub_env || 'dev') == 'dev' && secrets.COMPILER_NIGHTLY_PROJECT_ID || '' }}
 
 jobs:
   wait_workbench_deployment:
@@ -56,8 +65,9 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           venv-path: ${{ env.VENV_PATH }}
           bnt-venv-install-cmd: install_compiler_nightly
-          hub-deployments: dev
+          hub-deployments: ${{ env.HUB_ENV }}
           hub-user-token-dev: ${{ secrets.HUB_USER_TOKEN_DEV }}
+          hub-user-token-sandbox: ${{ env.HUB_ENV != 'dev' && secrets.HUB_USER_TOKEN_SANDBOX || '' }}
 
       - name: Wait for workbench
         uses: ./.github/actions/wait-workbench-deployment
@@ -85,9 +95,10 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           venv-path: ${{ env.VENV_PATH }}
           bnt-venv-install-cmd: install_compiler_nightly
-          hub-deployments: prod,dev
+          hub-deployments: prod,${{ env.HUB_ENV }}
           hub-user-token-prod: ${{ secrets.HUB_USER_TOKEN_PROD }}
           hub-user-token-dev: ${{ secrets.HUB_USER_TOKEN_DEV }}
+          hub-user-token-sandbox: ${{ env.HUB_ENV != 'dev' && secrets.HUB_USER_TOKEN_SANDBOX || '' }}
 
       - name: Checkout scorecard intermediates
         id: checkout_intermediates
@@ -123,7 +134,7 @@ jobs:
 
           python clone_scorecard.py \
             --prod-profile prod \
-            --dev-profile dev \
+            --dev-profile "$HUB_ENV" \
             --intermediates-dir "${INTERMEDIATES_DIR}" \
             --output-dir results \
             $DRY_ARG \
@@ -140,7 +151,7 @@ jobs:
           CONFIG_FILE=$(ls -t results/dev-compile-scorecard__*.yaml | head -1)
 
           python run_compile_jobs.py \
-            --dev-profile dev \
+            --dev-profile "$HUB_ENV" \
             --config "${CONFIG_FILE}" \
             --output-dir results \
             --verbose
@@ -177,9 +188,10 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           venv-path: ${{ env.VENV_PATH }}
           bnt-venv-install-cmd: install_compiler_nightly
-          hub-deployments: prod,dev
+          hub-deployments: prod,${{ env.HUB_ENV }}
           hub-user-token-prod: ${{ secrets.HUB_USER_TOKEN_PROD }}
           hub-user-token-dev: ${{ secrets.HUB_USER_TOKEN_DEV }}
+          hub-user-token-sandbox: ${{ env.HUB_ENV != 'dev' && secrets.HUB_USER_TOKEN_SANDBOX || '' }}
 
       - name: Download job submission results
         uses: actions/download-artifact@v8
@@ -197,7 +209,7 @@ jobs:
           LINK_SCORECARD=$(ls -t results/link-scorecard__*.yaml | head -1)
 
           python run_link_jobs.py \
-            --dev-profile dev \
+            --dev-profile "$HUB_ENV" \
             --dev-compile-config "${COMPILE_JOBS}" \
             --prod-link-config "${LINK_SCORECARD}" \
             --verbose
@@ -234,8 +246,9 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           venv-path: ${{ env.VENV_PATH }}
           bnt-venv-install-cmd: install_compiler_nightly
-          hub-deployments: dev
+          hub-deployments: ${{ env.HUB_ENV }}
           hub-user-token-dev: ${{ secrets.HUB_USER_TOKEN_DEV }}
+          hub-user-token-sandbox: ${{ env.HUB_ENV != 'dev' && secrets.HUB_USER_TOKEN_SANDBOX || '' }}
 
       - name: Download link job submission results
         uses: actions/download-artifact@v8
@@ -258,7 +271,7 @@ jobs:
           JOBS_FILE=$(ls -t results/dev-link-jobs__*.yaml | head -1)
 
           python collect_link_results.py \
-            --dev-profile dev \
+            --dev-profile "$HUB_ENV" \
             --dev-link-config "${JOBS_FILE}" \
             --verbose
         shell: bash
@@ -273,7 +286,7 @@ jobs:
           PROD_LINK_CONFIG=$(ls -t results/link-scorecard__*.yaml | head -1)
 
           python post_link_results.py \
-            --dev-profile dev \
+            --dev-profile "$HUB_ENV" \
             --dev-link-config "${DEV_LINK_CONFIG}" \
             --prod-link-config "${PROD_LINK_CONFIG}" \
             --verbose
@@ -311,8 +324,9 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           venv-path: ${{ env.VENV_PATH }}
           bnt-venv-install-cmd: install_compiler_nightly
-          hub-deployments: dev
+          hub-deployments: ${{ env.HUB_ENV }}
           hub-user-token-dev: ${{ secrets.HUB_USER_TOKEN_DEV }}
+          hub-user-token-sandbox: ${{ env.HUB_ENV != 'dev' && secrets.HUB_USER_TOKEN_SANDBOX || '' }}
 
       - name: Download job submission results
         uses: actions/download-artifact@v8
@@ -330,7 +344,7 @@ jobs:
           JOBS_FILE=$(ls -t results/dev-compile-jobs__*.yaml | head -1)
 
           python collect_compile_results.py \
-            --dev-profile dev \
+            --dev-profile "$HUB_ENV" \
             --jobs-file "${JOBS_FILE}" \
             --verbose
         shell: bash
@@ -342,7 +356,7 @@ jobs:
           source "${{ github.workspace }}/${{ env.VENV_PATH }}/bin/activate"
 
           python post_compile_results.py \
-            --dev-profile dev \
+            --dev-profile "$HUB_ENV" \
             --results-dir results \
             --verbose
         shell: bash
@@ -358,7 +372,7 @@ jobs:
   notify_slack:
     name: "Notify Slack (#ai-hub-compiler)"
     needs: [submit_compile_jobs, submit_link_jobs, collect_link_results, collect_compile_results]
-    if: ${{ failure() && github.event_name == 'schedule' }}
+    if: ${{ failure() && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (inputs.hub_env || 'dev') != 'dev')) }}
     runs-on: [tetra-ubuntu-2204, self-hosted]
     steps:
       - name: Send Slack Notification

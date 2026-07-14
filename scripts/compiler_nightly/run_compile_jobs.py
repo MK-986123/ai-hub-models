@@ -82,7 +82,7 @@ def submit_single_compile_job(
     client: Client,
     model_name: str,
     job_spec: dict,
-    project_id: str,
+    project_id: str | None,
     extra_compiler_args: str | None,
 ) -> tuple[str, dict | None, Exception | None]:
     """Submit a single compile job.
@@ -128,7 +128,7 @@ def submit_single_compile_job(
 def submit_compile_jobs(
     client: Client,
     scorecard: dict,
-    project_id: str,
+    project_id: str | None,
     extra_compiler_args: str | None = None,
     max_workers: int = DEFAULT_MAX_WORKERS,
 ) -> tuple[dict[str, dict], dict[str, dict]]:

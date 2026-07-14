@@ -103,7 +103,7 @@ def get_or_upload_model(
     uploaded_models: dict[str, str],
     existing_dev_models: dict[str, str],
     dev_client: Client,
-    project_id: str,
+    project_id: str | None,
     lock: Lock,
 ) -> tuple[str, bool]:
     # Check read-only dict first (no lock needed)
@@ -148,7 +148,7 @@ def process_compile_job(
     model_name: str,
     uploaded_models: dict[str, str],
     existing_dev_models: dict[str, str],
-    project_id: str,
+    project_id: str | None,
     lock: Lock,
 ) -> tuple[dict, bool]:
     job = prod_client.get_job(job_id, JobType.COMPILE)

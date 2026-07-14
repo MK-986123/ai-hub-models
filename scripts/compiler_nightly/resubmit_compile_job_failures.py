@@ -36,7 +36,7 @@ def reupload_single_model(
     dev_client: Client,
     model_name: str,
     job_spec: dict,
-    project_id: str,
+    project_id: str | None,
 ) -> dict:
     """Upload a single model from prod to dev (always fresh upload).
 
@@ -82,7 +82,7 @@ def reupload_failed_models(
     prod_client: Client,
     dev_client: Client,
     failed_jobs: dict,
-    project_id: str,
+    project_id: str | None,
 ) -> dict[str, dict]:
     """Upload failed models serially (always fresh upload). Fails on first error.
 
@@ -115,7 +115,7 @@ def submit_single_compile_job(
     client: Client,
     model_name: str,
     job_spec: dict,
-    project_id: str,
+    project_id: str | None,
     extra_compiler_args: str | None,
 ) -> dict:
     """Submit a single compile job.
@@ -154,7 +154,7 @@ def submit_single_compile_job(
 def submit_compile_jobs(
     client: Client,
     job_specs: dict,
-    project_id: str,
+    project_id: str | None,
     extra_compiler_args: str | None,
 ) -> dict[str, dict]:
     """Submit compile jobs serially. Fails on first error.
