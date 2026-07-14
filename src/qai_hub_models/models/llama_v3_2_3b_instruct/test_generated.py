@@ -54,11 +54,11 @@ from qai_hub_models.utils.validation import perform_runtime_model_validation
 #   Certain supported pairs may be excluded from this list if they are not enabled for testing.
 #   For example, models that allow JIT (on-device) compile will not test AOT runtimes; we assume that if it works on JIT it will work on AOT.
 ENABLED_PRECISION_RUNTIMES: dict[Precision, list[TargetRuntime]] = {
-    Precision.w4: [
+    Precision.w4a16: [
         TargetRuntime.GENIE,
         TargetRuntime.GENIEX_QAIRT,
     ],
-    Precision.w4a16: [
+    Precision.w4: [
         TargetRuntime.GENIE,
         TargetRuntime.GENIEX_QAIRT,
     ],
@@ -70,11 +70,11 @@ ENABLED_PRECISION_RUNTIMES: dict[Precision, list[TargetRuntime]] = {
 #   Certain supported pairs may be excluded from this list if they are not enabled for testing.
 #   For example, models that allow JIT (on-device) compile will not test AOT runtimes; we assume that if it works on JIT it will work on AOT.
 PASSING_PRECISION_RUNTIMES: dict[Precision, list[TargetRuntime]] = {
-    Precision.w4: [
+    Precision.w4a16: [
         TargetRuntime.GENIE,
         TargetRuntime.GENIEX_QAIRT,
     ],
-    Precision.w4a16: [
+    Precision.w4: [
         TargetRuntime.GENIE,
         TargetRuntime.GENIEX_QAIRT,
     ],

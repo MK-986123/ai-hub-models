@@ -99,6 +99,7 @@
     model_assets_shareable=False,
     default_runtime=None,
     default_precision=None,
+    separate_quantize_script=False,
     has_geniex_runtime=False,
     needs_local_export=False,
     has_genie_runtime=False,
@@ -134,7 +135,7 @@ This model is compatible with the Qualcomm Voice AI SDK. Download the SDK from t
 {% endif %}
 {% if include_example_and_usage %}
 
-{{ example_and_usage(model_id, model_package, supported_precisions, has_on_target_demo, has_model_requirements, pip_pre_build_reqs, pip_install_flags, pip_install_flags_gpu, python_version_gte, python_version_lt, readme_install_system_deps, readme_export_device=readme_export_device, local_device_deployment=local_device_deployment, default_runtime=default_runtime, default_precision=default_precision) }}
+{{ example_and_usage(model_id, model_package, supported_precisions, has_on_target_demo, has_model_requirements, pip_pre_build_reqs, pip_install_flags, pip_install_flags_gpu, python_version_gte, python_version_lt, readme_install_system_deps, readme_export_device=readme_export_device, local_device_deployment=local_device_deployment, default_runtime=default_runtime, default_precision=default_precision, separate_quantize_script=separate_quantize_script) }}
 {% endif %}
 
 {{ license(model_name, license_url) }}

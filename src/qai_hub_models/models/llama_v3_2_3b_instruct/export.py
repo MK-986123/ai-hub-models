@@ -21,11 +21,11 @@ from qai_hub_models.utils.checkpoint import CheckpointType
 from qai_hub_models.utils.export.dispatch import resolve_export_model
 
 SUPPORTED_PRECISION_RUNTIMES: dict[Precision, list[TargetRuntime]] = {
-    Precision.w4: [
+    Precision.w4a16: [
         TargetRuntime.GENIEX_QAIRT,
         TargetRuntime.GENIE,
     ],
-    Precision.w4a16: [
+    Precision.w4: [
         TargetRuntime.GENIEX_QAIRT,
         TargetRuntime.GENIE,
     ],

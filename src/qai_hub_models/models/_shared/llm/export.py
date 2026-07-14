@@ -68,6 +68,14 @@ from qai_hub_models.utils.kwarg_helpers import filter_kwargs
 
 VALID_TARGET_RUNTIMES = Literal[TargetRuntime.GENIE, TargetRuntime.GENIEX_QAIRT]
 
+# Runtimes the LLM export.py path supports. geniex_llamacpp is a valid
+# benchmark target (see run_geniex_bench_benchmarks.py) but does not have
+# an export flow -- llamacpp bundles come from HF GGUFs, not from export.
+_LLM_EXPORTABLE_RUNTIMES: tuple[TargetRuntime, ...] = (
+    TargetRuntime.GENIE,
+    TargetRuntime.GENIEX_QAIRT,
+)
+
 
 def _parse_comma_separated_ints(value: str) -> list[int]:
     """Argparse type function: converts "128,1" -> [128, 1]."""
@@ -773,10 +781,17 @@ def get_llm_parser(
 ) -> argparse.ArgumentParser:
     if default_sequence_lengths is None:
         default_sequence_lengths = DEFAULT_EXPORT_SEQUENCE_LENGTHS
+    # Keep only runtimes export.py can actually handle so unsupported
+    # values (e.g. geniex_llamacpp) fail at argparse time.
+    export_precision_runtimes = {
+        precision: keep
+        for precision, runtimes in supported_precision_runtimes.items()
+        if (keep := [rt for rt in runtimes if rt in _LLM_EXPORTABLE_RUNTIMES])
+    }
     parser = export_parser(
         model_cls=model_cls,
         export_fn=export_model,
-        supported_precision_runtimes=supported_precision_runtimes,
+        supported_precision_runtimes=export_precision_runtimes,
         default_export_device=default_export_device,
     )
     _add_skip_inferencing_arg(parser)

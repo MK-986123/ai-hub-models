@@ -22,7 +22,7 @@ qai-hub-models perf Qwen3-VL-4B-Instruct
 qai-hub-models numerics Qwen3-VL-4B-Instruct
 
 # Download a ready-to-deploy asset
-qai-hub-models fetch Qwen3-VL-4B-Instruct --runtime geniex_qairt --precision q4_0
+qai-hub-models fetch Qwen3-VL-4B-Instruct --runtime geniex_qairt --precision w4a16
 ```
 See the [CLI README](../../../../cli/README.md)
 for the full list of commands and filters.
@@ -84,9 +84,17 @@ models](../../../#getting-started) for more usage instructions.
 
 ## Export for on-device deployment
 To run the model on Qualcomm® devices, you must export the model for use with an edge runtime such as
-TensorFlow Lite, ONNX Runtime, or Qualcomm AI Engine Direct. Use the following command to export the model:
+TensorFlow Lite, ONNX Runtime, or Qualcomm AI Engine Direct.
+Export the pre-quantized model (published on AI Hub) for on-device deployment:
 ```bash
-qai-hub-models export qwen3_vl_4b_instruct --target-runtime geniex_qairt --precision q4_0 --device "Samsung Galaxy S25 (Family)"
+qai-hub-models export qwen3_vl_4b_instruct --checkpoint DEFAULT_W4A16 --target-runtime geniex_qairt --device "Samsung Galaxy S25 (Family)"
+```
+`--checkpoint` also accepts `DEFAULT` (the model's default precision) or any of `DEFAULT_W4A16`, `DEFAULT_Q4_0`.
+
+Optionally, quantize your own variant first and export the resulting checkpoint:
+```bash
+python -m qai_hub_models.models.qwen3_vl_4b_instruct.quantize --precision w4a16 --output-dir ./quantized_checkpoint
+qai-hub-models export qwen3_vl_4b_instruct --checkpoint ./quantized_checkpoint --target-runtime geniex_qairt --device "Samsung Galaxy S25 (Family)"
 ```
 Additional options are documented with the `--help` option.
 

@@ -63,7 +63,8 @@ models](../../../#getting-started) for more usage instructions.
 
 ## Export for on-device deployment
 To run the model on Qualcomm® devices, you must export the model for use with an edge runtime such as
-TensorFlow Lite, ONNX Runtime, or Qualcomm AI Engine Direct. Use the following command to export the model:
+TensorFlow Lite, ONNX Runtime, or Qualcomm AI Engine Direct.
+Use the following command to export the model:
 ```bash
 qai-hub-models export opus_mt_es_en --target-runtime voice_ai --precision float --device "Samsung Galaxy S25 (Family)"
 ```

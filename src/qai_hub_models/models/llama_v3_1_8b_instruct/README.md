@@ -88,9 +88,17 @@ models](../../../#getting-started) for more usage instructions.
 
 ### Export the model artifact
 To run the model on Qualcomm® devices, you must export the model for use with an edge runtime such as
-TensorFlow Lite, ONNX Runtime, or Qualcomm AI Engine Direct. Use the following command to export the model:
+TensorFlow Lite, ONNX Runtime, or Qualcomm AI Engine Direct.
+Export the pre-quantized model (published on AI Hub) for on-device deployment:
 ```bash
-qai-hub-models export llama_v3_1_8b_instruct --target-runtime geniex_qairt --precision w4a16 --device "Samsung Galaxy S25 (Family)"
+qai-hub-models export llama_v3_1_8b_instruct --checkpoint DEFAULT_W4A16 --target-runtime geniex_qairt --device "Samsung Galaxy S25 (Family)"
+```
+`--checkpoint` also accepts `DEFAULT` (the model's default precision).
+
+Optionally, quantize your own variant first and export the resulting checkpoint:
+```bash
+python -m qai_hub_models.models.llama_v3_1_8b_instruct.quantize --precision w4a16 --output-dir ./quantized_checkpoint
+qai-hub-models export llama_v3_1_8b_instruct --checkpoint ./quantized_checkpoint --target-runtime geniex_qairt --device "Samsung Galaxy S25 (Family)"
 ```
 Additional options are documented with the `--help` option.
 

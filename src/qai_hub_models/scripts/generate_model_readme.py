@@ -117,9 +117,14 @@ def generate_and_write_model_readme(model_id: str) -> Path:
     model_info = QAIHMModelInfo.from_model(model_id)
     model_code_gen = model_info.code_gen_config
 
-    # Convert precisions to strings for Jinja template
+    # Convert precisions to strings for Jinja template. Populated for both
+    # quantize-job models and separate_quantize_script (LLM) models; the
+    # macro decides whether to render the demo's --quantize hint vs. the
+    # DEFAULT_<PRECISION> checkpoint list based on separate_quantize_script.
     supported_precisions = None
-    if model_code_gen.can_use_quantize_job and model_code_gen.supported_precisions:
+    if model_code_gen.supported_precisions and (
+        model_code_gen.can_use_quantize_job or model_code_gen.separate_quantize_script
+    ):
         supported_precisions = [str(p) for p in model_code_gen.supported_precisions]
 
     template_vars = get_shared_template_args(model_info)
@@ -134,6 +139,7 @@ def generate_and_write_model_readme(model_id: str) -> Path:
             "default_runtime": model_code_gen.default_runtime.value,
             "default_precision": str(model_code_gen.default_precision),
             "supported_precisions": supported_precisions,
+            "separate_quantize_script": model_code_gen.separate_quantize_script,
             # Package installation
             "has_model_requirements": model_info.has_model_requirements(),
             "pip_pre_build_reqs": model_code_gen.pip_pre_build_reqs,
