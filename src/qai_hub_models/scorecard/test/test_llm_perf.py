@@ -29,50 +29,28 @@ from qai_hub_models.models._shared.llm.perf_collection import (
     get_llm_perf_parametrization,
 )
 from qai_hub_models.scorecard import ScorecardDevice
-from qai_hub_models.scorecard.device import (
-    cs_8_elite_gen_5_qrd,
-    cs_8_elite_qrd,
-    cs_x_elite,
-)
-from qai_hub_models.utils.path_helpers import QAIHM_MODELS_ROOT
-
-# Sampled LLM coverage for the shared perf test. One entry per representative
-# model/device/precision combo -- membership here is also the allowlist, so
-# other LLMs in the repo (model_type_llm=True with a quantize.py) are skipped.
-# CI overrides device/precision via QAIHM_TEST_DEVICES / QAIHM_LLM_PERF_PRECISIONS.
-_LLM_DEFAULTS: dict[str, tuple[list[ScorecardDevice], list[Precision]]] = {
-    "llama_v3_2_1b_instruct": ([cs_8_elite_qrd], [Precision.w4]),
-    "qwen2_5_vl_7b_instruct": ([cs_8_elite_gen_5_qrd], [Precision.w4a16]),
-    "qwen3_8b": ([cs_x_elite], [Precision.w4a16]),
-}
+from qai_hub_models.utils.path_helpers import MODEL_IDS, QAIHM_MODELS_ROOT
 
 
 def _llm_model_ids() -> list[str]:
-    """Sampled LLM model IDs (see _LLM_DEFAULTS), verified against the repo."""
-    return [
-        model_id
-        for model_id in _LLM_DEFAULTS
-        if (QAIHM_MODELS_ROOT / model_id / "quantize.py").exists() and _is_llm(model_id)
-    ]
-
-
-def _is_llm(model_id: str) -> bool:
-    try:
-        info = QAIHMModelInfo.from_model(model_id)
-    except Exception:
-        return False
-    return info.model_type_llm
+    """All quantized LLMs in the repo (model_type_llm=True and a quantize.py)."""
+    out: list[str] = []
+    for model_id in MODEL_IDS:
+        if not (QAIHM_MODELS_ROOT / model_id / "quantize.py").exists():
+            continue
+        try:
+            info = QAIHMModelInfo.from_model(model_id)
+        except Exception:
+            continue
+        if info.model_type_llm:
+            out.append(model_id)
+    return out
 
 
 def _build_params() -> list[tuple[str, Precision, ScorecardDevice]]:
     params: list[tuple[str, Precision, ScorecardDevice]] = []
     for model_id in _llm_model_ids():
-        defaults = _LLM_DEFAULTS.get(model_id, (None, None))
-        combos = get_llm_perf_parametrization(
-            model_id,
-            default_devices=defaults[0],
-            default_precisions=defaults[1],
-        )
+        combos = get_llm_perf_parametrization(model_id)
         for precision, device in combos:
             params.append((model_id, precision, device))
     return params
