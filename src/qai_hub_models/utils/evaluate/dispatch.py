@@ -1,36 +1,66 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
+# Copyright (c) 2026 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-"""
-Dispatch a ``model_id`` to the ``evaluate_model`` function for its pipeline.
-
-Lives in its own file so callers can import the dispatcher without
-triggering top-level imports of every pipeline module.
-"""
+"""Select and bind the evaluate pipeline for a resolved model."""
 
 from __future__ import annotations
 
-import importlib
+# mypy: disable-error-code="assignment"
+import inspect
 from collections.abc import Callable
+from dataclasses import fields
+from functools import partial
 from typing import Any
 
 from qai_hub_models.utils.base_collection_model import CollectionModel
+from qai_hub_models.utils.export.dispatch import ResolvedModel
 
 
-def _resolve_model_cls(model_id: str) -> type:
-    """Import the Model class from ``qai_hub_models.models.<model_id>``."""
-    module = importlib.import_module(f"qai_hub_models.models.{model_id}")
-    return module.Model
+def select_evaluate_pipeline(resolved: ResolvedModel) -> Callable[..., Any]:
+    """Return the pipeline ``evaluate_model`` for *resolved* with its context bound.
 
+    The right ``evaluate_model`` is chosen from ``resolved.model_cls``. Only the
+    ``ResolvedModel`` fields that appear in that pipeline's signature are
+    bound as kwargs — pipelines that don't need e.g. ``source_dir`` or
+    ``app_cls`` don't have to declare placeholder params for them.
 
-def resolve_evaluate_model(model_id: str) -> Callable[..., Any]:
-    """Return the ``evaluate_model`` function for the pipeline matching this model."""
-    model_cls = _resolve_model_cls(model_id)
+    Parameters
+    ----------
+    resolved
+        Model metadata from :func:`qai_hub_models.utils.export.dispatch.resolve_model`.
+
+    Returns
+    -------
+    Callable[..., Any]
+        Callable equivalent to the selected pipeline's ``evaluate_model`` with
+        the applicable resolved fields pre-bound.
+    """
+    model_cls = resolved.model_cls
     if issubclass(model_cls, CollectionModel):
         from .collection_pipeline import evaluate_model
 
-        return evaluate_model
-    from .pipeline import evaluate_model
+        pipeline_fn: Callable[..., Any] = evaluate_model
+    else:
+        from .pipeline import evaluate_model
 
-    return evaluate_model
+        pipeline_fn = evaluate_model
+
+    sig = inspect.signature(pipeline_fn)
+    # ``model_id`` is excluded so positional callers like
+    # ``evaluate_model(model_id, ...)`` don't collide with a bound kwarg.
+    bind_kwargs = {
+        f.name: getattr(resolved, f.name)
+        for f in fields(resolved)
+        if f.name in sig.parameters and f.name != "model_id"
+    }
+    bound = partial(pipeline_fn, **bind_kwargs)
+    # Give the partial a signature/docstring the CLI parser can introspect:
+    #   * __signature__ drops the bound kwargs so inspect.signature(bound)
+    #     surfaces only user-facing params.
+    #   * __doc__ preserves FunctionDoc parameter descriptions.
+    bound.__signature__ = sig.replace(  # type: ignore[attr-defined]
+        parameters=[p for n, p in sig.parameters.items() if n not in bind_kwargs]
+    )
+    bound.__doc__ = pipeline_fn.__doc__
+    return bound

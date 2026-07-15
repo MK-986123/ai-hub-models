@@ -13,7 +13,8 @@ import warnings
 from qai_hub_models import Precision, TargetRuntime
 from qai_hub_models.models.salsanext import MODEL_ID, Model
 from qai_hub_models.utils.args import evaluate_parser
-from qai_hub_models.utils.evaluate.dispatch import resolve_evaluate_model
+from qai_hub_models.utils.evaluate.dispatch import select_evaluate_pipeline
+from qai_hub_models.utils.export.dispatch import resolve_model
 
 SUPPORTED_PRECISION_RUNTIMES: dict[Precision, list[TargetRuntime]] = {
     Precision.float: [
@@ -33,6 +34,8 @@ SUPPORTED_PRECISION_RUNTIMES: dict[Precision, list[TargetRuntime]] = {
 
 
 DEFAULT_EVAL_DEVICE = "Samsung Galaxy S25 (Family)"
+
+evaluate_model = select_evaluate_pipeline(resolve_model(MODEL_ID))
 
 
 def build_parser(cli_mode: bool = False) -> argparse.ArgumentParser:
@@ -61,14 +64,7 @@ def main(args: argparse.Namespace | None = None) -> None:
             stacklevel=2,
         )
         args = build_parser().parse_args()
-
-    warnings.filterwarnings("ignore")
-    evaluate_model = resolve_evaluate_model(MODEL_ID)
-    evaluate_model(
-        MODEL_ID,
-        args,
-        supports_quant_cpu=True,
-    )
+    evaluate_model(MODEL_ID, **vars(args))
 
 
 if __name__ == "__main__":

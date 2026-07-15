@@ -70,9 +70,9 @@ def compile_model_from_args(
         model_kwargs_dict["precision"] = cli_args.precision
         cli_str += f"--precision {cli_args.precision} "
 
-    from qai_hub_models.utils.export.dispatch import resolve_export_model
+    from qai_hub_models.utils.export.dispatch import resolve_model, select_pipeline
 
-    export_model = resolve_export_model(model_id)
+    export_model = select_pipeline(resolve_model(model_id))
     if getattr(cli_args, "num_calibration_samples", None):
         model_kwargs_dict["num_calibration_samples"] = cli_args.num_calibration_samples
         cli_str += f"--num-calibration-samples {cli_args.num_calibration_samples} "

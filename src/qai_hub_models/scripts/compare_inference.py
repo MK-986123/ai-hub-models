@@ -34,7 +34,7 @@ from qai_hub_models.utils.args import (
 from qai_hub_models.utils.base_collection_model import CollectionModel
 from qai_hub_models.utils.base_model import WorkbenchModel
 from qai_hub_models.utils.compare import METRICS_FUNCTIONS, torch_inference
-from qai_hub_models.utils.export.dispatch import resolve_export_model
+from qai_hub_models.utils.export.dispatch import resolve_model, select_pipeline
 from qai_hub_models.utils.kwarg_helpers import filter_kwargs
 from qai_hub_models.utils.path_helpers import MODEL_IDS
 from qai_hub_models.utils.printing import print_inference_metrics
@@ -89,7 +89,7 @@ def compare_inference(
         Additional kwargs for model.from_pretrained and model.get_input_spec.
     """
     model_module = load_model_module(model_id)
-    export_model = resolve_export_model(model_id)
+    export_model = select_pipeline(resolve_model(model_id))
     model_cls = model_module.Model
 
     # Validate component argument

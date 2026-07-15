@@ -13,13 +13,16 @@ import warnings
 from qai_hub_models import Precision, TargetRuntime
 from qai_hub_models.models.simple_bev_cam import MODEL_ID, Model
 from qai_hub_models.utils.args import evaluate_parser
-from qai_hub_models.utils.asset_loaders import UNPUBLISHED_MODEL_WARNING, query_yes_no
-from qai_hub_models.utils.evaluate.dispatch import resolve_evaluate_model
+from qai_hub_models.utils.asset_loaders import check_unpublished_model_warning
+from qai_hub_models.utils.evaluate.dispatch import select_evaluate_pipeline
+from qai_hub_models.utils.export.dispatch import resolve_model
 
 SUPPORTED_PRECISION_RUNTIMES: dict[Precision, list[TargetRuntime]] = {}
 
 
 DEFAULT_EVAL_DEVICE = "Samsung Galaxy S25 (Family)"
+
+evaluate_model = select_evaluate_pipeline(resolve_model(MODEL_ID))
 
 
 def build_parser(cli_mode: bool = False) -> argparse.ArgumentParser:
@@ -40,8 +43,7 @@ def build_parser(cli_mode: bool = False) -> argparse.ArgumentParser:
 
 
 def main(args: argparse.Namespace | None = None) -> None:
-    print("WARNING:", UNPUBLISHED_MODEL_WARNING)
-    if not query_yes_no("Continue?"):
+    if not check_unpublished_model_warning():
         return
     if args is None:
         warnings.warn(
@@ -52,13 +54,7 @@ def main(args: argparse.Namespace | None = None) -> None:
             stacklevel=2,
         )
         args = build_parser().parse_args()
-
-    warnings.filterwarnings("ignore")
-    evaluate_model = resolve_evaluate_model(MODEL_ID)
-    evaluate_model(
-        MODEL_ID,
-        args,
-    )
+    evaluate_model(MODEL_ID, **vars(args))
 
 
 if __name__ == "__main__":

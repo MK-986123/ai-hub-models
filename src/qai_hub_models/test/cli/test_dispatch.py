@@ -7,71 +7,121 @@
 from __future__ import annotations
 
 import argparse
-import types
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import Mock, patch
 
 from qai_hub_models.cli.dispatch import run_model_script
 
 
-def _fake_module(
-    main_calls: list[argparse.Namespace] | None = None,
-    parser: argparse.ArgumentParser | None = None,
-) -> types.SimpleNamespace:
-    """Build a stand-in for a model's export/evaluate module."""
-    if parser is None:
-        parser = argparse.ArgumentParser()
-        parser.add_argument("--device", default="defaultdev")
-        parser.add_argument("--skip-profiling", action="store_true")
-
-    def _main(args: argparse.Namespace) -> None:
-        if main_calls is not None:
-            main_calls.append(args)
-
-    return types.SimpleNamespace(build_parser=lambda cli_mode=False: parser, main=_main)
-
-
-def test_dispatch_parses_with_model_parser_and_invokes_main() -> None:
-    """Happy path: dispatcher parses with the model's parser and passes parsed args to main()."""
-    main_calls: list[argparse.Namespace] = []
-    fake_module = _fake_module(main_calls=main_calls)
-
-    with patch(
-        "qai_hub_models.cli.dispatch.importlib.import_module",
-        return_value=fake_module,
-    ):
-        run_model_script(
-            "fake_model", "export", ["--device", "S25", "--skip-profiling"]
-        )
-
-    assert len(main_calls) == 1
-    assert main_calls[0].device == "S25"
-    assert main_calls[0].skip_profiling is True
-
-
-def test_module_not_found_exits_with_readme_hint() -> None:
-    """ModuleNotFoundError on import surfaces a README pointer."""
-    with (
-        patch(
-            "qai_hub_models.cli.dispatch.importlib.import_module",
-            side_effect=ModuleNotFoundError("missing dep"),
-        ),
-        pytest.raises(SystemExit, match=r"README"),
-    ):
-        run_model_script("fake_model", "export", [])
-
-
-def test_module_without_dispatch_interface_exits() -> None:
-    """Imported module missing build_parser or main -> exit pointing at python -m."""
-    # Module that has main() but not build_parser() (e.g. hand-written export.py).
-    fake_module = MagicMock(spec=["main"])
+def test_dispatch_export_builds_parser_and_runs() -> None:
+    """Export path: parser is built once from resolved model and pipeline invoked."""
+    fake_parser = argparse.ArgumentParser()
+    fake_parser.add_argument("--device")
+    fake_parsed = argparse.Namespace(device="S25")
 
     with (
         patch(
-            "qai_hub_models.cli.dispatch.importlib.import_module",
-            return_value=fake_module,
-        ),
-        pytest.raises(SystemExit, match=r"python -m"),
+            "qai_hub_models.cli.dispatch.resolve_model",
+            return_value=Mock(model_id="fake_model"),
+        ) as mock_resolve,
+        patch(
+            "qai_hub_models.cli.dispatch.build_export_parser_for",
+            return_value=fake_parser,
+        ) as mock_build,
+        patch("qai_hub_models.cli.dispatch.select_pipeline") as mock_select,
+        patch("qai_hub_models.cli.dispatch._confirm_run_ok", return_value=True),
     ):
-        run_model_script("fake_model", "export", [])
+        fake_parser.parse_args = Mock(return_value=fake_parsed)
+
+        run_model_script("fake_model", "export", ["--device", "S25"])
+
+        # resolve_model is called exactly once — no double resolution.
+        mock_resolve.assert_called_once_with("fake_model")
+        mock_build.assert_called_once()
+        mock_select.assert_called_once()
+
+
+def test_dispatch_export_prompts_for_unpublished_model() -> None:
+    """Export for unpublished model prompts and exits early if user declines."""
+    fake_parser = argparse.ArgumentParser()
+    fake_parsed = argparse.Namespace()
+
+    with (
+        patch(
+            "qai_hub_models.cli.dispatch.resolve_model",
+            return_value=Mock(model_id="sam"),
+        ),
+        patch(
+            "qai_hub_models.cli.dispatch.build_export_parser_for",
+            return_value=fake_parser,
+        ),
+        patch("qai_hub_models.cli.dispatch.QAIHMModelInfo.from_model") as mock_info,
+        patch(
+            "qai_hub_models.cli.dispatch.check_unpublished_model_warning",
+            return_value=False,
+        ) as mock_check,
+        patch("qai_hub_models.cli.dispatch.select_pipeline") as mock_select,
+    ):
+        mock_info.return_value.status.value = "pending"
+        fake_parser.parse_args = Mock(return_value=fake_parsed)
+
+        run_model_script("sam", "export", [])
+
+        mock_check.assert_called_once()
+        mock_select.assert_not_called()
+
+
+def test_dispatch_evaluate_builds_parser_and_runs() -> None:
+    """Evaluate path: parser is built once from resolved model and pipeline invoked."""
+    fake_parser = argparse.ArgumentParser()
+    fake_parser.add_argument("--device")
+    fake_parsed = argparse.Namespace(device="S25")
+
+    with (
+        patch(
+            "qai_hub_models.cli.dispatch.resolve_model",
+            return_value=Mock(model_id="fake_model"),
+        ) as mock_resolve,
+        patch(
+            "qai_hub_models.cli.dispatch.build_evaluate_parser_for",
+            return_value=fake_parser,
+        ) as mock_build,
+        patch("qai_hub_models.cli.dispatch.select_evaluate_pipeline") as mock_select,
+        patch("qai_hub_models.cli.dispatch._confirm_run_ok", return_value=True),
+    ):
+        fake_parser.parse_args = Mock(return_value=fake_parsed)
+
+        run_model_script("fake_model", "evaluate", ["--device", "S25"])
+
+        mock_resolve.assert_called_once_with("fake_model")
+        mock_build.assert_called_once()
+        mock_select.assert_called_once()
+
+
+def test_dispatch_evaluate_prompts_for_unpublished_model() -> None:
+    """Evaluate for unpublished model prompts and exits early if user declines."""
+    fake_parser = argparse.ArgumentParser()
+    fake_parsed = argparse.Namespace()
+
+    with (
+        patch(
+            "qai_hub_models.cli.dispatch.resolve_model",
+            return_value=Mock(model_id="sam"),
+        ),
+        patch(
+            "qai_hub_models.cli.dispatch.build_evaluate_parser_for",
+            return_value=fake_parser,
+        ),
+        patch("qai_hub_models.cli.dispatch.QAIHMModelInfo.from_model") as mock_info,
+        patch(
+            "qai_hub_models.cli.dispatch.check_unpublished_model_warning",
+            return_value=False,
+        ) as mock_check,
+        patch("qai_hub_models.cli.dispatch.select_evaluate_pipeline") as mock_select,
+    ):
+        mock_info.return_value.status.value = "pending"
+        fake_parser.parse_args = Mock(return_value=fake_parsed)
+
+        run_model_script("sam", "evaluate", [])
+
+        mock_check.assert_called_once()
+        mock_select.assert_not_called()

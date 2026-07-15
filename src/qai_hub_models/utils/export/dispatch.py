@@ -1,21 +1,21 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
+# Copyright (c) 2026 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-"""
-Dispatch a ``model_id`` to the ``export_model`` function for its pipeline.
-
-Lives in its own file so callers can import the dispatcher without
-triggering top-level imports of every pipeline module. The pipelines
-themselves must not import from this module -- doing so would re-create
-the ``utils.export -> pipeline -> utils.args -> ...`` cycle.
-"""
+"""Resolve a model and select its export pipeline."""
 
 from __future__ import annotations
 
+import importlib
+import inspect
 from collections.abc import Callable
+from dataclasses import dataclass, fields
+from functools import partial
+from pathlib import Path
 from typing import Any
 
+from qai_hub_models.configs.code_gen_yaml import QAIHMModelCodeGen
+from qai_hub_models.configs.info_yaml import QAIHMModelInfo
 from qai_hub_models.utils.base_collection_model import (
     CollectionModel,
     PrecompiledCollectionModel,
@@ -25,27 +25,130 @@ from qai_hub_models.utils.base_multi_graph_collection_model import (
     MultiGraphCollectionModel,
 )
 from qai_hub_models.utils.base_multi_graph_model import MultiGraphWorkbenchModel
-from qai_hub_models.utils.export.context import resolve_model_cls
-
-from .collection_pipeline import export_model as _collection_export_model
-from .multi_graph_collection_pipeline import (
-    export_model as _multi_graph_collection_export_model,
+from qai_hub_models.utils.export.collection_pipeline import (
+    export_model as collection_export,
 )
-from .multi_graph_pipeline import export_model as _multi_graph_export_model
-from .pipeline import export_model as _export_model
-from .precompiled_pipeline import export_model as _precompiled_export_model
+from qai_hub_models.utils.export.multi_graph_collection_pipeline import (
+    export_model as multi_graph_collection_export,
+)
+from qai_hub_models.utils.export.multi_graph_pipeline import (
+    export_model as multi_graph_export,
+)
+from qai_hub_models.utils.export.pipeline import export_model as single_export
+from qai_hub_models.utils.export.precompiled_pipeline import (
+    export_model as precompiled_export,
+)
+from qai_hub_models.utils.path_helpers import MODEL_IDS
 
 
-def resolve_export_model(model_id: str) -> Callable[..., Any]:
-    """Return the ``export_model`` function for the pipeline matching this model."""
-    model_cls = resolve_model_cls(model_id)
-    # Precompiled (component or collection) -- already binary, no compile/quantize.
+@dataclass
+class ResolvedModel:
+    """Resolved model metadata for export/evaluate."""
+
+    model_id: str
+    model_cls: type
+    code_gen: QAIHMModelCodeGen
+    display_name: str
+    source_dir: Path
+    app_cls: type | None = None
+    supports_quant_cpu: bool = False
+
+
+def resolve_model(model_id_or_module: str) -> ResolvedModel:
+    """Import the model's module and gather its metadata.
+
+    Parameters
+    ----------
+    model_id_or_module
+        A known model id (e.g. ``"mobilenet_v2"``, resolved under
+        ``qai_hub_models.models``) or any importable dotted module path.
+
+    Returns
+    -------
+    ResolvedModel
+        The imported ``Model`` class, optional ``App`` class, ``source_dir``
+        derived from the module's ``__file__``, and ``code-gen.yaml`` /
+        ``info.yaml`` read from that directory when present.
+    """
+    module_path = (
+        f"qai_hub_models.models.{model_id_or_module}"
+        if model_id_or_module in MODEL_IDS
+        else model_id_or_module
+    )
+    module = importlib.import_module(module_path)
+    if module.__file__ is None:
+        raise ValueError(
+            f"Module {module_path!r} has no __file__ (namespace package?). "
+            f"Point at a regular package with an __init__.py instead."
+        )
+    source_dir = Path(module.__file__).parent
+    info_path = source_dir / "info.yaml"
+    code_gen = QAIHMModelCodeGen.from_yaml(
+        source_dir / "code-gen.yaml", create_empty_if_no_file=True
+    )
+    return ResolvedModel(
+        model_id=source_dir.name,
+        model_cls=module.Model,
+        code_gen=code_gen,
+        display_name=(
+            QAIHMModelInfo.from_yaml(info_path).name
+            if info_path.exists()
+            else source_dir.name
+        ),
+        source_dir=source_dir,
+        app_cls=getattr(module, "App", None),
+        supports_quant_cpu=(
+            code_gen.can_use_quantize_job and code_gen.supports_quantization
+        ),
+    )
+
+
+def select_pipeline(resolved: ResolvedModel) -> Callable[..., Any]:
+    """Return the pipeline ``export_model`` for *resolved* with its context bound.
+
+    The right ``export_model`` is chosen from ``resolved.model_cls``. Only the
+    ``ResolvedModel`` fields that appear in that pipeline's signature are
+    bound as kwargs — pipelines that don't need e.g. ``source_dir`` or
+    ``app_cls`` don't have to declare placeholder params for them.
+
+    Parameters
+    ----------
+    resolved
+        Model metadata from :func:`resolve_model`.
+
+    Returns
+    -------
+    Callable[..., Any]
+        Callable equivalent to the selected pipeline's ``export_model`` with
+        the applicable resolved fields pre-bound.
+    """
+    model_cls = resolved.model_cls
     if issubclass(model_cls, (PrecompiledWorkbenchModel, PrecompiledCollectionModel)):
-        return _precompiled_export_model
-    if issubclass(model_cls, MultiGraphCollectionModel):
-        return _multi_graph_collection_export_model
-    if issubclass(model_cls, CollectionModel):
-        return _collection_export_model
-    if issubclass(model_cls, MultiGraphWorkbenchModel):
-        return _multi_graph_export_model
-    return _export_model
+        pipeline_fn: Callable[..., Any] = precompiled_export
+    elif issubclass(model_cls, MultiGraphCollectionModel):
+        pipeline_fn = multi_graph_collection_export
+    elif issubclass(model_cls, CollectionModel):
+        pipeline_fn = collection_export
+    elif issubclass(model_cls, MultiGraphWorkbenchModel):
+        pipeline_fn = multi_graph_export
+    else:
+        pipeline_fn = single_export
+
+    sig = inspect.signature(pipeline_fn)
+    # ``model_id`` is excluded so positional callers like
+    # ``export_model(model_id, device=...)`` don't collide with a bound kwarg.
+    bind_kwargs = {
+        f.name: getattr(resolved, f.name)
+        for f in fields(resolved)
+        if f.name in sig.parameters and f.name != "model_id"
+    }
+    bound = partial(pipeline_fn, **bind_kwargs)
+    # Give the partial a signature/docstring the CLI parser can introspect:
+    #   * __signature__ drops the bound kwargs so inspect.signature(bound)
+    #     surfaces only user-facing params.
+    #   * __doc__ preserves FunctionDoc parameter descriptions.
+    bound.__signature__ = sig.replace(  # type: ignore[attr-defined]
+        parameters=[p for n, p in sig.parameters.items() if n not in bind_kwargs]
+    )
+    bound.__doc__ = pipeline_fn.__doc__
+    return bound

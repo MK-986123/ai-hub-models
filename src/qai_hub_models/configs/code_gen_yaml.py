@@ -368,6 +368,15 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
         return self.supported_precisions[0]
 
     @property
+    def supported_precision_runtimes(self) -> dict[Precision, list[TargetRuntime]]:
+        """Precision -> supported runtimes; empty precision entries dropped."""
+        out = {
+            p: [r for r in TargetRuntime if self.is_supported(p, r)]
+            for p in self.supported_precisions
+        }
+        return {p: rs for p, rs in out.items() if rs}
+
+    @property
     def default_runtime(self) -> TargetRuntime:
         """Default runtime for export scripts and README sample commands."""
         passing_paths = self.get_supported_paths_for_testing(only_include_passing=True)

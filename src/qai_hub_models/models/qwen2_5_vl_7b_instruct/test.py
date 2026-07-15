@@ -43,9 +43,9 @@ from qai_hub_models.models.qwen2_5_vl_7b_instruct.quantize import (
     quantize_vision_encoder,
 )
 from qai_hub_models.utils.checkpoint import CheckpointSpec
-from qai_hub_models.utils.export.dispatch import resolve_export_model
+from qai_hub_models.utils.export.dispatch import resolve_model, select_pipeline
 
-export_model = resolve_export_model(MODEL_ID)
+export_model = select_pipeline(resolve_model(MODEL_ID))
 
 DEFAULT_EVAL_SEQLEN = [2048, 128, 1]
 

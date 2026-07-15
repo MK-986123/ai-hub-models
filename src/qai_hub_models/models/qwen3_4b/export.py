@@ -14,7 +14,7 @@ from qai_hub_models import Precision, TargetRuntime
 from qai_hub_models.models.qwen3_4b import DEFAULT_PRECISION, MODEL_ID, Model
 from qai_hub_models.utils.args import export_parser
 from qai_hub_models.utils.checkpoint import CheckpointType
-from qai_hub_models.utils.export.dispatch import resolve_export_model
+from qai_hub_models.utils.export.dispatch import resolve_model, select_pipeline
 
 SUPPORTED_PRECISION_RUNTIMES: dict[Precision, list[TargetRuntime]] = {
     Precision.w4a16: [
@@ -26,7 +26,7 @@ SUPPORTED_PRECISION_RUNTIMES: dict[Precision, list[TargetRuntime]] = {
 
 DEFAULT_EXPORT_DEVICE = "Samsung Galaxy S25 (Family)"
 
-export_model = resolve_export_model(MODEL_ID)
+export_model = select_pipeline(resolve_model(MODEL_ID))
 
 
 def build_parser(cli_mode: bool = False) -> argparse.ArgumentParser:
@@ -56,7 +56,6 @@ def main(args: argparse.Namespace | None = None) -> None:
             stacklevel=2,
         )
         args = build_parser().parse_args()
-    warnings.filterwarnings("ignore")
     # export_parser is called with omit_precision=True, so args.precision is
     # never set by CLI parsing — resolve it from the checkpoint instead.
     checkpoint = getattr(args, "checkpoint", None)
