@@ -1059,6 +1059,22 @@ class SplitForwardMixin:
         finally:
             self._exporting_onnx = False
 
+    def free_memory(self) -> None:
+        """Release the split Parts' GPU sessions, then the base's resources.
+
+        Each Part's ORT/QuantSim session lives outside torch's allocator (see
+        ``LLMPartBase.release``), so dropping ``_parts`` is what frees that GPU
+        memory before the grader runs.
+        """
+        if self._parts is not None:
+            for part in self._parts:
+                part.release()
+            self._parts = None
+            self._input_names_for_parts = None
+        base_free = getattr(super(), "free_memory", None)
+        if base_free is not None:
+            base_free()
+
     def forward(
         self,
         input_tokens: torch.Tensor,
@@ -1120,6 +1136,19 @@ class LLMPartBase:
     # LLM_AIMETOnnx); the only attribute used here is ``llm_io_type``.
     _presplit: Any
     _graph_names: dict[str, tuple[int, int]]
+    # GPU-resident inference sessions, set in each subclass's __init__.
+    _fp_session: onnxruntime.InferenceSession | None
+    _quant_sim: QuantizationSimModel | None
+
+    def release(self) -> None:
+        """Drop this Part's ORT/QuantSim GPU sessions. Idempotent.
+
+        These sessions allocate GPU memory outside torch's allocator, so they
+        must be dropped explicitly -- ``torch.cuda.empty_cache()`` can't reclaim
+        them. Shared by all Part hierarchies (text LLMs and VLMs).
+        """
+        self._fp_session = None
+        self._quant_sim = None
 
     def _get_onnx_input_names(self) -> list[str]:
         raise NotImplementedError
