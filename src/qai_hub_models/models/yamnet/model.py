@@ -5,11 +5,14 @@
 
 from __future__ import annotations
 
+import os
+
 import torch
 from torch_audioset.yamnet.model import YAMNet
 from typing_extensions import Self
 
 from qai_hub_models import SampleInputsType
+from qai_hub_models.configs.model_metadata import ModelMetadata
 from qai_hub_models.evaluators.audioset_evaluator import AudioSetOutputEvaluator
 from qai_hub_models.models.yamnet.dataset import AudioSetDataset
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
@@ -17,6 +20,7 @@ from qai_hub_models.utils.base_dataset import BaseDataset
 from qai_hub_models.utils.base_evaluator import BaseEvaluator
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec, IoType, OutputSpec, TensorSpec
+from qai_hub_models.utils.labels import write_labels_file
 
 YAMNET_PROXY_REPOSITORY = "https://github.com/w-hc/torch_audioset.git"
 YAMNET_PROXY_REPO_COMMIT = "e8852c5"
@@ -99,6 +103,13 @@ class YamNet(BaseModel):
 
     def get_evaluator(self) -> BaseEvaluator:
         return AudioSetOutputEvaluator()
+
+    def write_supplementary_files(
+        self,
+        output_dir: str | os.PathLike,
+        metadata: ModelMetadata,
+    ) -> None:
+        write_labels_file("yamnet_labels.txt", output_dir, metadata)
 
 
 def _load_yamnet_source_model_from_weights(
