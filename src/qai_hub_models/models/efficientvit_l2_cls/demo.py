@@ -4,11 +4,15 @@
 # ---------------------------------------------------------------------
 
 from qai_hub_models.models._shared.imagenet_classifier.demo import imagenet_demo
-from qai_hub_models.models.efficientvit_l2_cls.model import MODEL_ID, EfficientViT
+from qai_hub_models.models.efficientvit_l2_cls.model import (
+    EFFICIENTVIT_L2_TRANSFORM,
+    MODEL_ID,
+    EfficientViT,
+)
 
 
 def main(is_test: bool = False) -> None:
-    imagenet_demo(EfficientViT, MODEL_ID, is_test)
+    imagenet_demo(EfficientViT, MODEL_ID, is_test, transform=EFFICIENTVIT_L2_TRANSFORM)
 
 
 if __name__ == "__main__":

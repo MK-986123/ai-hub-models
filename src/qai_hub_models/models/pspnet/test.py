@@ -24,7 +24,7 @@ from qai_hub_models.utils.test_helpers import (
 )
 
 OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, "test_out_img.png"
+    MODEL_ID, MODEL_ASSET_VERSION, "test_img_out.png"
 )
 
 
@@ -33,7 +33,7 @@ def test_task() -> None:
     model = PSPNet.from_pretrained()
     app = SegmentationApp(model)
     h, w = model.get_input_spec()["image"][0][2:]
-    original_image = load_image(INPUT_IMAGE_ADDRESS).resize((h, w))
+    original_image = load_image(INPUT_IMAGE_ADDRESS)
     image, scale, padding = pil_resize_pad(original_image, (h, w), pad_mode="constant")
     output_image = app.segment_image(image)[0]
     image_annotated = pil_undo_resize_pad(
@@ -51,7 +51,7 @@ def test_trace() -> None:
     model = PSPNet.from_pretrained()
     app = SegmentationApp(model.convert_to_torchscript())
     h, w = model.get_input_spec()["image"][0][2:]
-    original_image = load_image(INPUT_IMAGE_ADDRESS).resize((h, w))
+    original_image = load_image(INPUT_IMAGE_ADDRESS)
     image, scale, padding = pil_resize_pad(original_image, (h, w), pad_mode="constant")
     output_image = app.segment_image(image)[0]
     image_annotated = pil_undo_resize_pad(

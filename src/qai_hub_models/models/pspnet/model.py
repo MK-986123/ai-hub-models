@@ -28,7 +28,10 @@ from qai_hub_models.utils.asset_loaders import (
 )
 from qai_hub_models.utils.base_dataset import BaseDataset
 from qai_hub_models.utils.base_evaluator import BaseEvaluator
-from qai_hub_models.utils.image_processing import app_to_net_image_inputs
+from qai_hub_models.utils.image_processing import (
+    app_to_net_image_inputs,
+    normalize_image_torchvision,
+)
 from qai_hub_models.utils.input_spec import (
     ColorFormat,
     ImageMetadata,
@@ -39,7 +42,7 @@ from qai_hub_models.utils.input_spec import (
 )
 
 MODEL_ID: str = __name__.split(".")[-2]
-MODEL_ASSET_VERSION: int = 2
+MODEL_ASSET_VERSION: int = 3
 
 # Default model checkpoint path from asset store
 DEFAULT_MODEL_PATH: str = CachedWebModelAsset.from_asset_store(
@@ -111,7 +114,10 @@ class PSPNet(CityscapesSegmentor):
             Representing the class scores for each pixel.
         """
         input_tensor = torch.cat([image, image.flip(3)], 0)
-        return self.model(input_tensor)[0].unsqueeze(0)
+        input_tensor = normalize_image_torchvision(input_tensor)
+        output = self.model(input_tensor)
+        output = torch.nn.functional.softmax(output, dim=1)
+        return ((output[0] + output[1].flip(2)) / 2).unsqueeze(0)
 
     def get_input_spec(
         self,
