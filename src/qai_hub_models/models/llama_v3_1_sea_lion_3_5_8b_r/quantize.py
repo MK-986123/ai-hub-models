@@ -16,5 +16,4 @@ if __name__ == "__main__":
         fp_model_cls=Llama3_1_SEALION_3_5_8B_R_PreSplit,
         model_id=MODEL_ID,
         supported_precisions=SUPPORTED_PRECISIONS,
-        allow_cpu_to_quantize=True,
     )

@@ -697,7 +697,6 @@ def setup_test_quantization(
             seq_len=2048,
             precision=precision,
             output_dir=output_path,
-            allow_cpu_to_quantize=True,
             checkpoint=checkpoint,
             num_samples=num_samples,
             use_seq_mse=use_seq_mse,

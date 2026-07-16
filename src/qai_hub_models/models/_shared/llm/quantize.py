@@ -66,7 +66,6 @@ def quantize(
     checkpoint: str | None = None,
     use_seq_mse: bool = False,
     use_ada_scale: bool = False,
-    allow_cpu_to_quantize: bool = False,
     seq_mse_num_samples: int | None = None,
     ada_scale_num_samples: int | None = None,
     ada_scale_num_iterations: int | None = None,
@@ -94,15 +93,10 @@ def quantize(
         )
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    if device.type != "cuda":
-        if not allow_cpu_to_quantize:
-            raise ValueError(
-                "This model requires a CUDA GPU (V100/A100) on it to do quantization. Please re-try with GPU machine."
-            )
-        if use_seq_mse or use_ada_scale:
-            raise ValueError(
-                "This quantization technique requires a CUDA GPU (V100/A100). Please re-try with GPU machine."
-            )
+    if device.type != "cuda" and (use_seq_mse or use_ada_scale):
+        raise ValueError(
+            "This quantization technique requires a CUDA GPU (V100/A100). Please re-try with GPU machine."
+        )
 
     # Create the floating point model
     extra: dict[str, Any] = {}
@@ -217,7 +211,6 @@ def llm_quantize(
     fp_model_cls: type[LLMBase],
     model_id: str,
     supported_precisions: list[Precision],
-    allow_cpu_to_quantize: bool = False,
 ) -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -307,7 +300,6 @@ def llm_quantize(
         checkpoint=args.checkpoint,
         use_seq_mse=args.use_seq_mse,
         use_ada_scale=args.use_ada_scale,
-        allow_cpu_to_quantize=allow_cpu_to_quantize,
         seq_mse_num_samples=args.seq_mse_num_samples,
         ada_scale_num_samples=args.ada_scale_num_samples,
         ada_scale_num_iterations=args.ada_scale_num_iterations,

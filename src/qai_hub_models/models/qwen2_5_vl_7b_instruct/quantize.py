@@ -197,7 +197,6 @@ def main() -> None:
             checkpoint=args.checkpoint,
             use_seq_mse=args.use_seq_mse,
             use_ada_scale=args.use_ada_scale,
-            allow_cpu_to_quantize=True,
             seq_mse_num_samples=args.seq_mse_num_samples,
             ada_scale_num_samples=args.ada_scale_num_samples,
             ada_scale_num_iterations=args.ada_scale_num_iterations,
