@@ -15,6 +15,7 @@ from .constants import (
     PY_PACKAGE_RELATIVE_MODELS_ROOT,
     PY_PACKAGE_RELATIVE_SRC_ROOT,
     REPO_ROOT,
+    SCORECARD_PACKAGE_MODELS_RELATIVE_ROOT,
     STATIC_MODELS_ROOT,
 )
 from .github import on_github
@@ -304,7 +305,6 @@ def resolve_affected_models(
                 "model.py",
                 "export.py",
                 "test.py",
-                "test_generated.py",
                 "demo.py",
                 "requirements.txt",
                 "code-gen.yaml",
@@ -316,8 +316,6 @@ def resolve_affected_models(
                 continue
             if not include_tests and file_path.name == "test.py":
                 continue
-            if not include_generated_tests and file_path.name == "test_generated.py":
-                continue
             if not include_demo and file_path.name == "demo.py":
                 continue
             if not include_cj_yaml and file_path.name == "code-gen.yaml":
@@ -326,6 +324,17 @@ def resolve_affected_models(
             model_name = file_path.parent.name
             if (file_path.parent / "model.py").exists() and (
                 file_path.parent / "info.yaml"
+            ).exists():
+                changed_models.add(model_name)
+        elif (
+            str(file_path.parent.parent) == SCORECARD_PACKAGE_MODELS_RELATIVE_ROOT
+            and file_path.name == "test_generated.py"
+            and include_generated_tests
+        ):
+            model_name = file_path.parent.name
+            source_model_dir = Path(PY_PACKAGE_RELATIVE_MODELS_ROOT) / model_name
+            if (source_model_dir / "model.py").exists() and (
+                source_model_dir / "info.yaml"
             ).exists():
                 changed_models.add(model_name)
     return changed_models

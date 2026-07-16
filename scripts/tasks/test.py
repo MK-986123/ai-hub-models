@@ -20,6 +20,7 @@ from .constants import (
     PY_PACKAGE_MODELS_ROOT,
     PY_PACKAGE_SRC_ROOT,
     REPO_ROOT,
+    SCORECARD_PACKAGE_MODELS_ROOT,
     STORE_ROOT_ENV_VAR,
 )
 from .task import (
@@ -84,9 +85,13 @@ class PyTestQAIHMTask(PyTestTask):
         ]
 
         # Static scorecard tests are expensive (calls to Hub), so only run them if the static scorecard changes.
+        # scorecard/models/ is excluded here — its per-model test_generated.py
+        # files are collected by the per-model PyTestTask instead, so including
+        # them would double-collect.
         scorecard_files = [
             os.path.join(PY_PACKAGE_SRC_ROOT, "scorecard", x)
             for x in os.listdir(os.path.join(PY_PACKAGE_SRC_ROOT, "scorecard"))
+            if x != "models"
         ]
 
         if not get_changed_files_in_package("src/qai_hub_models/scorecard/static"):
@@ -394,21 +399,29 @@ class PyTestModelTask(CompositeTask):
                         if run_general and (run_compile or run_link):
                             env[COMPILE_SINGLE_INSTANTIATION_ENV_VAR] = "1"
 
-                        # Standard Test Suite
+                        # Standard Test Suite. Hand-written test.py lives at
+                        # models/<id>/; generated test_generated.py lives at
+                        # scorecard/models/<id>/. Collect both in a single
+                        # pytest invocation to avoid duplicated import cost
+                        # and JUnit report collisions.
                         model_dir = os.path.join(PY_PACKAGE_MODELS_ROOT, model_name)
-                        model_test = os.path.join(model_dir, "test.py")
-                        generated_model_test = os.path.join(
-                            model_dir, "test_generated.py"
+                        scorecard_model_dir = os.path.join(
+                            SCORECARD_PACKAGE_MODELS_ROOT, model_name
                         )
-
-                        if os.path.exists(model_test) or os.path.exists(
-                            generated_model_test
+                        test_dirs = []
+                        if os.path.exists(os.path.join(model_dir, "test.py")):
+                            test_dirs.append(model_dir)
+                        if os.path.exists(
+                            os.path.join(scorecard_model_dir, "test_generated.py")
                         ):
+                            test_dirs.append(scorecard_model_dir)
+
+                        if test_dirs:
                             tasks.append(
                                 PyTestTask(
                                     group_name=f"Model Tests: {model_name}",
                                     venv=model_venv,
-                                    files_or_dirs=model_dir,
+                                    files_or_dirs=" ".join(test_dirs),
                                     parallel=False,
                                     extra_args=" ".join([*extras_args, "--no-header"]),
                                     env=env,

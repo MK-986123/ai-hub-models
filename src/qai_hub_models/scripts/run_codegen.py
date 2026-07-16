@@ -23,6 +23,7 @@ from qai_hub_models.utils.asset_loaders import load_yaml
 from qai_hub_models.utils.path_helpers import (
     MODEL_IDS,
     QAIHM_MODELS_ROOT,
+    QAIHM_PACKAGE_ROOT,
     QAIHM_PACKAGE_SRC_ROOT,
     QAIHM_REPO_ROOT,
 )
@@ -316,8 +317,13 @@ def generate_code_for_model(model_name: str) -> list[str]:
     export_options_dict["has_external_repos"] = bool(export_options.external_repos)
 
     should_generate_tests = not export_options.skip_hub_tests_and_scorecard
-    test_path = model_dir / "test_generated.py"
+    scorecard_model_dir = QAIHM_PACKAGE_ROOT / "scorecard" / "models" / model_name
+    test_path = scorecard_model_dir / "test_generated.py"
     if should_generate_tests:
+        scorecard_model_dir.mkdir(parents=True, exist_ok=True)
+        init_path = scorecard_model_dir / "__init__.py"
+        if not init_path.exists():
+            init_path.touch()
         generated_files.append(
             _generate_unit_tests(
                 environment, model_name, export_options_dict, test_path
@@ -326,18 +332,36 @@ def generate_code_for_model(model_name: str) -> list[str]:
     elif test_path.exists() and _is_auto_generated(test_path):
         os.remove(test_path)
 
+    # Transition-only: remove the auto-generated test file from its old home
+    # under models/<id>/. Kept for one PR of grace so in-flight branches
+    # don't leave orphans. Delete this block once no branches reference
+    # the old location (tetracode#20296 PR 3 cleanup).
+    old_test_path = model_dir / "test_generated.py"
+    if old_test_path.exists() and _is_auto_generated(old_test_path):
+        os.remove(old_test_path)
+
     should_generate_conftest = (
         should_generate_tests and not export_options.is_precompiled
     )
-    conftest_path = model_dir / "conftest.py"
-    if should_generate_conftest:
-        generated_files.append(
-            _generate_conftest(
-                environment, model_name, export_options_dict, conftest_path
+    # tetracode#20296: emit conftest.py at BOTH the hand-written test.py's
+    # location (models/<id>/) and the moved test_generated.py's location
+    # (scorecard/models/<id>/) so cached_from_pretrained applies to tests
+    # in both dirs (pytest conftest discovery doesn't walk sideways). The
+    # two files are identical today; the scorecard-side conftest may
+    # diverge later as scorecard-specific fixtures are added.
+    conftest_paths = [
+        model_dir / "conftest.py",
+        scorecard_model_dir / "conftest.py",
+    ]
+    for conftest_path in conftest_paths:
+        if should_generate_conftest:
+            generated_files.append(
+                _generate_conftest(
+                    environment, model_name, export_options_dict, conftest_path
+                )
             )
-        )
-    elif conftest_path.exists() and _is_auto_generated(conftest_path):
-        os.remove(conftest_path)
+        elif conftest_path.exists() and _is_auto_generated(conftest_path):
+            os.remove(conftest_path)
 
     evaluate_path = model_dir / "evaluate.py"
     if not export_options.is_precompiled and not export_options.skip_evaluate:
