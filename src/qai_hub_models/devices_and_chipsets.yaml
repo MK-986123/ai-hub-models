@@ -500,7 +500,7 @@ devices:
     vendor: qualcomm
     icon: IoT_Chip
     available_in_workbench: false
-  XR2 Gen 2:
+  Snapdragon XR2 Gen 2:
     chipset: qualcomm-qcs8450
     reference_chipset: qualcomm-snapdragon-8gen1
     os:
@@ -879,4 +879,4 @@ chipsets:
     supports_fp16: true
     htp_version: 69
     soc_model: 36
-    reference_device: XR2 Gen 2
+    reference_device: Snapdragon XR2 Gen 2

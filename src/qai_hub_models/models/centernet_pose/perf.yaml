@@ -18,7 +18,7 @@ supported_devices:
 - Samsung Galaxy S23 Ultra
 - Samsung Galaxy S23+
 - Samsung Galaxy S22 5G
-- XR2 Gen 2
+- Snapdragon XR2 Gen 2
 - Samsung Galaxy S22 Ultra 5G
 - Samsung Galaxy S22+ 5G
 - Samsung Galaxy Tab S8
@@ -426,7 +426,7 @@ precisions:
                 npu: 1111
               tool_versions:
                 qairt: 2.45.0.260326154327
-          XR2 Gen 2:
+          Snapdragon XR2 Gen 2:
             precompiled_qnn_onnx:
               job_id: jgz4o0qzp
               job_status: Passed

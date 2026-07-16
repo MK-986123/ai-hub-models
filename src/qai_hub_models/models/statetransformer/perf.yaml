@@ -15,7 +15,7 @@ supported_devices:
 - Samsung Galaxy S23 Ultra
 - Samsung Galaxy S23+
 - Samsung Galaxy S22 5G
-- XR2 Gen 2
+- Snapdragon XR2 Gen 2
 - Samsung Galaxy S22 Ultra 5G
 - Samsung Galaxy S22+ 5G
 - Samsung Galaxy Tab S8
@@ -280,7 +280,7 @@ precisions:
                 cpu: 2730
               tool_versions:
                 litert: 1.4.4
-          XR2 Gen 2:
+          Snapdragon XR2 Gen 2:
             tflite:
               job_id: jg9xw3rwg
               job_status: Passed

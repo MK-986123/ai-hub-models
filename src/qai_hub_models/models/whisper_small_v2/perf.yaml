@@ -18,7 +18,7 @@ supported_devices:
 - QCS8550 (Proxy)
 - SA8775P ADP
 - QCS8450 (Proxy)
-- XR2 Gen 2 (Proxy)
+- Snapdragon XR2 Gen 2 (Proxy)
 - SA7255P ADP
 - SA8295P ADP
 supported_chipsets:

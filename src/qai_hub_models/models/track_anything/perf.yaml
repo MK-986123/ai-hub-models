@@ -18,7 +18,7 @@ supported_devices:
 - Samsung Galaxy S23 Ultra
 - Samsung Galaxy S23+
 - Samsung Galaxy S22 5G
-- XR2 Gen 2
+- Snapdragon XR2 Gen 2
 - Samsung Galaxy S22 Ultra 5G
 - Samsung Galaxy S22+ 5G
 - Samsung Galaxy Tab S8
@@ -398,7 +398,7 @@ precisions:
               tool_versions:
                 qairt: 2.45.0.260326154327
                 onnx_runtime: 1.26.0
-          XR2 Gen 2:
+          Snapdragon XR2 Gen 2:
             onnx:
               job_id: jgk93r1w5
               job_status: Passed
@@ -767,7 +767,7 @@ precisions:
               tool_versions:
                 qairt: 2.45.0.260326154327
                 onnx_runtime: 1.26.0
-          XR2 Gen 2:
+          Snapdragon XR2 Gen 2:
             onnx:
               job_id: j56dnqx6p
               job_status: Passed
@@ -1136,7 +1136,7 @@ precisions:
               tool_versions:
                 qairt: 2.45.0.260326154327
                 onnx_runtime: 1.26.0
-          XR2 Gen 2:
+          Snapdragon XR2 Gen 2:
             onnx:
               job_id: jpv9vzjk5
               job_status: Passed
@@ -1505,7 +1505,7 @@ precisions:
               tool_versions:
                 qairt: 2.45.0.260326154327
                 onnx_runtime: 1.26.0
-          XR2 Gen 2:
+          Snapdragon XR2 Gen 2:
             onnx:
               job_id: jpelk4jog
               job_status: Passed
