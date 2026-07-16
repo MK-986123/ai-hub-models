@@ -20,8 +20,7 @@
       "Bash(gh *)",
       "WebFetch(*)",
       "Read(//tmp/claude/**)",
-      "Edit(//tmp/claude/**)",
-      "Write(//tmp/claude/**)"
+      "Edit(//tmp/claude/**)"
     ]
   },
   "hooks": {

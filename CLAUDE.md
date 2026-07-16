@@ -58,9 +58,8 @@ Then write `.claude/settings.local.json`, replacing `<repo>` and `<cache>` with 
       "WebFetch(*)",
       "Read(//<repo>/**)",
       "Edit(//<repo>/**)",
-      "Write(//<repo>/**)",
       "Read(//<cache>/**)",
-      "Write(//<cache>/**)"
+      "Edit(//<cache>/**)"
     ]
   }
 }
