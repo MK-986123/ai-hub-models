@@ -201,6 +201,12 @@ class PerformanceDiff:
         """Return the compile-job ID for these params, or "null" if missing.
 
         The linkifier renders "null" as N/A.
+
+        Single-component models are stored in the cache with component=None
+        (see ScorecardJobYaml.update_from_export_output), while perf.yaml
+        surfaces a display component name for the same rows. Fall back to a
+        component-less lookup when the component-keyed one misses so those
+        rows still get a link in the regression issue.
         """
         params = ScJobParams(
             model_id=model_id,
@@ -211,7 +217,19 @@ class PerformanceDiff:
         )
         if not params.has_compile_job:
             return "null"
-        return compile_jobs.get_job_id(params) or "null"
+        if job_id := compile_jobs.get_job_id(params):
+            return job_id
+        if component is not None:
+            params_no_component = ScJobParams(
+                model_id=model_id,
+                path=path,
+                precision=precision,
+                device=device,
+                component=None,
+            )
+            if job_id := compile_jobs.get_job_id(params_no_component):
+                return job_id
+        return "null"
 
     def _update_summary_for_path(
         self,

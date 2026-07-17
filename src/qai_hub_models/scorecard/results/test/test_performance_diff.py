@@ -366,6 +366,47 @@ def test_get_severe_regressions() -> None:
     assert results[0].previous_compile_job_id == PREV_COMPILE_JOB_ID
 
 
+def test_get_severe_regressions_compile_id_fallback_without_component() -> None:
+    """Compile-job cache keyed with component=None still resolves for a
+    component-named perf.yaml row.
+
+    Production caches store single-component models with component=None (see
+    ScorecardJobYaml.update_from_export_output), but perf.yaml surfaces a
+    display component name for the same rows. The lookup must fall back to
+    component=None so the compile-job link is populated in regression issues.
+    """
+    prev = get_basic_speedup_report(
+        PREV_JOB_ID,
+        onnx_tf_inference_time=10.0,
+        onnx_ort_qnn_inference_time=5.123,
+    )
+    new = get_basic_speedup_report(
+        onnx_tf_inference_time=20.0, onnx_ort_qnn_inference_time=5.123
+    )
+
+    params_no_component = ScJobParams(
+        model_id=MODEL_ID,
+        path=ScorecardProfilePath.TFLITE,
+        precision=Precision.float,
+        device=cs_8_gen_3,
+        component=None,
+    )
+    perf_diff = PerformanceDiff(
+        current_compile_jobs=CompileScorecardJobYaml(
+            {params_no_component.compile_job_id: COMPILE_JOB_ID}
+        ),
+        previous_compile_jobs=CompileScorecardJobYaml(
+            {params_no_component.compile_job_id: PREV_COMPILE_JOB_ID}
+        ),
+    )
+    perf_diff.update_summary(MODEL_ID, prev, new)
+
+    results = perf_diff.get_severe_regressions(min_factor=2.0)
+    assert len(results) == 1
+    assert results[0].compile_job_id == COMPILE_JOB_ID
+    assert results[0].previous_compile_job_id == PREV_COMPILE_JOB_ID
+
+
 def test_get_severe_regressions_excludes_small() -> None:
     """Regressions below the min_factor threshold are excluded."""
     prev = get_basic_speedup_report(
