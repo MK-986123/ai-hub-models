@@ -470,7 +470,6 @@ class Llama3DynamicBase(LLMDynamicBase, Llama3Base):
             path=str(onnx_path),
             return_model=False,
             llm_io_type=self.llm_io_type,
-            use_dynamic_shapes=True,
             quiet=True,
         )
 
@@ -621,7 +620,6 @@ class LlamaDynamicQuantizablePreSplitMixin(DynamicQuantizablePreSplitMixin[FPMod
             context_length=fp_model.context_length,
             host_device=host_device,
             llm_io_type=fp_model.llm_io_type,
-            use_dynamic_shapes=True,
         )
         cls.save_tokenizer_and_config(  # type: ignore[attr-defined]
             checkpoint=checkpoint, fp_model=fp_model

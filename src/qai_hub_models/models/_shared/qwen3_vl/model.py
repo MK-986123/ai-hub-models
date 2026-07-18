@@ -1213,7 +1213,6 @@ class Qwen3VLPreSplitBase(
             path=str(onnx_path),
             return_model=False,
             llm_io_type=self.llm_io_type,
-            use_dynamic_shapes=True,
             extra_dynamic_shapes=extra_dynamic_shapes,
         )
         return ONNXBundle.from_bundle_path(onnx_dir, "model")

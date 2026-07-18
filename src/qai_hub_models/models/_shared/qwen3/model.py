@@ -389,7 +389,6 @@ class Qwen3DynamicBase(LLMDynamicBase, Qwen3Base):
             path=str(onnx_path),
             return_model=False,
             llm_io_type=self.llm_io_type,
-            use_dynamic_shapes=True,
             quiet=True,
         )
 

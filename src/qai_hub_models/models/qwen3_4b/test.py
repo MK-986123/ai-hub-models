@@ -198,7 +198,6 @@ def test_quantize_and_demo(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -
         precision=Precision.w4a16,
         checkpoint="DEFAULT",
         use_seq_mse=False,
-        use_dynamic_shapes=True,
     )
     qwen3_4b_chat_demo(
         fp_model_cls=FPSplitModelWrapper,

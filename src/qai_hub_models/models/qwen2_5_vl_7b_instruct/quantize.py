@@ -200,7 +200,6 @@ def main() -> None:
             seq_mse_num_samples=args.seq_mse_num_samples,
             ada_scale_num_samples=args.ada_scale_num_samples,
             ada_scale_num_iterations=args.ada_scale_num_iterations,
-            use_dynamic_shapes=True,
         )
     else:
         print("Skipping Pass 1 (LLM) as requested.")

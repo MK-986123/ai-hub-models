@@ -252,7 +252,6 @@ def test_quantize_and_demo(
         precision=Precision.w4a16,
         checkpoint="DEFAULT",
         use_seq_mse=False,
-        use_dynamic_shapes=True,
         image_size=(DEFAULT_IMAGE_HEIGHT, DEFAULT_IMAGE_WIDTH),
     )
     # Pass 2: vision encoder. Writes vision_encoder.{onnx,data,encodings} into

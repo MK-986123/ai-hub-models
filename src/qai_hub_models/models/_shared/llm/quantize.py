@@ -68,7 +68,6 @@ def quantize(
     seq_mse_num_samples: int | None = None,
     ada_scale_num_samples: int | None = None,
     ada_scale_num_iterations: int | None = None,
-    use_dynamic_shapes: bool = False,
     image_size: tuple[int, int] | None = None,
 ) -> None:
     # Calibration should run on the PreSplit (monolithic QuantSim) class. A
@@ -84,12 +83,11 @@ def quantize(
             quantized_model_cls.__name__,
         )
 
-    if use_dynamic_shapes:
-        ensure_supported_version(
-            "torch",
-            min_version=TORCH_DYNAMIC_SHAPE_MIN_VERSION,
-            below_version=TORCH_DYNAMIC_SHAPE_BELOW_VERSION,
-        )
+    ensure_supported_version(
+        "torch",
+        min_version=TORCH_DYNAMIC_SHAPE_MIN_VERSION,
+        below_version=TORCH_DYNAMIC_SHAPE_BELOW_VERSION,
+    )
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     if device.type != "cuda" and (use_seq_mse or use_ada_scale):
@@ -122,7 +120,6 @@ def quantize(
     if not issubclass(quantized_model_cls, DynamicQuantizablePreSplitMixin):
         quant_extra["context_length"] = context_length
         quant_extra["sequence_length"] = seq_len
-        quant_extra["use_dynamic_shapes"] = use_dynamic_shapes
     model_quant = quantized_model_cls.from_pretrained(**quant_extra)
 
     # Determine how many samples we need
@@ -178,11 +175,7 @@ def quantize(
         weight_optimization_data=weight_optim_dataloader,
     )
 
-    save_kwargs: dict[str, Any] = dict(fp_model=fp_model)
-    # PreSplit models always use dynamic shapes; the mixin handles it internally.
-    if not issubclass(quantized_model_cls, DynamicQuantizablePreSplitMixin):
-        save_kwargs["use_dynamic_shapes"] = use_dynamic_shapes
-    model_quant.save_calibrated_checkpoint(output_dir, **save_kwargs)
+    model_quant.save_calibrated_checkpoint(output_dir, fp_model=fp_model)
     model_quant = model_quant.to("cpu")
     del model_quant
     fp_model = fp_model.to("cpu")
@@ -263,12 +256,6 @@ def llm_quantize(
         choices=[str(p) for p in supported_precisions],
         help="Pick the precision with which the model must be quantized.",
     )
-    parser.add_argument(
-        "--use-dynamic-shapes",
-        action="store_true",
-        default=False,
-        help=argparse.SUPPRESS,
-    )
     cli_args = sys.argv[1:]
     args = parser.parse_args(cli_args)
 
@@ -286,7 +273,6 @@ def llm_quantize(
         seq_mse_num_samples=args.seq_mse_num_samples,
         ada_scale_num_samples=args.ada_scale_num_samples,
         ada_scale_num_iterations=args.ada_scale_num_iterations,
-        use_dynamic_shapes=args.use_dynamic_shapes,
     )
 
     save_command_args(Path(args.output_dir) / "args.json", args, cli_args)

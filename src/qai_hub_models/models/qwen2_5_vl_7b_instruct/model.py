@@ -305,7 +305,6 @@ class Qwen2_5_VL_7B_PreSplit(
             path=str(onnx_path),
             return_model=False,
             llm_io_type=self.llm_io_type,
-            use_dynamic_shapes=True,
         )
         return ONNXBundle.from_bundle_path(onnx_dir, "model")
 

@@ -676,19 +676,12 @@ def setup_test_quantization(
     checkpoint: str | None = None,
     num_samples: int = 0,
     use_seq_mse: bool = False,
-    use_dynamic_shapes: bool = False,
     image_size: tuple[int, int] | None = None,
 ) -> str:
     if not (
         (Path(output_path) / "model.encodings").exists()
         and (Path(output_path) / "model.data").exists()
-        and (
-            (
-                (Path(output_path) / "model_seqlen1_cl4096.onnx").exists()
-                and (Path(output_path) / "model_seqlen128_cl4096.onnx").exists()
-            )
-            or (Path(output_path) / "model_dynamic.onnx").exists()
-        )
+        and (Path(output_path) / "model_dynamic.onnx").exists()
     ):
         quantize(
             quantized_model_cls=model_cls,
@@ -700,7 +693,6 @@ def setup_test_quantization(
             checkpoint=checkpoint,
             num_samples=num_samples,
             use_seq_mse=use_seq_mse,
-            use_dynamic_shapes=use_dynamic_shapes,
             image_size=image_size,
         )
         cleanup()
