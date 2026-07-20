@@ -1,0 +1,140 @@
+name: Scorecard - LLM On-Device Run (Asset Upload, Perf, Accuracy)
+
+on:
+    workflow_call:
+      inputs:
+        action_id:
+          type: string
+          required: true
+
+        s3_prefix:
+          description: |
+            S3 prefix for context-binary uploads. Empty disables S3 upload.
+            "pre_release_assets" is canonical (kept forever); "ephemeral_test_assets"
+            is auto-purged after 7 days via lifecycle rule.
+          type: string
+          default: ''
+
+        deployment:
+          description: Hub Deployment
+          type: string
+          default: prod
+
+        device:
+          description: |
+            Target device(s) for LLM perf collection. Must match the devices
+            built by the asset-upload step (which reads QAIHM_TEST_DEVICES from
+            the scorecard environment.env). "all" or empty falls back to every
+            LLM compile device.
+          type: string
+          default: 'all'
+
+        test_precisions:
+          description: |
+            Test Precisions (float, w8a8, etc.)
+          type: string
+          default: 'default'
+
+        test_runtimes:
+          description: |
+            Test Paths (runtimes). See `src/qai_hub_models/scorecard/path_profile.py`.
+            "default" is the same as "genie,geniex_qairt".
+          type: string
+          default: 'default'
+
+        run_eval:
+          description: |
+            Run the on-device accuracy evaluation (100 default prompts). When
+            false, only TPS/TTFT perf is collected. Maps to test_scope:
+            true for "accuracy"/"perf_and_accuracy", false for "perf".
+          type: boolean
+          default: true
+
+env:
+  PYTHONUNBUFFERED: 1
+  VENV_PATH: build/ci-envs/qaihm-build
+  QAIHM_CI: 1
+
+jobs:
+  determine_llm_models:
+    name: Determine LLM Models
+    runs-on: [tetra-ubuntu-2204, self-hosted]
+    outputs:
+      models: ${{ steps.find.outputs.models }}
+      has_models: ${{ steps.find.outputs.has_models }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: CI Setup
+        uses: ./.github/actions/ci-setup
+        with:
+          sudo-password: ${{ secrets.TETRASERVICE_PASSWORD }}
+          venv-path: ${{ env.VENV_PATH }}
+
+      - name: Download Flaky-Job Artifacts
+        uses: actions/download-artifact@v8
+        with:
+            run-id: ${{ inputs.action_id }}
+            github-token: ${{ github.token }}
+            name: Scorecard Cached Artifact (Flaky-Job-IDs, ${{ inputs.action_id }})
+            path: build/scorecard-yamls/${{ inputs.action_id }}
+
+      - name: Find Models in LLM Split
+        id: find
+        run: |
+          source "${{ env.VENV_PATH }}/bin/activate"
+          MODELS=$(grep '^QAIHM_TEST_MODELS=' build/scorecard-yamls/${{ inputs.action_id }}/environment.env | cut -d= -f2 | tr -cd 'A-Za-z0-9_,\-')
+          MATRIX=$(python -m qai_hub_models.scripts.split_torch_models --models "$MODELS" --output-format github)
+          LLM_MODELS=$(echo "$MATRIX" | python -c "import json, sys; splits=json.load(sys.stdin); m=next((s['models'] for s in splits if s['split_name']=='llm'), ''); print(m)")
+          echo "models=$LLM_MODELS" >> "$GITHUB_OUTPUT"
+          if [ -n "$LLM_MODELS" ]; then
+            echo "has_models=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_models=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "LLM models: $LLM_MODELS"
+
+  test_llm_export:
+    name: LLM Asset Upload
+    needs: determine_llm_models
+    if: ${{ needs.determine_llm_models.outputs.has_models == 'true' }}
+    secrets: inherit
+    uses: ./.github/workflows/scorecard_test_export_scripts.yml
+    with:
+      action_id: ${{ inputs.action_id }}
+      s3_prefix: ${{ inputs.s3_prefix }}
+      models: ${{ needs.determine_llm_models.outputs.models }}
+      split_name: llm
+      runs_on: '["tetra-ubuntu-2204", "self-hosted"]'
+      build_and_test_target: test_llm_export_scripts
+
+  collect_llm_perf:
+    name: Collect LLM Performance Numbers (Genie)
+    needs: [determine_llm_models, test_llm_export]
+    if: ${{ !cancelled() && needs.test_llm_export.result == 'success' && inputs.s3_prefix != '' && (inputs.test_runtimes == 'default' || inputs.test_runtimes == '' || contains(format(',{0},', inputs.test_runtimes), ',genie,')) }}
+    secrets: inherit
+    uses: ./.github/workflows/llm_perf_collection.yml
+    with:
+      model: ${{ needs.determine_llm_models.outputs.models }}
+      device: ${{ inputs.device }}
+      # Map default and default variants to 'all' (see scorecard/envvars.py).
+      precision: ${{ contains(fromJSON('["default", "default_minus_float", "default_quantized", "bench"]'), inputs.test_precisions) && 'all' || inputs.test_precisions }}
+      deployment: ${{ inputs.deployment }}
+      run_eval: ${{ inputs.run_eval }}
+      create_pr: false
+      release_assets_action_id: ${{ inputs.action_id }}
+
+  collect_llm_perf_geniex:
+    name: Collect LLM Performance Numbers (GenieX-QAIRT)
+    needs: [determine_llm_models, test_llm_export]
+    if: ${{ !cancelled() && needs.test_llm_export.result == 'success' && inputs.s3_prefix != '' && (inputs.test_runtimes == 'default' || inputs.test_runtimes == '' || contains(format(',{0},', inputs.test_runtimes), ',geniex_qairt,')) }}
+    secrets: inherit
+    uses: ./.github/workflows/llm_perf_collection_geniex.yml
+    with:
+      model: ${{ needs.determine_llm_models.outputs.models }}
+      device: ${{ inputs.device }}
+      # Map default and default variants to 'all' (see scorecard/envvars.py).
+      precision: ${{ contains(fromJSON('["default", "default_minus_float", "default_quantized", "bench"]'), inputs.test_precisions) && 'all' || inputs.test_precisions }}
+      geniex_bench_plugin: qairt
+      release_assets_action_id: ${{ inputs.action_id }}
+      create_pr: false

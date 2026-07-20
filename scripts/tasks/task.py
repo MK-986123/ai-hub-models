@@ -6,21 +6,39 @@ from __future__ import annotations
 
 import os
 import subprocess
+import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from sys import platform
 
 from .constants import REPO_ROOT
 from .github import end_group, start_group
+from .test_utils import TestStatus, write_junit_testcase
 from .util import BASH_EXECUTABLE, debug_mode, default_parallelism, echo, have_root
 
 
 class Task(ABC):
-    def __init__(self, group_name: str | None, raise_on_failure: bool = True) -> None:
+    def __init__(
+        self,
+        group_name: str | None,
+        raise_on_failure: bool = True,
+        junit_xml_path: str | None = None,
+        junit_testsuite: str = "",
+        junit_name: str = "",
+        junit_classname: str = "",
+        prereqs: list[Task] | None = None,
+        group_logs_on_ci: bool = True,
+    ) -> None:
         self.group_name = group_name
+        self.group_logs_on_ci = group_logs_on_ci
         self.raise_on_failure = raise_on_failure
         self.last_result: bool | None = None
         self.last_result_exception: Exception | None = None
+        self.junit_xml_path = junit_xml_path
+        self.junit_testsuite = junit_testsuite
+        self.junit_name = junit_name
+        self.junit_classname = junit_classname
+        self.prereqs = prereqs or []
 
     @abstractmethod
     def does_work(self) -> bool:
@@ -30,12 +48,46 @@ class Task(ABC):
     def run_task(self) -> bool:
         """Entry point for implementations: perform the task's action."""
 
+    def _write_junit(
+        self,
+        status: TestStatus,
+        message: str = "",
+        text: str = "",
+    ) -> None:
+        if not self.junit_xml_path:
+            return
+        write_junit_testcase(
+            junit_xml_path=self.junit_xml_path,
+            testsuite=self.junit_testsuite,
+            name=self.junit_name,
+            classname=self.junit_classname,
+            status=status,
+            message=message,
+            text=text,
+        )
+
+    def _failed_prereqs(self) -> list[Task]:
+        return [p for p in self.prereqs if p.last_result is False]
+
     def run(self) -> bool:
         """Entry point for callers: perform any startup/teardown tasks and call run_task."""
         self.last_result_exception = None
 
-        if self.group_name:
+        if self.group_name and self.group_logs_on_ci:
             start_group(self.group_name)
+
+        failed = self._failed_prereqs()
+        if failed:
+            names = ", ".join(p.group_name or "unnamed" for p in failed)
+            echo(f"Skipping {self.group_name}: prerequisite(s) failed ({names})")
+            self._write_junit(
+                TestStatus.SKIPPED,
+                message=f"Skipped: prerequisite(s) failed ({names})",
+            )
+            self.last_result = False
+            if self.group_name and self.group_logs_on_ci:
+                end_group()
+            return False
 
         try:
             result = self.run_task()
@@ -43,12 +95,20 @@ class Task(ABC):
             self.last_result_exception = err
             result = False
 
+        if self.group_name and self.group_logs_on_ci:
+            end_group()
+
+        if not result:
+            self._write_junit(
+                TestStatus.FAILED,
+                message=f"{self.group_name} failed. Check the logs for details.",
+            )
+        else:
+            self._write_junit(TestStatus.PASSED)
+
         self.last_result = result
         if not result and self.raise_on_failure:
             raise self.last_result_exception or Exception(self.get_status_message())
-
-        if self.group_name:
-            end_group()
 
         return result
 
@@ -105,10 +165,25 @@ class RunCommandsTask(Task):
         cwd: str | None = None,
         raise_on_failure: bool = True,
         ignore_return_codes: list[int] | None = None,
+        junit_xml_path: str | None = None,
+        junit_testsuite: str = "",
+        junit_name: str = "",
+        junit_classname: str = "",
+        prereqs: list[Task] | None = None,
+        retries: int = 0,
+        retry_sleep_s: float = 30.0,
     ) -> None:
         if ignore_return_codes is None:
             ignore_return_codes = []
-        super().__init__(group_name, raise_on_failure)
+        super().__init__(
+            group_name,
+            raise_on_failure,
+            junit_xml_path=junit_xml_path,
+            junit_testsuite=junit_testsuite,
+            junit_name=junit_name,
+            junit_classname=junit_classname,
+            prereqs=prereqs,
+        )
         if isinstance(commands, str):
             self.commands = [commands]
         else:
@@ -120,6 +195,8 @@ class RunCommandsTask(Task):
         self.cwd = cwd
         self.env = env
         self.ignore_return_codes = ignore_return_codes
+        self.retries = retries
+        self.retry_sleep_s = retry_sleep_s
 
     def does_work(self) -> bool:
         return True
@@ -134,21 +211,32 @@ class RunCommandsTask(Task):
 
     def _run_command(self, command: str) -> bool:
         echo(f"bnt $ {command}")
-        try:
-            subprocess.run(
-                command,
-                shell=True,
-                check=True,
-                cwd=self.cwd,
-                env=self.env,
-                executable=BASH_EXECUTABLE,
-            )
-        except subprocess.CalledProcessError as e:
-            if e.returncode in self.ignore_return_codes:
+        max_attempts = self.retries + 1
+        for attempt in range(1, max_attempts + 1):
+            try:
+                subprocess.run(
+                    command,
+                    shell=True,
+                    check=True,
+                    cwd=self.cwd,
+                    env=self.env,
+                    executable=BASH_EXECUTABLE,
+                )
                 return True
-            if self.raise_on_failure:
-                raise
-            return False
+            except subprocess.CalledProcessError as e:
+                if e.returncode in self.ignore_return_codes:
+                    return True
+                if attempt < max_attempts:
+                    echo(
+                        f"Command failed (exit {e.returncode}); "
+                        f"retrying in {self.retry_sleep_s}s "
+                        f"(attempt {attempt}/{max_attempts})"
+                    )
+                    time.sleep(self.retry_sleep_s)
+                    continue
+                if self.raise_on_failure:
+                    raise
+                return False
         return True
 
 
@@ -166,6 +254,13 @@ class RunCommandsWithVenvTask(RunCommandsTask):
         env: dict[str, str] | None = None,
         raise_on_failure: bool = True,
         ignore_return_codes: list[int] | None = None,
+        junit_xml_path: str | None = None,
+        junit_testsuite: str = "",
+        junit_name: str = "",
+        junit_classname: str = "",
+        prereqs: list[Task] | None = None,
+        retries: int = 0,
+        retry_sleep_s: float = 30.0,
     ) -> None:
         if ignore_return_codes is None:
             ignore_return_codes = []
@@ -175,6 +270,13 @@ class RunCommandsWithVenvTask(RunCommandsTask):
             env=env,
             raise_on_failure=raise_on_failure,
             ignore_return_codes=ignore_return_codes,
+            junit_xml_path=junit_xml_path,
+            junit_testsuite=junit_testsuite,
+            junit_name=junit_name,
+            junit_classname=junit_classname,
+            prereqs=prereqs,
+            retries=retries,
+            retry_sleep_s=retry_sleep_s,
         )
         self.venv = venv
         self.commands = [commands] if isinstance(commands, str) else commands
@@ -206,8 +308,11 @@ class PyTestTask(RunCommandsWithVenvTask):
         # to ignore that return code (count it as "passed")
         ignore_no_tests_return_code: bool = False,
         include_pytest_cmd_in_status_message: bool = True,
-        junit_xml_path: str | None = None,  # Add this parameter
-        config_file: str | os.PathLike = os.path.join(REPO_ROOT, "pyproject.toml"),
+        junit_xml_path: str | None = None,
+        config_file: str | os.PathLike = os.path.join(
+            REPO_ROOT, "src", "pyproject.toml"
+        ),
+        prereqs: list[Task] | None = None,
     ) -> None:
         pytest_options = f"--config-file={config_file}"
 
@@ -255,6 +360,7 @@ class PyTestTask(RunCommandsWithVenvTask):
             env,
             raise_on_failure,
             ignore_return_codes=[5] if ignore_no_tests_return_code else [],
+            prereqs=prereqs,
         )
 
     def get_status_message(self) -> str:
@@ -273,8 +379,21 @@ class CompositeTask(Task):
         continue_after_single_task_failure: bool = False,
         raise_on_failure: bool = True,
         show_subtasks_in_failure_message: bool = True,
+        junit_xml_path: str | None = None,
+        junit_testsuite: str = "",
+        junit_name: str = "",
+        junit_classname: str = "",
     ) -> None:
-        super().__init__(group_name, raise_on_failure)
+        super().__init__(
+            group_name,
+            raise_on_failure,
+            junit_xml_path=junit_xml_path,
+            junit_testsuite=junit_testsuite,
+            junit_name=junit_name,
+            junit_classname=junit_classname,
+            # Don't group logs if subtasks use groups. GH can't handle nested groups.
+            group_logs_on_ci=not any(t.group_logs_on_ci for t in tasks),
+        )
         self.tasks = tasks
         self.continue_after_single_task_failure = continue_after_single_task_failure
         self.show_subtasks_in_failure_message = show_subtasks_in_failure_message

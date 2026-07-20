@@ -1,0 +1,122 @@
+# ---------------------------------------------------------------------
+# Copyright (c) 2024-2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+# ---------------------------------------------------------------------
+
+from __future__ import annotations
+
+import os
+
+import torch
+from typing_extensions import Self
+
+from qai_hub_models import (
+    Precision,
+)
+from qai_hub_models.datasets.coco import CocoBodyDataset
+from qai_hub_models.evaluators.movenet_evaluator import MovenetPoseEvaluator
+from qai_hub_models.models.movenet.external_repos import EXTERNAL_REPO_PATHS
+from qai_hub_models.models.movenet.external_repos.movenet_pytorch.movenet.models.model_factory import (
+    load_model,
+)
+from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
+from qai_hub_models.utils.base_dataset import BaseDataset
+from qai_hub_models.utils.base_evaluator import BaseEvaluator
+from qai_hub_models.utils.base_model import BaseModel, SerializationSettings
+from qai_hub_models.utils.input_spec import (
+    ColorFormat,
+    ImageMetadata,
+    InputSpec,
+    IoType,
+    OutputSpec,
+    TensorSpec,
+)
+
+MODEL_ID = __name__.split(".")[-2]
+MODEL_ASSET_VERSION = 2
+SAMPLE_INPUTS = CachedWebModelAsset.from_asset_store(
+    MODEL_ID, MODEL_ASSET_VERSION, "movenet_inputs_2.npy"
+)
+DEFAULT_MODEL_NAME = "movenet_lightning"
+OUTPUT_STRIDE = 16
+
+
+class Movenet(BaseModel):
+    def __init__(self, model: torch.nn.Module) -> None:
+        super().__init__(model, SerializationSettings(use_pt2=False))
+
+    @classmethod
+    def from_pretrained(
+        cls,
+        model_id: int = 101,
+    ) -> Self:
+        # The movenet repo uses relative paths (e.g. "./_models") for weights.
+        # Temporarily change CWD to the repo root so those paths resolve.
+        repo_dir = EXTERNAL_REPO_PATHS["movenet_pytorch"]
+        prev_cwd = os.getcwd()
+        os.chdir(repo_dir)
+        try:
+            model = load_model(DEFAULT_MODEL_NAME, ft_size=48)
+        finally:
+            os.chdir(prev_cwd)
+        return cls(model)
+
+    def forward(self, image: torch.Tensor) -> torch.Tensor:
+        """
+        This method performs forward inference on the Movenet_pytorch model.
+
+        Parameters
+        ----------
+        image
+            Input tensor of shape (N, C, H, W) with range [0, 1] in RGB format of shape `(1, 3, 192, 192)`
+
+        Returns
+        -------
+        kpt_with_conf : torch.Tensor
+            Tensor of shape `(N, 1, 17, 3)`, where:
+            - `N` -> batch size
+            - `1` -> Single detected person
+            - `17`-> Number of keypoints detected
+            - `3` -> Each keypoint consists of (y, x) coordinates and confidence score.
+        """
+        image = image * 255  # Model expects float values in the range [0.0, 255.0]
+        return self.model(image)
+
+    def get_input_spec(
+        self,
+        batch_size: int = 1,
+        height: int = 192,
+        width: int = 192,
+    ) -> InputSpec:
+        return {
+            "image": TensorSpec(
+                shape=(batch_size, 3, height, width),
+                dtype="float32",
+                io_type=IoType.IMAGE,
+                value_range=(0.0, 1.0),
+                image_metadata=ImageMetadata(
+                    color_format=ColorFormat.RGB,
+                ),
+                apply_runtime_channel_reordering=True,
+            ),
+        }
+
+    def get_output_spec(self) -> OutputSpec:
+        return {
+            "kpt_with_conf": TensorSpec(),
+        }
+
+    def get_evaluator(self, name: str | None = None) -> BaseEvaluator:
+        h, w = self.get_input_spec()["image"][0][2:]
+        return MovenetPoseEvaluator(h, w)
+
+    @classmethod
+    def get_eval_dataset_classes(cls) -> list[type[BaseDataset]]:
+        return [CocoBodyDataset]
+
+    def get_calibration_dataset_cls(self) -> type[BaseDataset]:
+        return CocoBodyDataset
+
+    def get_hub_litemp_percentage(self, precision: Precision) -> float:
+        """Returns the Lite-MP percentage value for the specified mixed precision quantization"""
+        return 2

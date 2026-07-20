@@ -1,0 +1,7 @@
+extend = "../ruff.toml"
+
+[lint.isort]
+known-first-party = ["qai_hub_models_cli"]
+
+[lint.per-file-ignores]
+"{src/,}qai_hub_models_cli/proto/*" = ["ALL"]

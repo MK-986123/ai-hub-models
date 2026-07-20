@@ -1,0 +1,734 @@
+name: Collect Scorecard Results
+
+on:
+    # Allows you to run this workflow manually from the Actions tab
+    workflow_dispatch:
+      inputs:
+        action_id:
+          description: Scorecard Kickoff GitHub Action Run ID. Unused if the branch with new scorecard jobs is set.
+          required: false
+          type: string
+
+        accuracy_action_id:
+          description: Scorecard Accuracy GitHub Action Run ID. If set, this GitHub Action ID is used as the source of accuracy results instead of action_id.
+          required: false
+          type: string
+
+        export_tests_action_id:
+          description: Scorecard Export Tests GitHub Action Run ID. If set, this GitHub Action ID is used as the source of uploaded ZIP assets instead of action_id.
+          required: false
+          type: string
+
+        latest_results_branch:
+          description: The branch with new scorecard jobs (in qai-hub-models/scorecard/intermediates). Unused if the Github Action Run ID is set.
+          required: False
+          type: string
+
+        previous_results_branch:
+          description: The branch with previous scorecard results. The new jobs are compared with these older results.
+          required: true
+          type: string
+          default: main
+
+        notify_slack:
+          description: Notify Slack channel of completion
+          default: false
+          type: boolean
+
+        create_pr:
+          description: Put up a PR with updated performance numbers
+          default: false
+          type: boolean
+
+        publish_to_tableau:
+          description: Publish this scorecard on Tableau.
+          type: boolean
+          default: false
+
+        tableau_branch_name:
+          description: Name of this run in Tableau. Will be set in the `branch` column, and used in the PR name.
+          type: string
+          default: ''
+
+        test_mode:
+          description: "Test mode: files issue with P3+test labels and [TEST] prefix (leave unchecked for production runs)"
+          type: boolean
+          default: false
+
+    # Used by other workflows to trigger this workflow
+    workflow_call:
+      inputs:
+        action_id:
+          type: string
+          required: false
+
+        accuracy_action_id:
+          required: false
+          type: string
+
+        export_tests_action_id:
+          required: false
+          type: string
+
+        latest_results_branch:
+          type: string
+          required: false
+
+        previous_results_branch:
+          default: main
+          type: string
+
+        use_previous_results_branch_as_base:
+          default: false
+          type: boolean
+
+        notify_slack:
+          default: false
+          type: boolean
+
+        create_pr:
+          default: false
+          type: boolean
+
+        publish_to_tableau:
+          default: false
+          type: boolean
+
+        tableau_branch_name:
+          default: ''
+          type: string
+
+        test_mode:
+          default: false
+          type: boolean
+
+env:
+  PYTHONUNBUFFERED: 1
+  VENV_PATH: build/ci-envs/qaihm-build
+  QAIHM_CI: 1
+  CMAKE_ARGS: -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+
+jobs:
+  aggregate_scorecard_results:
+    name: Results for ${{ inputs.action_id == '' && inputs.latest_results_branch || format('{0}/{1}/actions/runs/{2}', github.server_url, github.repository, inputs.action_id) }}
+    runs-on: [tetra-ubuntu-2204, self-hosted]
+    permissions:
+      contents: write
+      actions: read
+      pull-requests: write
+      id-token: write  # Required for AWS OIDC (S3 upload)
+
+    timeout-minutes: 1440 # 24 hours
+    env:
+      QAIHM_TEST_ARTIFACTS_DIR: ${{ inputs.action_id == '' && 'src/qai_hub_models/scorecard/intermediates' || format('build/scorecard-yamls/{0}', inputs.action_id) }}
+      QAIHM_TEST_TABLEAU_BRANCH_NAME: ${{ inputs.tableau_branch_name }}
+      QAIHM_TEST_RESULTS_COLLECTION_IGNORE_EXISTING_JOBS: "1"
+      QAIHM_CI_USE_EDITABLE_INSTALL: 1
+      PR_REF_NAME: dev/qaihm_bot/update-scorecard-${{ inputs.action_id == '' && github.run_id || inputs.action_id }}
+
+    outputs:
+      # Set unless any model-data step actually failed (skipped is fine) — gates
+      # create_pr so partial-failure runs don't push a PR.
+      branch_name: ${{ steps.upload-results.conclusion == 'success' && steps.create-perf-files.outcome != 'failure' && steps.create-release-assets-files.outcome != 'failure' && env.PR_REF_NAME || ''}}
+      performance_diff_url: ${{ steps.upload-perf-diff-summary.conclusion == 'success' && steps.upload-perf-diff-summary.outputs.artifact-url || 'N/A' }}
+      numerics_diff_url: ${{ steps.upload-numerics-diff-summary.conclusion == 'success' && steps.upload-numerics-diff-summary.outputs.artifact-url || 'N/A' }}
+      results_url: ${{ steps.upload-results.conclusion == 'success' && steps.upload-results.outputs.artifact-url || 'N/A' }}
+      qaihm_test_deployment: ${{ steps.get_branch_and_date.outputs.qaihm_test_deployment }}
+      csv_url: ${{ steps.upload-metrics.conclusion == 'success' && steps.upload-metrics.outputs.artifact-url || 'N/A' }}
+      regression_issue_url: ${{ steps.file-regression-issue.outputs.issue_url || '' }}
+      trend_summary: ${{ steps.extract-trend-summary.outputs.trend_summary || '' }}
+
+    steps:
+      - name: Check Options
+        run: |
+          if [[ -n "${{ inputs.action_id }}" && -n "${{ inputs.latest_results_branch }}" ]]; then
+            echo "Error: Both "GitHub Action Run ID" and "branch with new scorecard jobs" GitHub action inputs are set. Only one should be set."
+            exit 1
+          elif [[ -z "${{ inputs.action_id }}" && -z "${{ inputs.latest_results_branch }}" ]]; then
+            echo "Error: Neither "GitHub Action Run ID" nor "branch with new scorecard jobs" GitHub action inputs are set. Exactly one should be set."
+            exit 1
+          fi
+
+      # By default, GitHub actions will check out the commit used to start the action.
+      # Instead, if this workflow is called by a scorecard job, we will check out that ref name.
+      # That way, any changes that are pushed between scorecard kickoff and results collection are picked up.
+      - uses: actions/checkout@v7
+        name: Check Out Latest ${{ inputs.previous_results_branch }}
+        if: ${{ inputs.use_previous_results_branch_as_base }}
+        with:
+          ref: ${{ inputs.previous_results_branch }}
+
+      # Otherwise, if this is a regular user-initiated workflow, just check out the branch like normal.
+      - uses: actions/checkout@v7
+        if: ${{ !inputs.use_previous_results_branch_as_base }}
+
+      - name: Check Out Previous Results
+        if: ${{ !inputs.use_previous_results_branch_as_base }}
+        run: |
+          git fetch origin ${{ inputs.previous_results_branch }}
+
+          # Grab intermediates (previous jobs) that we want to compare with.
+          git checkout origin/${{ inputs.previous_results_branch }} src/qai_hub_models/scorecard/intermediates
+
+          # Since the previous results branch is our "base" to create a PR, we want to run
+          # results collection on that branch and only commit the changes made by results collection.
+          #
+          # We only commit the /models folder, so we replace models with their state at the previous results branch.
+          git checkout origin/${{ inputs.previous_results_branch }} src/qai_hub_models/models
+
+          # Restore 2 core files that may have changed.
+          #
+          # These are used throughout the repo. We want to align them with the scripts that collect
+          # the results. Those scripts are aligned with the base branch checked out by this GitHub action.
+          git checkout src/qai_hub_models/models/common.py
+          git checkout src/qai_hub_models/models/protocols.py
+
+      - name: Download Job IDs
+        id: download-post-flaky-job-retry-artifact
+        if: inputs.action_id != ''
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+            run-id: ${{ inputs.action_id }}
+            github-token: ${{ github.token }}
+            name: Scorecard Cached Artifact (Job-IDs, ${{ inputs.action_id }})
+            path: ${{ env.QAIHM_TEST_ARTIFACTS_DIR }}
+
+      - name: Download Flaky-Job IDs
+        # If the "without Flaky Jobs" artifact doesn't exist (e.g., flaky jobs fix step failed),
+        # download the original intermediates created by the main scorecard workflow.
+        if: inputs.action_id != '' && steps.download-post-flaky-job-retry-artifact.outcome == 'failure'
+        uses: actions/download-artifact@v8
+        with:
+            run-id: ${{ inputs.action_id }}
+            github-token: ${{ github.token }}
+            name: Scorecard Cached Artifact (Flaky-Job-IDs, ${{ inputs.action_id }})
+            path: ${{ env.QAIHM_TEST_ARTIFACTS_DIR }}
+
+      # Per-artifact subdirs (no merge-multiple) so device + LLM accuracy.csv files don't clobber each other before the combine step.
+      - name: Download Accuracy Results
+        id: download-accuracy-artifact
+        if: inputs.action_id != ''
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+            run-id: ${{ inputs.accuracy_action_id != '' && inputs.accuracy_action_id || inputs.action_id }}
+            github-token: ${{ github.token }}
+            pattern: "Scorecard Cached Artifact (accuracy.csv, ${{ inputs.action_id }}*)"
+            path: ${{ github.workspace }}/accuracy-csvs
+
+      - name: Download ZIP Assets Results
+        id: download-zip-asset-artifact
+        if: inputs.action_id != ''
+        uses: actions/download-artifact@v8
+        with:
+            run-id: ${{ inputs.export_tests_action_id != '' && inputs.export_tests_action_id || inputs.action_id }}
+            github-token: ${{ github.token }}
+            pattern: "Scorecard Cached Artifact (release-assets.yaml, ${{ inputs.action_id }}*)"
+            path: build/release-assets-per-split
+
+      # Every LLM perf runtime (genie, geniex) uploads its perf.yaml updates as
+      # a "perf-updates-<runtime>" artifact. Download them all here; the merge
+      # step below replays them in one clear-then-upsert pass. Because runtimes
+      # write disjoint profile_path buckets, the merged result is independent of
+      # which jobs ran or the order they finished.
+      - name: Download LLM Perf Updates
+        id: download-llm-perf-updates
+        if: inputs.action_id != ''
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+            run-id: ${{ inputs.action_id }}
+            github-token: ${{ github.token }}
+            pattern: perf-updates-*
+            path: ${{ github.workspace }}/llm-perf-updates
+
+      - name: Check Out Scorecard Intermediates
+        if: inputs.latest_results_branch != ''
+        run: |
+          git fetch origin ${{ inputs.latest_results_branch }}
+          git checkout origin/${{ inputs.latest_results_branch }} -- ${{ env.QAIHM_TEST_ARTIFACTS_DIR }}
+
+      - name: Restore Scorecard Environment Variables
+        id: restore_env_vars
+        run: |
+          # Restore environment variables from scorecard action
+          cat ${{ env.QAIHM_TEST_ARTIFACTS_DIR }}/environment.env >> "$GITHUB_ENV"
+
+      - name: Get Branch Name and Scorecard Date
+        id: get_branch_and_date
+        run: |
+          echo "qaihm_test_deployment=$QAIHM_TEST_DEPLOYMENT" >> "$GITHUB_OUTPUT"
+          QAIHM_TEST_DATE_FORMAT=%Y-%m-%dT%H:%M:%SZ
+          if [ -n "${{ inputs.action_id }}" ]; then
+            # Restore environment variables from scorecard action
+            action_info=$(curl -s -H "Authorization: token ${{github.token}}" "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ inputs.action_id }}")
+            QAIHM_TEST_DATE=$(echo "$action_info" | jq -r '.created_at')
+            QAIHM_TEST_BRANCH=$(echo "$action_info" | jq -r '.head_branch')
+          else
+            # Use current date & branch
+            QAIHM_TEST_DATE=$(date -u +"$QAIHM_TEST_DATE_FORMAT")
+            QAIHM_TEST_BRANCH="${{ inputs.latest_results_branch }}"
+          fi
+          echo "QAIHM_TEST_DATE=$QAIHM_TEST_DATE" >> "$GITHUB_ENV"
+          echo "QAIHM_TEST_DATE_FORMAT=$QAIHM_TEST_DATE_FORMAT" >> "$GITHUB_ENV"
+          echo "QAIHM_TEST_BRANCH=$QAIHM_TEST_BRANCH" >> "$GITHUB_ENV"
+
+      - name: CI Setup
+        id: ci_setup
+        uses: ./.github/actions/ci-setup
+        with:
+          sudo-password: ${{ secrets.TETRASERVICE_PASSWORD }}
+          venv-path: ${{ env.VENV_PATH }}
+          hub-deployments: ${{ env.QAIHM_TEST_DEPLOYMENT }}
+          hub-user-token-prod: ${{ secrets.HUB_USER_TOKEN_PROD }}
+          hub-user-token-staging: ${{ secrets.HUB_USER_TOKEN_STAGING }}
+          hub-user-token-dev: ${{ secrets.HUB_USER_TOKEN_DEV }}
+          hub-user-token-sandbox: ${{ secrets.HUB_USER_TOKEN_SANDBOX }}
+          hub-private-user-token-prod: ${{ secrets.HUB_PRIVATE_USER_TOKEN_PROD }}
+          hub-private-user-token-staging: ${{ secrets.HUB_PRIVATE_USER_TOKEN_STAGING }}
+          hub-private-user-token-dev: ${{ secrets.HUB_PRIVATE_USER_TOKEN_DEV }}
+          aws-role-arn: ${{ secrets.QAIHM_CI_AWS_ROLE_ARN }}
+
+      # Concatenate device + LLM/genie accuracy CSVs into the one accuracy.csv that create_perfs_and_numerics reads.
+      - name: Combine Accuracy CSVs
+        id: combine-accuracy-csvs
+        if: ${{ !cancelled() && steps.download-accuracy-artifact.outcome == 'success' }}
+        run: |
+          source "${{ env.VENV_PATH }}/bin/activate"
+          python -m qai_hub_models.scripts.combine_split_artifacts \
+            --input-dir ${{ github.workspace }}/accuracy-csvs \
+            --output-dir ${{ env.QAIHM_TEST_ARTIFACTS_DIR }}
+
+      - name: Create Performance and numerics files for models
+        id: create-perf-files
+        if: ${{ !cancelled() }}
+        run: |
+          python3 scripts/build_and_test.py \
+            --venv="${{ env.VENV_PATH }}" \
+            --python="${{ steps.ci_setup.outputs.python-path }}" \
+            create_perfs_and_numerics
+
+      # Merge every runtime's LLM perf.yaml updates (genie, geniex) in one
+      # clear-then-upsert pass. create_perfs_and_numerics above does not write
+      # LLM perf.yaml (LLMs set skips_profile_and_inference), so this owns all
+      # LLM perf.yaml edits. Order-independent: runtimes write disjoint
+      # profile_path buckets.
+      - name: Apply LLM Perf Updates
+        id: apply-llm-perf-updates
+        if: ${{ !cancelled() && steps.download-llm-perf-updates.outcome == 'success' }}
+        run: |
+          source "${{ env.VENV_PATH }}/bin/activate"
+          python -m qai_hub_models.scripts.apply_llm_perf_updates \
+            ${{ github.workspace }}/llm-perf-updates
+
+      - name: Combine Per-Split Release Assets
+        id: combine-release-assets
+        if: ${{ !cancelled() && steps.download-zip-asset-artifact.outcome == 'success' }}
+        run: |
+          source "${{ env.VENV_PATH }}/bin/activate"
+          python -m qai_hub_models.scripts.combine_split_artifacts \
+            --input-dir build/release-assets-per-split \
+            --output-dir ${{ env.QAIHM_TEST_ARTIFACTS_DIR }}
+
+      - name: Update release asset files for models
+        id: create-release-assets-files
+        if: ${{ !cancelled() && steps.combine-release-assets.outcome == 'success' }}
+        run: |
+          python3 scripts/build_and_test.py \
+            --venv="${{ env.VENV_PATH }}" \
+            --python="${{ steps.ci_setup.outputs.python-path }}" \
+            create_release_assets
+
+      # collect_scorecard_results raises after writing assets when individual
+      # models fail collection. Steps that just consume those assets gate on
+      # `!= 'skipped'` so partial runs still produce results.csv; steps that
+      # publish externally (Tableau, PR, codegen, runtime estimates) require
+      # strict success.
+      - name: Aggregate Scorecard Results
+        id: aggregate-results
+        if: ${{ !cancelled() && steps.create-perf-files.outcome != 'skipped' }}
+        run: |
+          python3 scripts/build_and_test.py \
+          --venv="${{ env.VENV_PATH }}" \
+          --python="${{ steps.ci_setup.outputs.python-path }}" \
+          aggregate_scorecard_results
+
+      - name: Generate Failure Analysis
+        id: failure-analysis
+        if: ${{ !cancelled() && steps.aggregate-results.outcome == 'success' }}
+        run: |
+          source ${{ env.VENV_PATH }}/bin/activate && python -m qai_hub_models.scripts.analyze_scorecard_failures \
+            ${{ env.QAIHM_TEST_ARTIFACTS_DIR }}/results.csv \
+            --output-file ${{ env.QAIHM_TEST_ARTIFACTS_DIR }}/scorecard_failure_analysis.csv
+
+      - name: Copy CSV to Tableau
+        if: ${{ !cancelled() && inputs.publish_to_tableau && steps.aggregate-results.outcome == 'success' && steps.create-perf-files.outcome != 'failure' && steps.create-release-assets-files.outcome != 'failure' }}
+        run: |
+          if [ -z "$QAIHM_TEST_TABLEAU_BRANCH_NAME" ]; then
+            echo "tableau_branch_name must be set to upload to Tableau. Exiting."
+            exit 1
+          fi
+          mkdir -p tableau-scorecard-mountpoint
+          echo '${{ secrets.TETRASERVICE_PASSWORD }}' | sudo -S apt install -y cifs-utils
+          # Setup password for mount command
+          export PASSWD='${{ secrets.TETRASERVICE_PASSWORD }}'
+          echo '${{ secrets.TETRASERVICE_PASSWORD }}' | sudo -S mount -t cifs //snowcone/edaap_aihub_sc ./tableau-scorecard-mountpoint -o rw,user=tetraservice
+          unset PASSWD
+          echo '${{ secrets.TETRASERVICE_PASSWORD }}' | sudo -S cp ${{ env.QAIHM_TEST_ARTIFACTS_DIR }}/results.csv ./tableau-scorecard-mountpoint/scorecard-accuracy.csv
+          echo '${{ secrets.TETRASERVICE_PASSWORD }}' | sudo -S umount ./tableau-scorecard-mountpoint
+
+      - name: Refresh Model Runtime Estimates
+        id: refresh-runtime-estimates
+        if: ${{ !cancelled() && inputs.create_pr && inputs.tableau_branch_name == 'weekly-prod' && inputs.action_id != '' && steps.create-perf-files.outcome != 'failure' && steps.create-release-assets-files.outcome != 'failure' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTION_ID: ${{ inputs.action_id }}
+          REPO: ${{ github.repository }}
+        run: |
+          source "${{ env.VENV_PATH }}/bin/activate"
+          python -m qai_hub_models.scripts.extract_model_runtimes \
+            --action-id "$ACTION_ID" \
+            --repo "$REPO"
+
+      - name: Run codegen and precommit
+        if: ${{ !cancelled() && inputs.create_pr && steps.create-perf-files.outcome != 'failure' && steps.create-release-assets-files.outcome != 'failure' }}
+        run: |
+          source "${{ env.VENV_PATH }}/bin/activate" && python -m qai_hub_models.scripts.run_codegen -a --no-precommit
+          SKIP=mypy-src,mypy-cli pre-commit run --all-files || true
+
+      - name: Commit & Push Changes
+        if: ${{ !cancelled() && inputs.create_pr && steps.create-perf-files.outcome != 'failure' && steps.create-release-assets-files.outcome != 'failure' }}
+        run: |
+          # Checkout branch
+          git checkout -b ${{ env.PR_REF_NAME }}
+          #
+          # This commit should target the previous results branch, so reset our ref to that branch and reset to that branch's history.
+          #
+          git fetch origin ${{ inputs.previous_results_branch }}
+          git reset origin/${{ inputs.previous_results_branch }}
+          #
+          # git ls-files -co includes tracked and untracked files
+          # `git add` files have changed and commit them.
+          #
+          rm -rf src/qai_hub_models/scorecard/intermediates/perf-yamls
+          git ls-files -co src/qai_hub_models | grep "\/models/.*/perf.*\.yaml$" | xargs git add
+          git ls-files -co src/qai_hub_models | grep "\/models/.*/numerics.*\.yaml$" | xargs git add
+          git ls-files -co src/qai_hub_models | grep "\/models/.*/info.*\.yaml$" | xargs git add
+          git ls-files -co src/qai_hub_models | grep "\/models/.*/release-assets.*\.yaml$" | xargs git add
+          git ls-files -co src/qai_hub_models | grep "\/models/.*/code\-gen\.yaml$" | xargs git add
+          git ls-files -co src/qai_hub_models | grep "\/models/.*/export\.py$" | xargs git add
+          git ls-files -co src/qai_hub_models | grep "\/models/.*/evaluate\.py$" | xargs git add
+          git ls-files -co src/qai_hub_models | grep "\/models/.*/test_generated\.py$" | xargs git add
+          git ls-files -co src/qai_hub_models | grep "\/models/.*/README\.md$" | xargs git add
+          git add README.md
+          git add src/README.md
+
+          git add src/qai_hub_models/scorecard/intermediates/*.yaml
+          git add src/qai_hub_models/scorecard/intermediates/accuracy.csv
+          if [ "$QAIHM_TEST_MODELS" = "all" ] && [ "$QAIHM_TEST_DEVICES" == "all" ] && [ "QAIHM_TEST_PRECISIONS" == "default" ]; then
+            git add src/qai_hub_models/scorecard/intermediates/environment.env
+          fi
+          git -c user.name='qaihm-bot_QCOM' -c user.email=qaihm_bot@qti.qualcomm.com commit -m "[Automated] Update Performance Data for ${{ inputs.action_id || inputs.latest_results_branch }}" -n
+          git push --set-upstream origin ${{ env.PR_REF_NAME }} -f
+
+      - name: Upload Scorecard CSV
+        if: ${{ !cancelled() && steps.aggregate-results.outcome == 'success' }}
+        id: upload-metrics
+        uses: actions/upload-artifact@v7
+        with:
+          name: Scorecard Results CSV (${{ inputs.action_id || inputs.latest_results_branch }})
+          path: ${{ env.QAIHM_TEST_ARTIFACTS_DIR }}/results.csv
+
+      - name: Upload Failure Analysis CSV
+        id: upload-failure-analysis
+        if: ${{ !cancelled() && steps.failure-analysis.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: Scorecard Failure Analysis (${{ inputs.action_id || inputs.latest_results_branch }})
+          path: ${{ env.QAIHM_TEST_ARTIFACTS_DIR }}/scorecard_failure_analysis.csv
+
+      - name: Upload Job Artifact - Performance Diff
+        if: ${{ !cancelled() && steps.create-perf-files.outcome != 'skipped' }}
+        id: upload-perf-diff-summary
+        uses: actions/upload-artifact@v7
+        with:
+          name: Scorecard Performance Diff (${{ inputs.action_id || inputs.latest_results_branch }})
+          path: ${{ env.QAIHM_TEST_ARTIFACTS_DIR }}/performance-summary-*.txt
+          if-no-files-found: ignore
+
+      - name: Upload Job Artifact - Numerics Diff
+        if: ${{ !cancelled() && steps.create-perf-files.outcome != 'skipped' }}
+        id: upload-numerics-diff-summary
+        uses: actions/upload-artifact@v7
+        with:
+          name: Scorecard Numerics Diff (${{ inputs.action_id || inputs.latest_results_branch }})
+          path: ${{ env.QAIHM_TEST_ARTIFACTS_DIR }}/numerics-summary-*.txt
+          if-no-files-found: ignore
+
+      - name: Collect Perf Results
+        if: ${{ !cancelled() && steps.create-perf-files.outcome != 'skipped' }}
+        run: |
+          mkdir -p ${{ env.QAIHM_TEST_ARTIFACTS_DIR }}/perf-yamls
+          cp --parents -r src/qai_hub_models/models/**/perf.yaml ${{ env.QAIHM_TEST_ARTIFACTS_DIR }}/perf-yamls
+
+      - name: Collect Numerics Results
+        if: ${{ !cancelled() && steps.create-perf-files.outcome != 'skipped' }}
+        run: |
+          mkdir -p ${{ env.QAIHM_TEST_ARTIFACTS_DIR }}/numerics-yamls
+          cp --parents -r src/qai_hub_models/models/**/numerics.yaml ${{ env.QAIHM_TEST_ARTIFACTS_DIR }}/numerics-yamls
+
+      - name: Collect Release Assets Files
+        if: ${{ !cancelled() && steps.create-release-assets-files.outcome == 'success' }}
+        run: |
+          mkdir -p ${{ env.QAIHM_TEST_ARTIFACTS_DIR }}/release-assets-yamls
+          cp --parents -r src/qai_hub_models/models/**/release-assets.yaml ${{ env.QAIHM_TEST_ARTIFACTS_DIR }}/release-assets-yamls
+
+      - name: Write Scorecard Regression Issue
+        id: write-scorecard-regression-issue
+        if: ${{ !cancelled() && steps.create-perf-files.outcome == 'success' && inputs.notify_slack }}
+        run: |
+          DEPLOYMENT=${{ env.QAIHM_TEST_DEPLOYMENT }}
+          DEPLOYMENT_URL=$( [ "$DEPLOYMENT" = "prod" ] && echo "workbench" || echo "$DEPLOYMENT" )
+          # The previous baseline is whichever branch we just checked out for
+          # the comparison. main = prod scorecard's baseline, anything else =
+          # same deployment as the current run (per scorecard.yml passing
+          # github.ref_name as previous_results_branch). Map accordingly.
+          PREV_BRANCH="${{ inputs.previous_results_branch }}"
+          if [ "$PREV_BRANCH" = "main" ]; then
+            PREVIOUS_DEPLOYMENT_URL="workbench"
+          else
+            PREVIOUS_DEPLOYMENT_URL="$DEPLOYMENT_URL"
+          fi
+          TEST_ARGS=""
+          if [ "${{ inputs.test_mode }}" = "true" ]; then
+            TEST_ARGS="--labels P3,scorecard,test --title-prefix [TEST] "
+          fi
+          source ${{ env.VENV_PATH }}/bin/activate && python3 -m qai_hub_models.scripts.file_scorecard_regression_issue \
+            --perf-regressions-json "${{ env.QAIHM_TEST_ARTIFACTS_DIR }}/perf-regressions-2x-*.json" \
+            --numerics-regressions-json "${{ env.QAIHM_TEST_ARTIFACTS_DIR }}/numerics-regressions-*.json" \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --perf-diff-url "${{ steps.upload-perf-diff-summary.outputs.artifact-url || 'N/A' }}" \
+            --numerics-diff-url "${{ steps.upload-numerics-diff-summary.outputs.artifact-url || 'N/A' }}" \
+            --deployment "$DEPLOYMENT_URL" \
+            --previous-deployment "$PREVIOUS_DEPLOYMENT_URL" \
+            --output "${{ env.QAIHM_TEST_ARTIFACTS_DIR }}/regression-issue.json" \
+            $TEST_ARGS
+
+      - name: File Issue for 2x+ Regressions
+        id: file-regression-issue
+        if: ${{ !cancelled() && steps.write-scorecard-regression-issue.outcome == 'success' && hashFiles(format('{0}/regression-issue.json', env.QAIHM_TEST_ARTIFACTS_DIR)) != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.STAGING_GH_TOKEN }}
+        run: |
+          RESPONSE=$(gh api repos/qcom-ai-hub/tetracode/issues \
+            -X POST \
+            --input "${{ env.QAIHM_TEST_ARTIFACTS_DIR }}/regression-issue.json")
+          ISSUE_URL=$(echo "$RESPONSE" | jq -r '.html_url')
+          echo "issue_url=$ISSUE_URL" >> "$GITHUB_OUTPUT"
+          echo "Filed regression issue: $ISSUE_URL"
+
+      - name: Upload Scorecard History to S3
+        if: ${{ !cancelled() && steps.aggregate-results.outcome == 'success' }}
+        continue-on-error: true
+        run: |
+          source ${{ env.VENV_PATH }}/bin/activate && python3 -m qai_hub_models.scripts.upload_scorecard_history \
+            --run-id "${{ inputs.action_id || github.run_id }}" \
+            --run-name "${{ inputs.tableau_branch_name || 'weekly-prod' }}" \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      - name: Run Trend Detection
+        id: run-trend-detection
+        if: ${{ !cancelled() && steps.write-scorecard-regression-issue.outcome == 'success' }}
+        continue-on-error: true
+        run: |
+          source ${{ env.VENV_PATH }}/bin/activate && python3 -m qai_hub_models.scripts.detect_scorecard_trends \
+            --current-regressions ${{ env.QAIHM_TEST_ARTIFACTS_DIR }}/perf-regressions-2x-*.json \
+            --lookback 4 \
+            --output "${{ env.QAIHM_TEST_ARTIFACTS_DIR }}/trend-report.json"
+
+      - name: Extract Trend Summary
+        id: extract-trend-summary
+        if: ${{ !cancelled() }}
+        run: |
+          TREND_FILE="${{ env.QAIHM_TEST_ARTIFACTS_DIR }}/trend-report.json"
+          if [ -f "$TREND_FILE" ]; then
+            SUMMARY=$(source ${{ env.VENV_PATH }}/bin/activate && python3 -c "import json; r=json.load(open('$TREND_FILE')); print(json.dumps(r['summary']))")
+            echo "trend_summary=$SUMMARY" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload Job Artifact - Scorecard Results
+        if: ${{ always() }}
+        id: upload-results
+        uses: actions/upload-artifact@v7
+        with:
+          name: All Scorecard Artifacts (${{ inputs.action_id || inputs.latest_results_branch }})
+          path: ${{ env.QAIHM_TEST_ARTIFACTS_DIR }}
+
+  create_pr:
+    name: Create AI Hub Models PR for Perf Results
+    needs: [aggregate_scorecard_results]
+    if: ${{ !cancelled() && inputs.create_pr && needs.aggregate_scorecard_results.outputs.branch_name != '' }}
+    runs-on: [tetra-ubuntu-2204, self-hosted]
+    outputs:
+      qaihm_pr_url: ${{ steps.create-qaihm-pr.outputs.result }}
+
+    permissions:
+      contents: write
+      actions: read
+      pull-requests: write
+
+    env:
+      PR_REF_NAME: ${{ needs.aggregate_scorecard_results.outputs.branch_name }}
+
+    steps:
+      - name: Create QAIHM PR
+        id: create-qaihm-pr
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ secrets.STAGING_GH_TOKEN }}
+          result-encoding: string
+          script: |
+            const { repo, owner } = context.repo;
+            const result = await github.rest.pulls.create({
+              title: '${{ inputs.tableau_branch_name == 'weekly-prod' && '[Automated] Update Data from Prod Scorecard' || format('[Automated] Update Scorecard Data for {0}', inputs.tableau_branch_name || inputs.action_id || inputs.latest_results_branch) }}',
+              owner,
+              repo,
+              head: '${{ env.PR_REF_NAME }}',
+              base: 'main',
+              body: [
+                'Update data for [${{ inputs.action_id || inputs.latest_results_branch }} scorecard](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ inputs.action_id == '' && github.run_id || inputs.action_id }}).',
+                '',
+                '[Performance Diff](${{ needs.aggregate_scorecard_results.outputs.performance_diff_url }})',
+                '',
+                '[Numerics Diff](${{ needs.aggregate_scorecard_results.outputs.numerics_diff_url }})',
+                '',
+                '[All Results + Hub Job YAML (zip)](${{ needs.aggregate_scorecard_results.outputs.results_url }})',
+              ].join('\n')
+            });
+            const reviewerResult = await github.request(`POST /repos/${owner}/${repo}/pulls/${result.data.number}/requested_reviewers`, {
+              owner: owner,
+              repo: repo,
+              pull_number: result.data.number,
+              team_reviewers: ['ai-hub-models-reviewers'],
+            })
+            return result.data.html_url
+
+
+  notify_slack:
+    name: Notify Slack Channel
+    needs: [aggregate_scorecard_results, create_pr]
+    # Fires on partial runs too — Slack is visibility, not a publish gate.
+    if: ${{ !cancelled() && inputs.notify_slack }}
+    runs-on: [tetra-ubuntu-2204, self-hosted]
+
+    permissions:
+      contents: write
+      actions: read
+      pull-requests: write
+
+    steps:
+      - uses: slackapi/slack-github-action@v3
+        name: Notify Scorecard (#scorecard)
+        if: ${{ !inputs.test_mode }}
+        with:
+          method: chat.postMessage
+          token: ${{ secrets.SLACK_NOTIFIER_TOKEN }}
+          payload: |
+            channel: "C04S7R56YTH"
+            text: "${{ needs.aggregate_scorecard_results.outputs.qaihm_test_deployment || '<unset deployment>' }} Scorecard Complete:\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}\nPerformance Diff: ${{ needs.aggregate_scorecard_results.outputs.performance_diff_url || 'N/A' }}\nNumerics Diff: ${{ needs.aggregate_scorecard_results.outputs.numerics_diff_url || 'N/A' }}\nCSV: ${{ needs.aggregate_scorecard_results.outputs.csv_url }}${{ needs.aggregate_scorecard_results.outputs.regression_issue_url && format('\nRegression Issue: {0}', needs.aggregate_scorecard_results.outputs.regression_issue_url) || '' }}${{ inputs.publish_to_tableau && '\nTableau (may appear in up to 30 minutes): https://tableau.qualcomm.com/#/site/QCTEngineering/workbooks/18930/' || ''}}"
+
+      - uses: slackapi/slack-github-action@v3
+        name: Notify Scorecard (#ai-hub-models)
+        if: ${{ !inputs.test_mode }}
+        with:
+          method: chat.postMessage
+          token: ${{ secrets.SLACK_NOTIFIER_TOKEN }}
+          payload: |
+            channel: "C05LEEK0N8J"
+            text: "${{ needs.aggregate_scorecard_results.outputs.qaihm_test_deployment || '<unset deployment>' }} Scorecard Complete. See #scorecard for details.${{ inputs.tableau_branch_name == 'weekly-prod' && needs.create_pr.result == 'success' && format('\n:warning: RELEASE CZAR -- merge this automated results PR: {0}', needs.create_pr.outputs.qaihm_pr_url) || '' }}"
+
+      - uses: slackapi/slack-github-action@v3
+        name: Notify Scorecard (#ai-hub-compiler)
+        if: ${{ !inputs.test_mode && needs.aggregate_scorecard_results.outputs.qaihm_test_deployment == 'dev' }}
+        with:
+          method: chat.postMessage
+          token: ${{ secrets.SLACK_NOTIFIER_TOKEN }}
+          payload: |
+            channel: "C08EYJJCW87"
+            text: "${{ needs.aggregate_scorecard_results.outputs.qaihm_test_deployment || '<unset deployment>' }} Scorecard Complete. See #scorecard for details."
+
+      - uses: slackapi/slack-github-action@v3
+        name: Notify #tungsten-debug (test mode)
+        if: ${{ inputs.test_mode }}
+        with:
+          method: chat.postMessage
+          token: ${{ secrets.SLACK_NOTIFIER_TOKEN }}
+          payload: |
+            channel: "C09MKAM6AGP"
+            text: "[TEST] Scorecard Complete:\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}\nPerformance Diff: ${{ needs.aggregate_scorecard_results.outputs.performance_diff_url || 'N/A' }}\nNumerics Diff: ${{ needs.aggregate_scorecard_results.outputs.numerics_diff_url || 'N/A' }}\nRegression Issue: ${{ needs.aggregate_scorecard_results.outputs.regression_issue_url || 'N/A' }}"
+
+  scorecard-analysis:
+    name: AI Scorecard Regression Analysis
+    needs: [aggregate_scorecard_results]
+    if: ${{ !cancelled() && needs.aggregate_scorecard_results.outputs.regression_issue_url != '' }}
+    uses: qcom-eng-Nimbus/custom-templates/.github/workflows/breeze-agent-reusable.yaml@main
+    secrets: inherit
+    with:
+      agent_name: "scorecard-analysis"
+      claude_model: "us.anthropic.claude-opus-4-7"
+      github_token_scope: organization
+      base_allowed_tools: >-
+        Read,
+        Bash(gh:*),
+        Bash(cat:*),
+        Bash(git:*),
+        Bash(python3:*),
+        Bash(find:*),
+        Bash(ls:*),
+        Bash(head:*),
+        Bash(tail:*),
+        Bash(wc:*),
+        Bash(grep:*),
+        Bash(mkdir:*)
+      prompt: |
+        A scorecard has detected 2x+ performance and/or numerics regressions.
+        Analyze the regressions in depth and post a structured triage comment.
+
+        Read .claude/skills/scorecard-analyze/SKILL.md and follow its process exactly.
+
+        Context variables for the skill:
+        - ISSUE_URL: ${{ needs.aggregate_scorecard_results.outputs.regression_issue_url }}
+        - RUN_ID: ${{ github.run_id }}
+        - RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        - DEPLOYMENT: ${{ needs.aggregate_scorecard_results.outputs.qaihm_test_deployment }}
+        - ARTIFACT_NAME: All Scorecard Artifacts (${{ inputs.action_id || inputs.latest_results_branch }})
+        - TREND_SUMMARY: ${{ needs.aggregate_scorecard_results.outputs.trend_summary || 'unavailable' }}
+      system_prompt: |
+        You are Breeze AI, a scorecard regression analyst for QAI Hub Models.
+        Your job: analyze perf and numerics regressions, classify their severity and
+        trend (new/sustained/flaky), cluster by root cause, and soft-triage to teams.
+
+        IMPORTANT: You have a 40-turn limit. Be efficient:
+        - Read SKILL.md first — it contains ALL instructions
+        - Batch operations — never loop over regressions one-by-one
+        - Target: finish in under 30 turns
+
+        Environment:
+        - ISSUE_URL: ${{ needs.aggregate_scorecard_results.outputs.regression_issue_url }}
+        - RUN_ID: ${{ github.run_id }}
+        - RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        - DEPLOYMENT: ${{ needs.aggregate_scorecard_results.outputs.qaihm_test_deployment }}
+        - Full gh CLI access (authenticated) and complete repo checkout
+        - Regression issue filed in qcom-ai-hub/tetracode with labels p1, scorecard
+        - TREND_SUMMARY: ${{ needs.aggregate_scorecard_results.outputs.trend_summary || 'unavailable' }}
+          Format: {"lookback": N, "threshold": N, "total_current": N, "sustained_count": N, "new_count": N, "flaky_count": N, "recovered_count": N}
+          Use these counts to fill the Summary table's New/Sustained/Flaky columns.
+          If "unavailable", note trend data was not generated and classify all as unknown trend.
+        - Scorecard artifacts available via: gh run download $RUN_ID -n "$ARTIFACT_NAME" -D /tmp/scorecard-artifacts
+          Reads trend-report.json for per-regression NEW/SUSTAINED/FLAKY classification.
+      bot_name: "breeze-code-action[bot]"
+      max_turns: 40
+      track_progress: false
+      claude_output_mode: summary
+      additional_permissions: "actions: read"

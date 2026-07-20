@@ -11,8 +11,34 @@ REPO_ROOT=$(git rev-parse --show-toplevel)
 
 set_strict_mode
 
-install_aws_cli
-run_as_root apt-get install -y python3-opencv cmake libportaudio2 ffmpeg mecab libmecab-dev mecab-ipadic-utf8 libegl-dev
+start_group "Ubuntu install: update repositories"
+    APT_GPG_FILE=/etc/apt/trusted.gpg.d/apt.github-cli.gpg
+    wget -qO- https://cli.github.com/packages/githubcli-archive-keyring.gpg | run_as_root tee "$APT_GPG_FILE" > /dev/null
+
+    APT_SOURCE_FILE=/etc/apt/sources.list.d/github-cli.list
+    APT_ARCH=$(dpkg --print-architecture)
+    echo "deb [arch=$APT_ARCH signed-by=$APT_GPG_FILE] https://cli.github.com/packages stable main" | run_as_root tee "$APT_SOURCE_FILE" > /dev/null
+
+    # Retry apt-get update to tolerate transient mirror sync races (Release manifest
+    # vs. Packages index out of sync), which apt itself reports as "Mirror sync in
+    # progress?". The window is typically seconds; 3 attempts x 30s covers it.
+    for attempt in 1 2 3; do
+        if run_as_root apt-get update; then
+            break
+        fi
+        if [ "$attempt" -eq 3 ]; then
+            die "apt-get update failed after 3 attempts"
+        fi
+        log_warn "apt-get update failed (attempt $attempt/3); retrying in 30s..."
+        sleep 30
+    done
+end_group
+
+start_group "Ubuntu Install: install/upgrade packages"
+    install_aws_cli
+    run_as_root apt-get install -y gh python3-opencv cmake libportaudio2 ffmpeg libegl-dev
+end_group
+
 start_group "Ubuntu install: uv"
     if [ ! -x /usr/local/bin/uv ] || [ "$(uv --version)" != "uv 0.6.14" ]; then
         wget https://github.com/astral-sh/uv/releases/download/0.6.14/uv-installer.sh

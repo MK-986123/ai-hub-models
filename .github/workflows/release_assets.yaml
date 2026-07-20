@@ -1,0 +1,66 @@
+name: Release - Assets
+
+on:
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+  workflow_call:
+      inputs:
+          skip_approval:
+            required: false
+            type: boolean
+            default: false
+
+env:
+  QAIHM_CI: 1
+  VENV_PATH: build/ci-envs/release
+
+jobs:
+  approve:
+    if: ${{ !inputs.skip_approval }}
+    name: Approve Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: release
+    steps:
+      - run: echo "Release approved"
+
+  release_assets:
+      name: Release - Assets
+      needs: [approve]
+      if: ${{ !cancelled() && (needs.approve.result == 'success' || needs.approve.result == 'skipped') }}
+      runs-on: [tetra-ubuntu-2204, self-hosted]
+      permissions:
+        id-token: write # Required for OIDC auth to AWS
+        contents: read
+
+      steps:
+      - name: Verify running on a tag
+        run: |
+          if [[ "${{ github.ref }}" != refs/tags/* ]]; then
+            echo "Error: This workflow must be run from a tag, got ${{ github.ref }}"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
+
+      - name: CI Setup
+        uses: ./.github/actions/ci-setup
+        with:
+          sudo-password: ${{ secrets.TETRASERVICE_PASSWORD }}
+          aws-role-arn: ${{ secrets.QAIHM_CI_AWS_ROLE_ARN }}
+
+      - name: Publish Proto JSON to S3
+        shell: bash
+        run: |
+          python3 scripts/build_and_test.py \
+            --venv="${{ env.VENV_PATH }}" \
+            release_protos
+
+      - name: Release Assets
+        shell: bash
+        env:
+          QAIHM_HUGGINGFACE_TOKEN: ${{ secrets.HUGGINGFACE_TOKEN }}
+        run: |
+          python3 scripts/build_and_test.py \
+            --venv="${{ env.VENV_PATH }}" \
+            release_assets

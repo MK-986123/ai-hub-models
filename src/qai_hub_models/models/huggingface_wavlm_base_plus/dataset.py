@@ -1,0 +1,168 @@
+# ---------------------------------------------------------------------
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+# ---------------------------------------------------------------------
+
+
+import torch
+import torchaudio
+from torch.nn import functional as F
+
+from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
+from qai_hub_models.utils.base_dataset import BaseDataset, DatasetMetadata, DatasetSplit
+from qai_hub_models.utils.input_spec import InputSpec
+
+LIBRISPEECH_FOLDER_NAME = "librispeech"
+LIBRISPEECH_VERSION = 2
+# LibriSpeech test-clean dataset from: www.openslr.org/12 (test-clean.tar.gz)
+LIBRISPEECH_CLEAN_ASSET = CachedWebDatasetAsset.from_asset_store(
+    LIBRISPEECH_FOLDER_NAME,
+    LIBRISPEECH_VERSION,
+    "test-clean.tar.gz",
+)
+DEFAULT_SEQUENCE_LENGTH = 160000  # 10 seconds at 16kHz
+DEFAULT_MAX_TEXT_LENGTH = (
+    600  # covers longest transcription in LibriSpeech test-clean (576 chars)
+)
+
+
+class LibriSpeechDataset(BaseDataset):
+    def __init__(
+        self,
+        split: DatasetSplit = DatasetSplit.TEST,
+        target_sample_rate: int = 16000,
+        max_sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
+        max_text_length: int = DEFAULT_MAX_TEXT_LENGTH,
+        input_spec: InputSpec | None = None,
+    ) -> None:
+        self.base_path = LIBRISPEECH_CLEAN_ASSET.extracted_path
+        BaseDataset.__init__(self, self.base_path, split)
+        self.target_sample_rate = target_sample_rate
+        if input_spec is not None and "input" in input_spec:
+            max_sequence_length = input_spec["input"][0][1]
+        self.max_sequence_length = max_sequence_length
+        self.max_text_length = max_text_length
+
+    def __getitem__(
+        self, index: int
+    ) -> tuple[tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
+        """
+        Parameters
+        ----------
+        index
+            The index of the audio file and transcription in the dataset.
+
+        Returns
+        -------
+        tuple[torch.Tensor, torch.Tensor]
+            Processed audio tensor of shape [sequence_length], raw float32
+            samples and binary attention mask, both padded/truncated to
+            max_sequence_length. Returned as (audio, attention_mask).
+        torch.Tensor
+            Tensor of shape [max_text_length] containing
+            ASCII character codes for the transcription, padded with zeros if needed.
+        """
+        # Load audio file
+        audio_path = self.audio_files[index]
+        audio, audio_sr = torchaudio.load(audio_path)
+
+        # Convert to mono if stereo
+        if audio.shape[0] > 1:
+            audio = torch.mean(audio, dim=0, keepdim=True)
+
+        # Resample to 16kHz if needed
+        if audio_sr != self.target_sample_rate:
+            audio = torchaudio.functional.resample(
+                audio, audio_sr, self.target_sample_rate
+            )
+
+        # Truncate to FIXED length
+        audio_len = min(audio.shape[-1], self.max_sequence_length)
+        audio = audio[..., :audio_len]
+
+        # Build attention mask before padding: 1 for real samples, 0 for padding
+        attention_mask = torch.ones(audio_len, dtype=torch.int64)
+
+        if audio_len < self.max_sequence_length:
+            pad_len = self.max_sequence_length - audio_len
+            audio = F.pad(audio, (0, pad_len), mode="constant")
+            attention_mask = F.pad(attention_mask, (0, pad_len), value=0)
+
+        audio = audio.squeeze(0)
+        # Process transcription text with FIXED maximum length
+        text = str(self.transcriptions[index])
+        text = text[: self.max_text_length]  # Truncate to max length
+
+        # Convert to tensor of character indices with padding
+        gt_tensor = torch.tensor([ord(c) for c in text], dtype=torch.int32)
+
+        # Pad to max_text_length
+        if len(gt_tensor) < self.max_text_length:
+            pad_len = self.max_text_length - len(gt_tensor)
+            gt_tensor = F.pad(gt_tensor, (0, pad_len), value=0)  # 0 = padding index
+
+        return (audio, attention_mask), gt_tensor
+
+    def _validate_data(self) -> bool:
+        self.audio_files = []
+        self.transcriptions = []
+        dataset_path = self.base_path / "test-clean"
+
+        # Check if dataset path exists
+        if not dataset_path.exists():
+            return False
+
+        # Iterate through speaker and chapter directories
+        for speaker_dir in sorted(dataset_path.glob("*")):
+            if not speaker_dir.is_dir():
+                continue
+            for chapter_dir in sorted(speaker_dir.glob("*")):
+                if not chapter_dir.is_dir():
+                    continue
+
+                # Load transcriptions from trans.txt
+                trans_file = (
+                    chapter_dir / f"{speaker_dir.name}-{chapter_dir.name}.trans.txt"
+                )
+                if not trans_file.exists():
+                    continue
+
+                trans_dict = {}
+                with open(trans_file, encoding="utf-8") as f:
+                    for line in f:
+                        parts = line.strip().split(" ", 1)  # Split on first space
+                        if len(parts) == 2:
+                            audio_id = parts[0].strip()
+                            transcription = parts[1].strip().lower()
+                            trans_dict[audio_id] = transcription
+
+                # Collect audio files and pair with transcriptions
+                for audio_path in sorted(chapter_dir.glob("*.flac")):
+                    audio_id = audio_path.stem
+                    if audio_id in trans_dict:
+                        self.audio_files.append(audio_path)
+                        self.transcriptions.append(trans_dict[audio_id])
+
+        # Verify collected data
+        if not self.audio_files or len(self.audio_files) != len(self.transcriptions):
+            raise ValueError("no audio files or transciptions found")
+
+        return True
+
+    def __len__(self) -> int:
+        return len(self.audio_files)
+
+    def _download_data(self) -> None:
+        LIBRISPEECH_CLEAN_ASSET.fetch(extract=True)
+
+    @staticmethod
+    def default_samples_per_job() -> int:
+        """The default value for how many samples to run in each inference job."""
+        return 500
+
+    @staticmethod
+    def get_dataset_metadata() -> DatasetMetadata:
+        return DatasetMetadata(
+            link="https://www.openslr.org/12",
+            split_description="test split",
+        )

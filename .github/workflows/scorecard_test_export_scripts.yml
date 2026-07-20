@@ -1,0 +1,206 @@
+name: Scorecard - Test Export Scripts and Upload ZIP Assets to S3
+
+on:
+    # Allows you to run this workflow manually from the Actions tab
+    workflow_dispatch:
+      inputs:
+        action_id:
+          description: Scorecard Kickoff GitHub Action Run ID
+          required: true
+          type: string
+
+        s3_prefix:
+          description: |
+            S3 prefix under qai-hub-models-private-assets to upload context-binary
+            ZIPs to. Empty string disables S3 upload entirely.
+            - "pre_release_assets": canonical, kept forever (used by release flow)
+            - "ephemeral_test_assets": auto-purged after 7 days via lifecycle rule
+              (use when QDC perf jobs need to consume the binaries but they
+              shouldn't persist as a release).
+          type: string
+          default: ''
+
+        models:
+          description: Models for which to run the tests. If unset, tests all models run in the scorecard action above.
+          type: string
+          required: false
+
+        build_and_test_target:
+          description: |
+            Which build_and_test.py task to invoke. Use "test_export_scripts"
+            (gates on @pytest.mark.export) for non-LLMs, or
+            "test_llm_export_scripts" (gates on @pytest.mark.llm_export) for LLMs.
+          type: choice
+          default: test_export_scripts
+          options:
+            - test_export_scripts
+            - test_llm_export_scripts
+
+    # Used by other workflows to trigger this workflow
+    workflow_call:
+      inputs:
+        action_id:
+          type: string
+          required: true
+
+        s3_prefix:
+          description: |
+            S3 prefix under qai-hub-models-private-assets to upload context-binary
+            ZIPs to. Empty string disables S3 upload entirely.
+            "pre_release_assets" is canonical (kept forever); "ephemeral_test_assets"
+            is auto-purged after 7 days via lifecycle rule.
+          type: string
+          default: ''
+
+        models:
+          description: Models for which to run the tests. If unset, tests all models run in the scorecard action above.
+          type: string
+          required: false
+
+        split_name:
+          description: When split into sub-actions for parallel execution, this is the name of the split.
+          required: false
+          type: string
+          default: ''
+
+        runs_on:
+          description: JSON array of runner tags (e.g. '["tetra-ubuntu-2204", "self-hosted"]')
+          type: string
+
+        build_and_test_target:
+          description: |
+            Which build_and_test.py task to invoke. Defaults to "test_export_scripts"
+            (gates on @pytest.mark.export). Set to "test_llm_export_scripts" for the
+            LLM asset-upload workflow (gates on @pytest.mark.llm_export).
+          type: string
+          default: test_export_scripts
+
+env:
+  PYTHONUNBUFFERED: 1
+  VENV_PATH: build/ci-envs/qaihm-build
+  QAIHM_CI: 1
+  CMAKE_ARGS: -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+  QAIHM_CI_USE_EDITABLE_INSTALL: 1
+
+jobs:
+  test_export_scripts:
+    name: Test Export Scripts and Upload ZIP Files${{ inputs.split_name != '' && format(' ({0})', inputs.split_name) || '' }} (using jobs from ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{inputs.action_id}})
+    runs-on: ${{ inputs.runs_on && inputs.runs_on != 'null' && fromJson(inputs.runs_on) || fromJson('["tetra-ubuntu-2204", "self-hosted"]') }}
+    timeout-minutes: 1440 # 24 hours
+    env:
+      QAIHM_TEST_ARTIFACTS_DIR: ${{ inputs.action_id == '' && 'src/qai_hub_models/scorecard/intermediates' || format('build/scorecard-yamls/{0}', inputs.action_id) }}
+      QAIHM_TEST_S3_ARTIFACTS_DIR: ${{ inputs.s3_prefix != '' && format('{0}/gh_actions/{1}', inputs.s3_prefix, inputs.action_id) || '' }}
+
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download Post-Flaky-Job-Retry Artifacts
+        id: download-post-flaky-job-retry-artifacts
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+            run-id: ${{ inputs.action_id }}
+            github-token: ${{ github.token }}
+            name: Scorecard Cached Artifact (Job-IDs, ${{ inputs.action_id }})
+            path: ${{ env.QAIHM_TEST_ARTIFACTS_DIR }}
+
+      - name: Download Flaky-Job Artifacts
+        # If the "without Flaky Jobs" artifact doesn't exist (e.g., flaky jobs fix step failed),
+        # download the original intermediates created by the main scorecard workflow.
+        if: steps.download-post-flaky-job-retry-artifacts.outcome == 'failure'
+        uses: actions/download-artifact@v8
+        with:
+            run-id: ${{ inputs.action_id }}
+            github-token: ${{ github.token }}
+            name: Scorecard Cached Artifact (Flaky-Job-IDs, ${{ inputs.action_id }})
+            path: ${{ env.QAIHM_TEST_ARTIFACTS_DIR }}
+
+      - name: Restore Scorecard Environment Variables
+        id: restore_env_vars
+        run: |
+          # Restore environment variables from scorecard action
+          cat "${{ env.QAIHM_TEST_ARTIFACTS_DIR }}/environment.env" >> "$GITHUB_ENV"
+
+      - name: Set Models Environment Variable
+        if: ${{ inputs.models }}
+        run: echo "QAIHM_TEST_MODELS=${{ inputs.models }}" >> "$GITHUB_ENV"
+
+      - name: CI Setup
+        id: ci_setup
+        uses: ./.github/actions/ci-setup
+        with:
+          sudo-password: ${{ secrets.TETRASERVICE_PASSWORD }}
+          venv-path: ${{ env.VENV_PATH }}
+          aws-role-arn: ${{ secrets.QAIHM_CI_AWS_ROLE_ARN }}
+          hub-deployments: ${{ env.QAIHM_TEST_DEPLOYMENT }}
+          hub-user-token-prod: ${{ secrets.HUB_USER_TOKEN_PROD }}
+          hub-user-token-staging: ${{ secrets.HUB_USER_TOKEN_STAGING }}
+          hub-user-token-dev: ${{ secrets.HUB_USER_TOKEN_DEV }}
+          hub-user-token-sandbox: ${{ secrets.HUB_USER_TOKEN_SANDBOX }}
+          hub-private-user-token-prod: ${{ secrets.HUB_PRIVATE_USER_TOKEN_PROD }}
+          hub-private-user-token-staging: ${{ secrets.HUB_PRIVATE_USER_TOKEN_STAGING }}
+          hub-private-user-token-dev: ${{ secrets.HUB_PRIVATE_USER_TOKEN_DEV }}
+
+      - name: Create Test Results Directory
+        run: |
+          mkdir -p ${{ github.workspace }}/test-results
+
+      - name: Run All Export Scripts
+        id: run-export-scripts
+        continue-on-error: true
+        env:
+          QAIHM_JUNIT_XML_PATH: ${{ github.workspace }}/test-results/qaihm-export-zip-tests-junit.xml
+          HUGGING_FACE_HUB_TOKEN: ${{ secrets.HUGGINGFACE_TOKEN }}
+        run: |
+            python3 scripts/build_and_test.py \
+            --venv="${{ env.VENV_PATH }}" \
+            --python="${{ steps.ci_setup.outputs.python-path }}" \
+            ${{ inputs.build_and_test_target }}
+
+      - name: Upload Cached Asset Locations
+        id: upload-asset-cache
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: Scorecard Cached Artifact (release-assets.yaml, ${{ inputs.action_id }}${{ inputs.split_name != '' && format(', {0}', inputs.split_name) || '' }})
+          path: ${{ env.QAIHM_TEST_ARTIFACTS_DIR }}/release-assets.yaml
+          if-no-files-found: ignore
+
+      # Separate copy consumed by the LLM perf jobs (Genie / GenieX), which run
+      # hours after this upload. The "Scorecard Cached Artifact (release-assets.yaml,
+      # <id>, *)"-named copy above is merged and then DELETED by the split results
+      # collection workflow (scorecard_results_collection_split.yml "Delete Split
+      # Release Asset Artifacts"), so the perf jobs cannot depend on it. This copy
+      # uses a name outside that delete glob and is only produced by the LLM
+      # asset-upload job (build_and_test_target == test_llm_export_scripts).
+      - name: Upload LLM Perf Release Assets
+        id: upload-llm-perf-asset-cache
+        if: ${{ inputs.build_and_test_target == 'test_llm_export_scripts' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: Scorecard LLM Perf Release Assets (${{ inputs.action_id }})
+          path: ${{ env.QAIHM_TEST_ARTIFACTS_DIR }}/release-assets.yaml
+          if-no-files-found: ignore
+
+      - name: Combine Per-Model JUnit XMLs
+        if: ${{ always() }}
+        run: |
+          source "${{ env.VENV_PATH }}/bin/activate"
+          mkdir -p ${{ github.workspace }}/combined-test-results
+          python scripts/combine_junit_xml.py \
+            --junit-xml ${{ github.workspace }}/test-results \
+            --output ${{ github.workspace }}/combined-test-results/qaihm-export-zip-tests${{ inputs.split_name != '' && format('-{0}', inputs.split_name) || '' }}-junit.xml
+
+      - name: Upload Test Results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-export${{ inputs.split_name != '' && format('-{0}', inputs.split_name) || '' }}
+          path: ${{ github.workspace }}/combined-test-results
+          if-no-files-found: ignore

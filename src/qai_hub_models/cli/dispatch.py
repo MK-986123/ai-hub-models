@@ -1,0 +1,243 @@
+# ---------------------------------------------------------------------
+# Copyright (c) 2026 Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+# ---------------------------------------------------------------------
+"""Heavy-side dispatcher for ``qai_hub_models <script> <model_id>`` subcommands.
+
+Imports ``qai_hub_models.models.<model_id>.<script>``, builds its native
+argparse parser via ``build_parser()``, parses the forwarded args, then calls
+``main(parsed_args)``.
+
+The lean CLI is responsible for resolving display name -> model id and
+checking the model exists in the installed package before calling in.
+"""
+
+from __future__ import annotations
+
+import argparse
+from typing import cast
+
+from qai_hub_models.configs.info_yaml import QAIHMModelInfo
+from qai_hub_models.utils.args import evaluate_parser, export_parser
+from qai_hub_models.utils.asset_loaders import (
+    check_unpublished_model_warning,
+)
+from qai_hub_models.utils.base_model import BaseModel
+from qai_hub_models.utils.evaluate.dispatch import select_evaluate_pipeline
+from qai_hub_models.utils.export.dispatch import (
+    ResolvedModel,
+    resolve_model,
+    select_pipeline,
+)
+from qai_hub_models.utils.path_helpers import MODEL_IDS
+
+
+def _confirm_run_ok(model_id_or_module: str) -> bool:
+    """Return False if an unpublished/unknown model should not proceed.
+
+    Known unpublished ids get a confirmation prompt via
+    :func:`check_unpublished_model_warning`. Module paths outside
+    ``MODEL_IDS`` execute untrusted code on import and require the same
+    confirmation.
+
+    Parameters
+    ----------
+    model_id_or_module
+        Model ID or importable dotted module path.
+
+    Returns
+    -------
+    bool
+        True to proceed, False to abort.
+    """
+    if model_id_or_module in MODEL_IDS:
+        try:
+            status = QAIHMModelInfo.from_model(model_id_or_module).status.value
+        except ValueError:
+            status = "unpublished"
+        if status == "published":
+            return True
+    return check_unpublished_model_warning()
+
+
+def build_export_parser_for(
+    resolved: ResolvedModel, cli_mode: bool = True
+) -> argparse.ArgumentParser:
+    """Build the export parser from an already-resolved model.
+
+    Parameters
+    ----------
+    resolved
+        Model metadata from :func:`resolve_model`.
+    cli_mode
+        If True, ``--target-runtime``, ``--precision`` (unless
+        ``separate_quantize_script``), and ``--device``/``--chipset`` are
+        required and have no defaults.
+
+    Returns
+    -------
+    argparse.ArgumentParser
+        The model's native export argument parser.
+    """
+    return export_parser(
+        model_cls=resolved.model_cls,
+        export_fn=select_pipeline(resolved),
+        supported_precision_runtimes=resolved.code_gen.supported_precision_runtimes,
+        default_export_device=resolved.code_gen.default_device,
+        omit_precision=resolved.code_gen.separate_quantize_script,
+        cli_mode=cli_mode,
+    )
+
+
+def build_export_parser(
+    model_id_or_module: str, cli_mode: bool = True
+) -> argparse.ArgumentParser:
+    """Build the argparse parser for exporting this model.
+
+    Equivalent to the `build_parser(cli_mode=True)` function that was
+    previously generated in each `models/<model_id>/export.py`.
+
+    Parameters
+    ----------
+    model_id_or_module
+        Model ID (e.g. ``"mobilenet_v2"``) or an importable dotted module path.
+    cli_mode
+        If True, ``--target-runtime``, ``--precision`` (unless
+        ``separate_quantize_script``), and ``--device``/``--chipset`` are
+        required and have no defaults.
+
+    Returns
+    -------
+    argparse.ArgumentParser
+        The model's native export argument parser.
+    """
+    return build_export_parser_for(resolve_model(model_id_or_module), cli_mode)
+
+
+def run_export(model_id_or_module: str, args: argparse.Namespace) -> None:
+    """Run export for the given model with parsed arguments.
+
+    Equivalent to the `main(args)` function that was previously generated
+    in each `models/<model_id>/export.py`.
+
+    Parameters
+    ----------
+    model_id_or_module
+        Model ID (e.g. ``"mobilenet_v2"``) or an importable dotted module path.
+    args
+        Parsed arguments from ``build_export_parser``.
+    """
+    if not _confirm_run_ok(model_id_or_module):
+        return
+    resolved = resolve_model(model_id_or_module)
+    select_pipeline(resolved)(resolved.model_id, **vars(args))
+
+
+def build_evaluate_parser_for(
+    resolved: ResolvedModel, cli_mode: bool = True
+) -> argparse.ArgumentParser:
+    """Build the evaluate parser from an already-resolved model.
+
+    Parameters
+    ----------
+    resolved
+        Model metadata from :func:`resolve_model`.
+    cli_mode
+        If True, ``--target-runtime``, ``--precision``, and ``--device``/``--chipset``
+        are required and have no defaults.
+
+    Returns
+    -------
+    argparse.ArgumentParser
+        The model's native evaluate argument parser.
+    """
+    model_cls = cast(type[BaseModel], resolved.model_cls)
+    return evaluate_parser(
+        model_cls=model_cls,
+        supported_dataset_classes=model_cls.get_eval_dataset_classes(),
+        supported_precision_runtimes=resolved.code_gen.supported_precision_runtimes,
+        uses_quantize_job=resolved.supports_quant_cpu,
+        num_calibration_samples=resolved.code_gen.num_calibration_samples
+        if resolved.code_gen.num_calibration_samples
+        else None,
+        default_device=resolved.code_gen.default_device,
+        cli_mode=cli_mode,
+    )
+
+
+def build_evaluate_parser(
+    model_id_or_module: str, cli_mode: bool = True
+) -> argparse.ArgumentParser:
+    """Build the argparse parser for evaluating this model.
+
+    Equivalent to the `build_parser(cli_mode=True)` function that was
+    previously generated in each `models/<model_id>/evaluate.py`.
+
+    Parameters
+    ----------
+    model_id_or_module
+        Model ID (e.g. ``"mobilenet_v2"``) or an importable dotted module path.
+    cli_mode
+        If True, ``--target-runtime``, ``--precision``, and ``--device``/``--chipset``
+        are required and have no defaults.
+
+    Returns
+    -------
+    argparse.ArgumentParser
+        The model's native evaluate argument parser.
+    """
+    return build_evaluate_parser_for(resolve_model(model_id_or_module), cli_mode)
+
+
+def run_evaluate(model_id_or_module: str, args: argparse.Namespace) -> None:
+    """Run evaluate for the given model with parsed arguments.
+
+    Equivalent to the `main(args)` function that was previously generated
+    in each `models/<model_id>/evaluate.py`.
+
+    Parameters
+    ----------
+    model_id_or_module
+        Model ID (e.g. ``"mobilenet_v2"``) or an importable dotted module path.
+    args
+        Parsed arguments from ``build_evaluate_parser``.
+    """
+    if not _confirm_run_ok(model_id_or_module):
+        return
+    resolved = resolve_model(model_id_or_module)
+    select_evaluate_pipeline(resolved)(resolved.model_id, **vars(args))
+
+
+def run_model_script(model_id: str, script: str, forwarded: list[str]) -> None:
+    """Run the given script for the model.
+
+    Parameters
+    ----------
+    model_id
+        Model directory name (e.g. ``"mobilenet_v2"``). Must already be
+        validated against ``MODEL_IDS`` by the caller.
+    script
+        Script name (``"export"`` or ``"evaluate"``).
+    forwarded
+        Argv tail handed to the model's parser.
+    """
+    resolved = resolve_model(model_id)
+    if script == "export":
+        parser = build_export_parser_for(resolved, cli_mode=True)
+        parser.prog = f"qai_hub_models export {model_id}"
+        args = parser.parse_args(forwarded)
+        if not _confirm_run_ok(model_id):
+            return
+        select_pipeline(resolved)(resolved.model_id, **vars(args))
+        return
+
+    if script == "evaluate":
+        parser = build_evaluate_parser_for(resolved, cli_mode=True)
+        parser.prog = f"qai_hub_models evaluate {model_id}"
+        args = parser.parse_args(forwarded)
+        if not _confirm_run_ok(model_id):
+            return
+        select_evaluate_pipeline(resolved)(resolved.model_id, **vars(args))
+        return
+
+    raise ValueError("This function currently only supports evaluate and export.")

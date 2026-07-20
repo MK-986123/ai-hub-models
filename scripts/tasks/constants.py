@@ -32,6 +32,11 @@ def run_and_get_output(command: str, check: bool = True) -> str:
 # Env Variable
 STORE_ROOT_ENV_VAR = "QAIHM_STORE_ROOT"
 
+# Set by PR compile tests to restrict split LLMs to a single instantiation.
+# Must match CompileSingleInstantiationEnvvar.VARNAME in
+# qai_hub_models.scorecard.envvars.
+COMPILE_SINGLE_INSTANTIATION_ENV_VAR = "QAIHM_TEST_COMPILE_SINGLE_INSTANTIATION"
+
 # Repository
 REPO_ROOT = str(Path(__file__).parent.parent.parent)
 VENV_PATH = os.path.join(REPO_ROOT, "qaihm-dev")
@@ -41,27 +46,29 @@ BUILD_ROOT = os.path.join(REPO_ROOT, "build")
 QAI_HUB_LATEST_PATH = os.path.join(BUILD_ROOT, "qai_hub-latest-py3-none-any.whl")
 
 # Package paths relative to repository root
-PY_PACKAGE_RELATIVE_SRC_ROOT = "qai_hub_models"
+PY_PACKAGE_RELATIVE_SRC_ROOT = os.path.join("src", "qai_hub_models")
 PY_PACKAGE_RELATIVE_MODELS_ROOT = os.path.join(PY_PACKAGE_RELATIVE_SRC_ROOT, "models")
 
 # Absolute package paths
-PY_PACKAGE_INSTALL_ROOT = REPO_ROOT
-PY_PACKAGE_SRC_ROOT = os.path.join(
-    PY_PACKAGE_INSTALL_ROOT, PY_PACKAGE_RELATIVE_SRC_ROOT
-)
+PY_PACKAGE_INSTALL_ROOT = os.path.join(REPO_ROOT, "src")
+PY_CLI_INSTALL_ROOT = os.path.join(REPO_ROOT, "cli")
+PY_PACKAGE_SRC_ROOT = os.path.join(REPO_ROOT, PY_PACKAGE_RELATIVE_SRC_ROOT)
+PY_CLI_SRC_ROOT = os.path.join(PY_CLI_INSTALL_ROOT, "qai_hub_models_cli")
 PY_PACKAGE_LOCAL_CACHE = os.environ.get(
     STORE_ROOT_ENV_VAR, os.path.join(os.path.expanduser("~"), ".qaihm")
 )
-PY_PACKAGE_MODELS_ROOT = os.path.join(
-    PY_PACKAGE_INSTALL_ROOT, PY_PACKAGE_RELATIVE_MODELS_ROOT
-)
-STATIC_MODELS_ROOT = os.path.join(
-    PY_PACKAGE_SRC_ROOT, "scorecard", "internal", "models"
+PY_PACKAGE_MODELS_ROOT = os.path.join(REPO_ROOT, PY_PACKAGE_RELATIVE_MODELS_ROOT)
+STATIC_MODELS_ROOT = os.path.join(PY_PACKAGE_SRC_ROOT, "scorecard", "static", "models")
+SCORECARD_PACKAGE_MODELS_ROOT = os.path.join(PY_PACKAGE_SRC_ROOT, "scorecard", "models")
+SCORECARD_PACKAGE_MODELS_RELATIVE_ROOT = os.path.join(
+    PY_PACKAGE_RELATIVE_SRC_ROOT, "scorecard", "models"
 )
 
 PUBLIC_BENCH_MODELS = os.path.join(
-    PY_PACKAGE_SRC_ROOT, "scorecard", "internal", "pytorch_bench_models_float.txt"
+    PY_PACKAGE_SRC_ROOT, "scorecard", "static", "pytorch_bench_models_float.txt"
 )
 
 # Requirements Path
+REQUIREMENTS_PATH = os.path.join(PY_PACKAGE_SRC_ROOT, "requirements.txt")
+DEV_REQUIREMENTS_PATH = os.path.join(PY_PACKAGE_SRC_ROOT, "requirements-dev.txt")
 GLOBAL_REQUIREMENTS_PATH = os.path.join(PY_PACKAGE_SRC_ROOT, "global_requirements.txt")

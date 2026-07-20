@@ -10,22 +10,103 @@ from pathlib import Path
 
 from .constants import (
     PUBLIC_BENCH_MODELS,
+    PY_PACKAGE_INSTALL_ROOT,
     PY_PACKAGE_MODELS_ROOT,
     PY_PACKAGE_RELATIVE_MODELS_ROOT,
     PY_PACKAGE_RELATIVE_SRC_ROOT,
     REPO_ROOT,
+    SCORECARD_PACKAGE_MODELS_RELATIVE_ROOT,
     STATIC_MODELS_ROOT,
 )
 from .github import on_github
 from .plan import Task
-from .util import get_is_hub_quantized, new_cd, run, run_and_get_output
+from .util import new_cd, run, run_and_get_output
 
 REPRESENTATIVE_EXPORT_MODELS = [
     "sinet",
     "whisper_tiny",
 ]
+CODEGEN_FALLBACK_LLM_MODEL = "llama_v3_2_1b_instruct"
 REPRESENTATIVE_EXPORT_FILES = [
-    f"qai_hub_models/models/{model}/export.py" for model in REPRESENTATIVE_EXPORT_MODELS
+    f"src/qai_hub_models/models/{model}/export.py"
+    for model in REPRESENTATIVE_EXPORT_MODELS
+]
+
+# stable_diffusion_v1_5 is an AIMET collection model (PretrainedCollectionModel
+# with quantized components). Including it in representative sets for base_model.py
+# and quantization_aimet_onnx.py ensures PR CI covers the AIMET/collection model
+# code path, which differs significantly from standard single-component models.
+REPRESENTATIVE_AIMET_MODEL_FILE = (
+    "src/qai_hub_models/models/stable_diffusion_v1_5/model.py"
+)
+
+# For LLM families, testing a single representative is enough coverage
+# for cross-family refactors. Within each sublist, if multiple entries end up
+# in the resolved set of models to test, keep only the FIRST one (highest
+# priority — put the cheapest/smallest model first).
+LLM_GROUPS: list[list[str]] = [
+    [
+        "llama_v3_2_1b_instruct",  # smallest, primary representative
+        "llama_v3_2_3b_instruct",
+        "llama_v3_2_3b_instruct_ssd",
+        "llama_v3_1_8b_instruct",
+        "llama_v3_8b_instruct",
+        "llama_v3_1_sea_lion_3_5_8b_r",
+        "llama_v3_elyza_jp_8b",
+        "llama_v3_taide_8b_chat",
+        "mistral_7b_instruct_v0_3",
+        "falcon_v3_7b_instruct",
+    ],
+    [
+        "qwen3_4b",  # primary representative
+        "qwen3_4b_instruct_2507",
+        "qwen3_8b",
+        "qwen2_7b_instruct",
+        "qwen2_5_vl_7b_instruct",
+        "qwen3_vl_4b_instruct",
+    ],
+]
+
+# _shared/llm/, _shared/llama3/ route to llama; _shared/qwen3/, _shared/qwen2/
+# route to qwen (text); _shared/qwen2_vl/, _shared/qwen3_vl/, _shared/vlm/ route
+# to qwen (VL); _shared/lm_driver/ is used by both llama models and
+# _shared/qwen3_vl/, so it routes to llama + qwen VL reps.
+LLAMA_REPRESENTATIVE_EXPORT_FILE = (
+    "src/qai_hub_models/models/llama_v3_2_1b_instruct/export.py"
+)
+QWEN_REPRESENTATIVE_EXPORT_FILE = "src/qai_hub_models/models/qwen3_4b/export.py"
+QWEN_VL_REPRESENTATIVE_EXPORT_FILE = (
+    "src/qai_hub_models/models/qwen3_vl_4b_instruct/export.py"
+)
+PI05_REPRESENTATIVE_EXPORT_FILE = "src/qai_hub_models/models/pi05/export.py"
+_SHARED_DIR = Path(REPO_ROOT, "src/qai_hub_models/models/_shared")
+_LLAMA_REP_FILES = sorted(
+    p.relative_to(REPO_ROOT).as_posix()
+    for sub in ("llm", "llama3")
+    for p in (_SHARED_DIR / sub).rglob("*.py")
+)
+_QWEN_REP_FILES = sorted(
+    p.relative_to(REPO_ROOT).as_posix()
+    for sub in ("qwen3", "qwen2")
+    for p in (_SHARED_DIR / sub).rglob("*.py")
+)
+_QWEN_VL_REP_FILES = sorted(
+    p.relative_to(REPO_ROOT).as_posix()
+    for sub in ("qwen2_vl", "qwen3_vl", "vlm")
+    for p in (_SHARED_DIR / sub).rglob("*.py")
+)
+_LM_DRIVER_REP_FILES = sorted(
+    p.relative_to(REPO_ROOT).as_posix()
+    for p in (_SHARED_DIR / "lm_driver").rglob("*.py")
+)
+
+# Utils used only by LLM text + LLM VL shared code.
+_LLM_TEXT_AND_VL_UTILS = [
+    "src/qai_hub_models/utils/system_info.py",
+]
+# aimet/encodings.py is used by text LLMs + VL LLMs + pi05.
+_LLM_AND_PI05_UTILS = [
+    "src/qai_hub_models/utils/aimet/encodings.py",
 ]
 
 
@@ -34,45 +115,88 @@ REPRESENTATIVE_EXPORT_FILES = [
 # aimet models. Testing a representative set of aimet models is probably
 # good enough rather than testing all of them.
 MANUAL_EDGES = {
-    "qai_hub_models/utils/quantization_aimet.py": [
-        "qai_hub_models/models/yolov7_quantized/model.py",
-        "qai_hub_models/models/ffnet_40s_quantized/model.py",
-        "qai_hub_models/models/xlsr_quantized/model.py",
-        "qai_hub_models/models/resnet18_quantized/model.py",
+    "src/qai_hub_models/datasets/__init__.py": [
+        "src/qai_hub_models/models/yolov7_quantized/model.py"
     ],
-    "qai_hub_models/datasets/__init__.py": [
-        "qai_hub_models/models/yolov7_quantized/model.py"
+    "src/qai_hub_models/utils/base_model.py": [
+        *REPRESENTATIVE_EXPORT_FILES,
+        REPRESENTATIVE_AIMET_MODEL_FILE,
     ],
-    "qai_hub_models/datasets/common.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/models/common.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/utils/asset_loaders.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/utils/base_config.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/utils/collection_model_helpers.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/utils/envvars.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/scorecard/execution_helpers.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/scorecard/device.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/scorecard/envvars.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/utils/base_model.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/utils/default_export_device.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/utils/quantization.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/utils/input_spec.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/utils/qai_hub_helpers.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/utils/inference.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/utils/evaluate.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/utils/onnx/torch_wrapper.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/utils/printing.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/utils/path_helpers.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/utils/runtime_torch_wrapper.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/utils/transpose_channel.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/utils/tflite/torch_wrapper.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/configs/code_gen_yaml.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/configs/_info_yaml_enums.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/configs/_info_yaml_llm_details.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/configs/info_yaml.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/configs/model_disable_reasons.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/configs/perf_yaml.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/_version.py": [],
+    "src/qai_hub_models/utils/quantization_aimet_onnx.py": [
+        REPRESENTATIVE_AIMET_MODEL_FILE,
+    ],
+    **{f: [LLAMA_REPRESENTATIVE_EXPORT_FILE] for f in _LLAMA_REP_FILES},
+    **{f: [QWEN_REPRESENTATIVE_EXPORT_FILE] for f in _QWEN_REP_FILES},
+    **{f: [QWEN_VL_REPRESENTATIVE_EXPORT_FILE] for f in _QWEN_VL_REP_FILES},
+    **{
+        f: [LLAMA_REPRESENTATIVE_EXPORT_FILE, QWEN_VL_REPRESENTATIVE_EXPORT_FILE]
+        for f in _LM_DRIVER_REP_FILES
+    },
+    **{
+        f: [LLAMA_REPRESENTATIVE_EXPORT_FILE, QWEN_VL_REPRESENTATIVE_EXPORT_FILE]
+        for f in _LLM_TEXT_AND_VL_UTILS
+    },
+    **{
+        f: [
+            LLAMA_REPRESENTATIVE_EXPORT_FILE,
+            QWEN_VL_REPRESENTATIVE_EXPORT_FILE,
+            PI05_REPRESENTATIVE_EXPORT_FILE,
+        ]
+        for f in _LLM_AND_PI05_UTILS
+    },
+    "src/qai_hub_models/common.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/configs/_info_yaml_enums.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/configs/_info_yaml_llm_details.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/configs/code_gen_yaml.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/scorecard/devices_and_chipsets_yaml.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/configs/info_yaml.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/configs/model_disable_reasons.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/configs/model_metadata.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/scorecard/numerics_yaml.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/scorecard/perf_yaml.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/configs/proto_helpers.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/scorecard/release_assets_yaml.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/configs/tensor_spec.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/configs/tool_versions.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/protocols.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/scorecard/device.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/scorecard/envvars.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/scorecard/execution_helpers.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/scorecard/utils/testing.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/scorecard/utils/testing_export_eval.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/utils/asset_loaders.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/utils/aws.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/utils/args.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/utils/base_config.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/utils/base_dataset.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/utils/base_evaluator.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/utils/collection_model_helpers.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/utils/envvars.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/utils/evaluate.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/utils/inference.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/utils/input_spec.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/utils/onnx/torch_wrapper.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/utils/path_helpers.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/utils/printing.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/utils/qai_hub_helpers.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/utils/quantization.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/utils/runtime_torch_wrapper.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/utils/tflite/torch_wrapper.py": REPRESENTATIVE_EXPORT_FILES,
+    "src/qai_hub_models/utils/transpose_channel.py": REPRESENTATIVE_EXPORT_FILES,
 }
+
+
+def prune_llm_groups(models: set[str]) -> set[str]:
+    """
+    For each sublist in LLM_GROUPS, keep at most the first model that is present.
+    Non-LLM models are untouched.
+    """
+    out = set(models)
+    for group in LLM_GROUPS:
+        present = [m for m in group if m in out]
+        for extra in present[1:]:
+            out.discard(extra)
+    return out
 
 
 def get_python_import_expression(filepath: str) -> str:
@@ -80,10 +204,10 @@ def get_python_import_expression(filepath: str) -> str:
     Given a filepath, return the expression used to import the file
     in other modules.
 
-    For example, qiasm_model_zoo/models/trocr/model.py ->
-        qiasm_model_zoo.models.trocr.model
+    For example, src/qai_hub_models/models/trocr/model.py ->
+        qai_hub_models.models.trocr.model
     """
-    rel_path = os.path.relpath(filepath, REPO_ROOT)
+    rel_path = os.path.relpath(filepath, PY_PACKAGE_INSTALL_ROOT)
     init_suffix = "/__init__.py"
     if rel_path.endswith(init_suffix):
         rel_path = rel_path[: -len(init_suffix)]
@@ -132,6 +256,8 @@ def get_affected_files(changed_files: Iterable[str]) -> set[str]:
     while len(changed_files) > 0:
         # Pop off stack
         curr_file = changed_files.pop()
+        if not curr_file.endswith(".py"):
+            continue
         if curr_file in MANUAL_EDGES:
             dependent_files = set(MANUAL_EDGES[curr_file])
         else:
@@ -173,13 +299,12 @@ def resolve_affected_models(
     for f in affected_files:
         file_path = Path(f)
         # Only consider directories directly in the top-level `models/` folder
-        # (i.e. ignore `models/_shared`, `models/_internal`)
+        # (i.e. ignore `models/_shared`)
         if str(file_path.parent.parent) == PY_PACKAGE_RELATIVE_MODELS_ROOT:
             if file_path.name not in [
                 "model.py",
                 "export.py",
                 "test.py",
-                "test_generated.py",
                 "demo.py",
                 "requirements.txt",
                 "code-gen.yaml",
@@ -191,8 +316,6 @@ def resolve_affected_models(
                 continue
             if not include_tests and file_path.name == "test.py":
                 continue
-            if not include_generated_tests and file_path.name == "test_generated.py":
-                continue
             if not include_demo and file_path.name == "demo.py":
                 continue
             if not include_cj_yaml and file_path.name == "code-gen.yaml":
@@ -203,10 +326,21 @@ def resolve_affected_models(
                 file_path.parent / "info.yaml"
             ).exists():
                 changed_models.add(model_name)
+        elif (
+            str(file_path.parent.parent) == SCORECARD_PACKAGE_MODELS_RELATIVE_ROOT
+            and file_path.name == "test_generated.py"
+            and include_generated_tests
+        ):
+            model_name = file_path.parent.name
+            source_model_dir = Path(PY_PACKAGE_RELATIVE_MODELS_ROOT) / model_name
+            if (source_model_dir / "model.py").exists() and (
+                source_model_dir / "info.yaml"
+            ).exists():
+                changed_models.add(model_name)
     return changed_models
 
 
-@functools.lru_cache(maxsize=2)  # Size 2 for `.py` and `code-gen.yaml`
+@functools.lru_cache(maxsize=3)
 def get_changed_files_in_package(
     prefix: str | None = None,
     suffix: str | None = None,
@@ -253,6 +387,7 @@ def get_ci_test_models(
     """
     files = list(get_changed_files_in_package(suffix="requirements.txt"))
     files.extend(get_changed_files_in_package(suffix=".py"))
+    files.extend(get_changed_files_in_package(suffix="code-gen.yaml"))
     return resolve_affected_models(
         files,
         include_model,
@@ -293,13 +428,6 @@ def get_all_models() -> list[str]:
                     raise ValueError(f"Unknown model selected: {model}")
             model_names = allowed_models
 
-    if os.environ.get("QAIHM_TEST_PRECISIONS", "default").lower() != "default":
-        cleaned_models: set[str] = set()
-        for model in model_names:
-            if model not in static_models and get_is_hub_quantized(model):
-                cleaned_models.add(model)
-        model_names = cleaned_models
-
     if user_specified_models_list:
         return [
             x for x in user_specified_models_list if x in model_names
@@ -331,11 +459,16 @@ class PrintCITestModelsTask(Task):
         )
 
         out = model_or_yaml_changed
-        if model_or_yaml_changed - only_code_generation_changed:
+        codegen_only_models = only_code_generation_changed - model_or_yaml_changed
+        if codegen_only_models:
             # We don't run tests for every model whose codegen files was changed.
             # However, if there are models with only codegen changes,
             # we run a representative model set to make sure codegen didn't break for regular + component models.
             out = out.union(REPRESENTATIVE_EXPORT_MODELS)
+            llm_models = {m for group in LLM_GROUPS for m in group}
+            if codegen_only_models & llm_models:
+                out.add(CODEGEN_FALLBACK_LLM_MODEL)
 
+        out = prune_llm_groups(out)
         print(",".join(sorted(out)))
         return True

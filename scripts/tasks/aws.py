@@ -12,8 +12,7 @@ from .util import on_ci
 class ValidateAwsCredentialsTask(ConditionalTask):
     def __init__(self, venv_path: str | None) -> None:
         aws_script_path = f"{REPO_ROOT}/scripts/aws"
-        install_awslogin_path = f"{aws_script_path}/install_awslogin.sh"
-        validate_creds_path = f"{aws_script_path}/validate_credentials.py"
+        install_saml2aws_path = f"{aws_script_path}/install_saml2aws.sh"
         super().__init__(
             group_name=None,
             condition=on_ci,
@@ -22,8 +21,8 @@ class ValidateAwsCredentialsTask(ConditionalTask):
                 "Validating AWS credentials",
                 venv_path,
                 [
-                    f'if [ -d "{aws_script_path}" ]; then source {install_awslogin_path}; fi',
-                    f'if [ -d "{aws_script_path}" ]; then python {validate_creds_path}; fi',
+                    f'if [ -d "{aws_script_path}" ]; then bash {install_saml2aws_path}; fi',
+                    "qai-hub-models validate_aws_credentials",
                 ],
             ),
         )

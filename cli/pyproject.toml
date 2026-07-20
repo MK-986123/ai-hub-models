@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=80,<=82.0.1", "setuptools-scm>=9,<=9.2.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qai_hub_models_cli"
+dynamic = ["version"]
+description = "CLI for Qualcomm AI Hub Models."
+requires-python = ">=3.10, <3.14"
+dependencies = [
+    "packaging>=24.2,<=26.2.0",
+    "platformdirs>=4.0,<=4.9.6",
+    "prettytable>=3.10,<=3.16.0",
+    "protobuf>=4.25.9,<=7.34.1",
+    "requests>=2.25,<=2.33.1",
+    "tqdm>=4.66,<=4.67.3",
+]
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Qualcomm® Technologies, Inc", email = "ai-hub-support@qti.qualcomm.com" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+]
+
+[project.optional-dependencies]
+internal = ["boto3>=1.26,<=1.40.0", "botocore>=1.26,<=1.40.0", "boto3-stubs[s3]>=1.26,<=1.40.0"]
+
+[project.scripts]
+qai_hub_models = "qai_hub_models_cli.cli:main"
+qai-hub-models = "qai_hub_models_cli.cli:main"
+
+[project.urls]
+Homepage = "https://aihub.qualcomm.com/models"
+GitHub = "https://github.com/qualcomm/ai-hub-models"
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools_scm]
+root = ".."
+version_file = "qai_hub_models_cli/_version.py"
+
+[tool.pytest.ini_options]
+testpaths = "qai_hub_models_cli"
+python_files = ["test_*.py"]
+
+[tool.pydoclint]
+style = 'numpy'
+arg-type-hints-in-docstring = false
+skip-checking-short-docstrings = true
+skip-checking-raises = true
+allow-init-docstring = true
+check-style-mismatch = true
+
+[tool.mypy]
+ignore_missing_imports = true
+warn_unused_ignores = true
+exclude = '.*_pb2\.py$'  # Tells mypy to ignore .py protobuf files in favor of the .pyi stubs.
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models_cli.*"
+check_untyped_defs = true
+implicit_reexport = false

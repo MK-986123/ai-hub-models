@@ -1,0 +1,1 @@
+pip_install_flags: git+https://github.com/openai/CLIP.git@ded190a --use-pep517

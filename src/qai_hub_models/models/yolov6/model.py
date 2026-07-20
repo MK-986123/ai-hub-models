@@ -1,0 +1,130 @@
+# ---------------------------------------------------------------------
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+# ---------------------------------------------------------------------
+
+from __future__ import annotations
+
+import torch
+from torch import nn
+from typing_extensions import Self
+
+from qai_hub_models import Precision
+from qai_hub_models.configs.tensor_spec import TensorSpec
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.coco_detection_evaluator import COCODetectionEvaluator
+from qai_hub_models.models._shared.yolo.model import Yolo
+from qai_hub_models.models._shared.yolo.utils import detect_postprocess
+from qai_hub_models.models.yolov6.external_repos.yolov6.yolov6.layers.common import (
+    RepVGGBlock,
+)
+from qai_hub_models.models.yolov6.external_repos.yolov6.yolov6.utils.checkpoint import (
+    load_checkpoint,
+)
+from qai_hub_models.utils.asset_loaders import (
+    CachedWebModelAsset,
+    load_path,
+    qaihm_temp_dir,
+)
+from qai_hub_models.utils.input_spec import OutputSpec
+
+MODEL_ASSET_VERSION = 1
+MODEL_ID = __name__.split(".")[-2]
+
+WEIGHTS_PATH = "https://github.com/meituan/YOLOv6/releases/download/0.4.0/"
+DEFAULT_WEIGHTS = "yolov6n.pt"
+
+
+class YoloV6(Yolo):
+    """Exportable YoloV6 bounding box detector, end-to-end."""
+
+    def __init__(self, model: nn.Module, include_postprocessing: bool = True) -> None:
+        super().__init__()
+        self.model = model
+        self.include_postprocessing = include_postprocessing
+
+    @classmethod
+    def from_pretrained(
+        cls, ckpt_name: str = DEFAULT_WEIGHTS, include_postprocessing: bool = True
+    ) -> Self:
+        model_url = f"{WEIGHTS_PATH}{ckpt_name}"
+        asset = CachedWebModelAsset(model_url, MODEL_ID, MODEL_ASSET_VERSION, ckpt_name)
+        model = _load_yolov6_source_model_from_weights(asset)
+        return cls(model, include_postprocessing)
+
+    def forward(
+        self, image: torch.Tensor
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Run YoloV6 on `image`, and produce a predicted set of bounding boxes and associated class probabilities.
+
+        Parameters
+        ----------
+        image
+            Pixel values pre-processed for encoder consumption.
+            Range: float[0, 1]
+            3-channel Color Space: RGB
+
+        Returns
+        -------
+        result : torch.Tensor | tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+            If self.include_postprocessing is True, returns:
+            boxes
+                Shape [batch, num preds, 4] where 4 == (x1, y1, x2, y2).
+            scores
+                Class scores multiplied by confidence. Shape [batch, num_preds, # of classes (typically 80)].
+            class_idx
+                Predicted class for each bounding box. Shape [batch, num_preds, 1].
+
+            If self.include_postprocessing is False, returns:
+            detector_output
+                Shape is [batch, num_preds, k] where, k = # of classes + 5. k is structured as follows [box_coordinates (4), conf (1), # of classes] and box_coordinates are [x_center, y_center, w, h].
+        """
+        predictions = self.model(image)
+        return (
+            detect_postprocess(predictions)
+            if self.include_postprocessing
+            else predictions
+        )
+
+    def get_output_spec(self) -> OutputSpec:
+        if self.include_postprocessing:
+            return {
+                "boxes": TensorSpec(),
+                "scores": TensorSpec(),
+                "class_idx": TensorSpec(),
+            }
+        return {"detector_output": TensorSpec()}
+
+    def get_evaluator(self) -> BaseEvaluator:
+        image_height, image_width = self.get_input_spec()["image"][0][2:]
+        return COCODetectionEvaluator(
+            image_height,
+            image_width,
+            score_threshold=0.001,
+            nms_iou_threshold=0.65,
+        )
+
+    @staticmethod
+    def get_hub_litemp_percentage(precision: Precision) -> float:
+        """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
+        return 10
+
+
+def _load_yolov6_source_model_from_weights(
+    ckpt_path: str | CachedWebModelAsset,
+) -> torch.nn.Module:
+    with qaihm_temp_dir() as tmpdir:
+        model_path = load_path(ckpt_path, tmpdir)
+
+        model = load_checkpoint(model_path, map_location="cpu", inplace=True, fuse=True)
+        model.export = True
+
+        for layer in model.modules():
+            if isinstance(layer, RepVGGBlock):
+                layer.switch_to_deploy()
+            elif isinstance(layer, nn.Upsample) and not hasattr(
+                layer, "recompute_scale_factor"
+            ):
+                layer.recompute_scale_factor = None  # torch 1.11.0 compatibility
+        return model

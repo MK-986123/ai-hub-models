@@ -18,6 +18,7 @@ from typing import Any
 from .constants import (
     BASH_EXECUTABLE,
     PY_PACKAGE_MODELS_ROOT,
+    SCORECARD_PACKAGE_MODELS_ROOT,
     process_output,
     run_and_get_output,
 )
@@ -56,6 +57,22 @@ def check_code_gen_field(model_name: str, field_name: str) -> bool:
     to check if a code gen field is true and apply branching logic within CI/scorecard.
     """
     yaml_path = Path(PY_PACKAGE_MODELS_ROOT) / model_name / "code-gen.yaml"
+    if yaml_path.exists():
+        with open(yaml_path) as f:
+            if f"{field_name}: true" in f.read():
+                return True
+    return False
+
+
+@functools.cache
+def check_scorecard_config_field(model_name: str, field_name: str) -> bool:
+    """
+    This process does not have the yaml package, so use this primitive way
+    to check if a scorecard-config field is true and apply branching logic within CI/scorecard.
+    """
+    yaml_path = (
+        Path(SCORECARD_PACKAGE_MODELS_ROOT) / model_name / "scorecard-config.yaml"
+    )
     if yaml_path.exists():
         with open(yaml_path) as f:
             if f"{field_name}: true" in f.read():
@@ -113,6 +130,10 @@ def get_is_hub_quantized(model_name: str) -> bool:
     return not check_code_gen_field(
         model_name, "is_precompiled"
     ) and not check_code_gen_field(model_name, "is_aimet")
+
+
+def get_requires_aot_prepare(model_name: str) -> bool:
+    return check_code_gen_field(model_name, "requires_aot_prepare")
 
 
 def model_needs_aimet(model_name: str) -> bool:
@@ -252,3 +273,17 @@ def get_pip() -> str:
     if uv_installed():
         return "uv pip"
     return "pip"
+
+
+@functools.cache
+def has_cuda_gpu() -> bool:
+    """Return True if nvidia-smi exits with code 0, used as a proxy for CUDA GPU availability."""
+    try:
+        result = subprocess.run(
+            ["nvidia-smi"],
+            check=False,
+            capture_output=True,
+        )
+        return result.returncode == 0
+    except Exception:
+        return False

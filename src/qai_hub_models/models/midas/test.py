@@ -1,0 +1,51 @@
+# ---------------------------------------------------------------------
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+# ---------------------------------------------------------------------
+
+import numpy as np
+import pytest
+
+from qai_hub_models.models._shared.depth_estimation.app import DepthEstimationApp
+from qai_hub_models.models.midas.demo import INPUT_IMAGE_ADDRESS
+from qai_hub_models.models.midas.demo import main as demo_main
+from qai_hub_models.models.midas.model import MODEL_ASSET_VERSION, MODEL_ID, Midas
+from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
+
+OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
+    MODEL_ID, MODEL_ASSET_VERSION, "midas_output.png"
+)
+
+
+# Verify that the output from Torch is as expected.
+def test_task() -> None:
+    model = Midas.from_pretrained()
+    (_, _, height, width) = model.get_input_spec()["image"][0]
+    app = DepthEstimationApp(model, height, width)
+    original_image = load_image(INPUT_IMAGE_ADDRESS)
+    output_image = app.estimate_depth(original_image)
+    output_image_oracle = load_image(OUTPUT_IMAGE_ADDRESS)
+
+    np.testing.assert_allclose(
+        np.asarray(output_image), np.asarray(output_image_oracle), atol=3
+    )
+
+
+@pytest.mark.trace
+def test_trace() -> None:
+    model = Midas.from_pretrained()
+    (_, _, height, width) = model.get_input_spec()["image"][0]
+    app = DepthEstimationApp(
+        model.convert_to_torchscript(check_trace=False), height, width
+    )
+    original_image = load_image(INPUT_IMAGE_ADDRESS)
+    output_image = app.estimate_depth(original_image)
+    output_image_oracle = load_image(OUTPUT_IMAGE_ADDRESS)
+
+    np.testing.assert_allclose(
+        np.asarray(output_image), np.asarray(output_image_oracle), atol=3
+    )
+
+
+def test_demo() -> None:
+    demo_main(is_test=True)

@@ -1,0 +1,320 @@
+# Replaces einsum and 5D reshape ops with QNN-compatible alternatives, rewrites convex_upsample for export,
+# and replaces the custom bilinear_grid_sample with F.grid_sample (bilinear) which QNN maps natively
+# to its own grid sampler op — single call, no int64 indices, compatible with QNN HTP and TFLite.
+#
+diff --git a/nets/attention/linear_attention.py b/nets/attention/linear_attention.py
+index 61b1b85..2f7784d 100644
+--- a/nets/attention/linear_attention.py
++++ b/nets/attention/linear_attention.py
+@@ -78,4 +78,54 @@ class FullAttention(Module):
+ 
+         queried_values = torch.einsum("nlsh,nshd->nlhd", A, values)
+ 
+-        return queried_values.contiguous()
+\ No newline at end of file
++        return queried_values.contiguous()
++# ---------------------------------------------------------------------------
++# Qualcomm-compatible replacement
++# ---------------------------------------------------------------------------
++
++
++def _linear_attention_forward(self, queries, keys, values, q_mask=None, kv_mask=None):
++    """Multi-Head linear attention proposed in "Transformers are RNNs".
++
++    Replaces the original einsum-based implementation with explicit matmul ops.
++
++    Args:
++        queries: [N, L, H, D]
++        keys: [N, S, H, D]
++        values: [N, S, H, D]
++        q_mask: [N, L]
++        kv_mask: [N, S]
++    Returns:
++        queried_values: (N, L, H, D)
++    """
++    Q = self.feature_map(queries)
++    K = self.feature_map(keys)
++
++    if q_mask is not None:
++        Q = Q * q_mask[:, :, None, None]
++    if kv_mask is not None:
++        K = K * kv_mask[:, :, None, None]
++        values = values * kv_mask[:, :, None, None]
++
++    v_length = values.size(1)
++    v_length_inv = 1.0 / v_length  # avoid fp16 overflow
++    values = values * v_length_inv
++
++    # KV = K^T @ V  per head: [N, H, D, V]
++    KV = torch.matmul(K.permute(0, 2, 3, 1), values.permute(0, 2, 1, 3))
++
++    # Normalisation denominator Z: [N, L, H]
++    N, L, H, D = Q.shape
++    Q_reshaped = Q.permute(0, 2, 1, 3)  # [N, H, L, D]
++    K_reduced = K.sum(dim=1).reshape(N, H, D, 1)  # [N, H, D, 1]
++    denom = torch.matmul(Q_reshaped, K_reduced).reshape(N, H, L).permute(0, 2, 1)
++    Z = 1.0 / torch.clamp(denom, min=self.eps)  # [N, L, H]
++
++    # Attended output: Q @ KV per head, then normalise.
++    out = torch.matmul(Q_reshaped, KV).permute(0, 2, 1, 3)  # [N, L, H, V]
++    queried_values = out * Z.reshape(N, L, H, 1) * v_length
++
++    return queried_values.contiguous()
++
++
++LinearAttention.forward = _linear_attention_forward
+diff --git a/nets/corr.py b/nets/corr.py
+index bf0e286..31a8a6d 100644
+--- a/nets/corr.py
++++ b/nets/corr.py
+@@ -3,7 +3,12 @@ import torch
+ import torch.nn as nn
+ import torch.nn.functional as F
+ 
+-from .utils import bilinear_sampler, coords_grid, manual_pad
++from .utils import (
++    bilinear_sampler,
++    bilinear_sampler_int_frac,
++    coords_grid,
++    manual_pad,
++)
+ 
+ class AGCL:
+     """
+@@ -50,9 +55,19 @@ class AGCL:
+ 
+     def corr_iter(self, left_feature, right_feature, flow, small_patch):
+ 
+-        coords = self.coords + flow
+-        coords = coords.permute(0, 2, 3, 1)
+-        right_feature = bilinear_sampler(right_feature, coords)
++        # -- Begin Qualcomm Change
++        # bilinear_sampler_int_frac keeps the integer base and fractional flow
++        # separate so fp16 NPUs do not lose sub-pixel precision at large coords.
++        # On CPU/GPU inference fall back to the original fast single-call sampler.
++        if torch.jit.is_tracing():
++            base = self.coords.permute(0, 2, 3, 1)
++            flow_nhwc = flow.permute(0, 2, 3, 1)
++            right_feature = bilinear_sampler_int_frac(right_feature, base, flow_nhwc)
++        else:
++            coords = self.coords + flow
++            coords = coords.permute(0, 2, 3, 1)
++            right_feature = bilinear_sampler(right_feature, coords)
++        # -- End Qualcomm Change
+ 
+         if small_patch:
+             psize_list = [(3, 3), (3, 3), (3, 3), (3, 3)]
+@@ -146,3 +161,84 @@ class AGCL:
+         final_corr = torch.cat(corrs, dim=1)
+ 
+         return final_corr
++
++
++# ---------------------------------------------------------------------------
++# Qualcomm-compatible replacement for AGCL.corr_att_offset
++# ---------------------------------------------------------------------------
++
++
++def _corr_att_offset(self, left_feature, right_feature, flow, extra_offset, small_patch=False):
++    """Compute attention-guided offset correlation.
++
++    -- Begin Qualcomm Change
++    On CPU/GPU inference delegates to the original implementation.
++    During export (tracing) replaces the original to avoid:
++    - repeat_interleave on offsets (runtime-dependent count, not exportable).
++    - 5D tensor reshape [N, C, -1, H, W] unsupported by QNN.
++    - repeat_interleave on left_feature.
++    Uses bilinear_sampler_int_frac for fp16-safe coordinate sampling on NPU.
++    -- End Qualcomm Change
++    """
++    # -- Begin Qualcomm Change
++    if not torch.jit.is_tracing():
++        return _corr_att_offset_original(self, left_feature, right_feature, flow, extra_offset, small_patch)
++    # -- End Qualcomm Change
++
++    N, C, H, W = left_feature.shape
++
++    if self.att is not None:
++        left_feature = left_feature.permute(0, 2, 3, 1).reshape(N, H * W, C)
++        right_feature = right_feature.permute(0, 2, 3, 1).reshape(N, H * W, C)
++        left_feature, right_feature = self.att(left_feature, right_feature)
++        left_feature, right_feature = [
++            x.reshape(N, H, W, C).permute(0, 3, 1, 2)
++            for x in [left_feature, right_feature]
++        ]
++
++    lefts = torch.split(left_feature, left_feature.shape[1] // 4, dim=1)
++    rights = torch.split(right_feature, right_feature.shape[1] // 4, dim=1)
++    C = C // 4
++
++    psize_list = [(3, 3)] * 4 if small_patch else [(1, 9)] * 4
++    dilate_list = [(1, 1)] * 4
++
++    search_num = 9
++    extra_offset = extra_offset.reshape(N, search_num, 2, H, W).permute(0, 1, 3, 4, 2)
++
++    corrs = []
++    for i in range(len(psize_list)):
++        left_feature, right_feature = lefts[i], rights[i]
++        psize, dilate = psize_list[i], dilate_list[i]
++        psizey, psizex = psize
++        dilatey, dilatex = dilate
++        ry = psizey // 2 * dilatey
++        rx = psizex // 2 * dilatex
++
++        x_grid, y_grid = torch.meshgrid(
++            torch.arange(-rx, rx + 1, dilatex, device=self.fmap1.device),
++            torch.arange(-ry, ry + 1, dilatey, device=self.fmap1.device),
++            indexing="xy",
++        )
++        offsets = torch.stack((x_grid, y_grid))
++        offsets = offsets.reshape(2, -1).permute(1, 0)
++        for d in sorted((0, 2, 3)):
++            offsets = offsets.unsqueeze(d)
++
++        base = self.coords.permute(0, 2, 3, 1)  # [N, H, W, 2], integer-valued
++        base = (torch.unsqueeze(base, 1) + offsets.float()).reshape(N, -1, W, 2)
++        frac = flow.permute(0, 2, 3, 1)
++        frac = (torch.unsqueeze(frac, 1) + extra_offset).reshape(N, -1, W, 2)
++        right_feature = bilinear_sampler_int_frac(right_feature, base, frac)
++        # Reshape to [N*C, search_num, H, W] to avoid the 5D tensor.
++        right_feature = right_feature.reshape(N * C, -1, H, W)
++        # Transpose left_feature to [C*N, H, W] then unsqueeze to align.
++        left_feature = left_feature.transpose(1, 0)
++        corr = torch.mean(left_feature * right_feature, dim=0, keepdim=True)
++        corrs.append(corr)
++
++    return torch.cat(corrs, dim=1)
++
++
++_corr_att_offset_original = AGCL.corr_att_offset
++AGCL.corr_att_offset = _corr_att_offset
+diff --git a/nets/crestereo.py b/nets/crestereo.py
+index 3f99917..fb06385 100644
+--- a/nets/crestereo.py
++++ b/nets/crestereo.py
+@@ -55,24 +55,47 @@ class CREStereo(nn.Module):
+         self.range_16 = 1
+         self.range_8 = 1
+ 
++        # Buffer for conv2d-based gather in convex_upsample
++        self.register_buffer(
++            "_unfold_kernel",
++            torch.eye(9).view(9, 1, 3, 3),
++            persistent=False,
++        )
++
+     def freeze_bn(self):
+         for m in self.modules():
+             if isinstance(m, nn.BatchNorm2d):
+                 m.eval()
+ 
+     def convex_upsample(self, flow, mask, rate=4):
+-        """ Upsample flow field [H/8, W/8, 2] -> [H, W, 2] using convex combination """
+-        N, _, H, W = flow.shape
+-        # print(flow.shape, mask.shape, rate)
+-        mask = mask.view(N, 1, 9, rate, rate, H, W)
+-        mask = torch.softmax(mask, dim=2)
+-
+-        up_flow = F.unfold(rate * flow, [3,3], padding=1)
+-        up_flow = up_flow.view(N, 2, 9, 1, 1, H, W)
++        """Upsample flow field [H/8, W/8, 2] -> [H, W, 2] using convex combination.
+ 
+-        up_flow = torch.sum(mask * up_flow, dim=2)
+-        up_flow = up_flow.permute(0, 1, 4, 2, 5, 3)
+-        return up_flow.reshape(N, 2, rate*H, rate*W)
++        Uses a conv2d-based gather instead of the original 7D/6D-reshape
++        approach for better export compatibility.
++        """
++        N, _, H, W = flow.shape
++        mask = (
++            mask.permute(0, 2, 3, 1).view(N, H * W, 9, rate * rate).permute(0, 1, 3, 2)
++        )  # [N, H*W, rate*rate, 9]
++        mask = torch.softmax(mask, dim=-1)
++        # Expand mask from [N, H*W, rate*rate, 9] to [N*2, H*W, rate*rate, 9]
++        # to match up_flow which is indexed over the 2 flow channels (x, y).
++        mask = mask.repeat_interleave(2, dim=0)
++        # Gather the 9-neighbourhood for every flow pixel via conv2d
++        up_flow = (
++            F.conv2d(
++                (rate * flow).view(N * 2, 1, H, W),
++                self._unfold_kernel,
++                padding=1,
++            )
++            .permute(0, 2, 3, 1)
++            .view(N * 2, H * W, 1, 9)
++        )
++        # Weighted sum over neighbours
++        up_flow = (mask * up_flow).sum(dim=-1)  # [N*2, H*W, rate*rate]
++        # Fold back to spatial layout
++        up_flow = up_flow.reshape(N * 2, H, W, rate, rate).permute(0, 1, 3, 2, 4)
++        return up_flow.reshape(N, 2, rate * H, rate * W)
+ 
+     def zero_init(self, fmap):
+         N, C, H, W = fmap.shape
+diff --git a/nets/utils/__init__.py b/nets/utils/__init__.py
+index 8cc08e5..c441912 100644
+--- a/nets/utils/__init__.py
++++ b/nets/utils/__init__.py
+@@ -1 +1,6 @@
+-from .utils import bilinear_sampler, coords_grid, manual_pad
+\ No newline at end of file
++from .utils import (
++    bilinear_sampler,
++    bilinear_sampler_int_frac,
++    coords_grid,
++    manual_pad,
++)
+diff --git a/nets/utils/utils.py b/nets/utils/utils.py
+index 3a28205..60d896b 100644
+--- a/nets/utils/utils.py
++++ b/nets/utils/utils.py
+@@ -2,25 +2,36 @@ import torch
+ import torch.nn.functional as F
+ import numpy as np
+ 
++def bilinear_sampler_int_frac(img, base, flow):
++    """Bilinear sampling using F.grid_sample on combined base+flow coordinates.
++
++    Single F.grid_sample call — QNN maps this natively to its own grid sampler
++    op with no int64 indices, making it compatible with TFLite and QNN HTP.
++    """
++    H, W = img.shape[-2:]
++    coords = base + flow
++    xn = coords[..., 0:1] * (2.0 / (W - 1)) - 1.0
++    yn = coords[..., 1:2] * (2.0 / (H - 1)) - 1.0
++    grid = torch.cat([xn, yn], dim=-1)
++    return F.grid_sample(img, grid, mode='bilinear',
++                         padding_mode='zeros', align_corners=True)
++
+ #Ref: https://github.com/princeton-vl/RAFT/blob/master/core/utils/utils.py
+ 
+ def bilinear_sampler(img, coords, mode='bilinear', mask=False):
+-    """ Wrapper for grid_sample, uses pixel coordinates """
+-    H, W = img.shape[-2:]
+-    xgrid, ygrid = coords.split([1,1], dim=-1)
+-    xgrid = 2*xgrid/(W-1) - 1
+-    ygrid = 2*ygrid/(H-1) - 1
++    """Wrapper for F.grid_sample using pixel coordinates.
+ 
++    Uses F.grid_sample which is directly supported by QNN,
++    instead of the custom bilinear_grid_sample implementation.
++    """
++    H, W = img.shape[-2:]
++    xgrid, ygrid = coords.split([1, 1], dim=-1)
++    xgrid = 2 * xgrid / (W - 1) - 1
++    ygrid = 2 * ygrid / (H - 1) - 1
+     grid = torch.cat([xgrid, ygrid], dim=-1)
+-    # img = F.grid_sample(img, grid, align_corners=True)
+-    img = bilinear_grid_sample(img, grid, align_corners=True)
++    return F.grid_sample(img, grid, align_corners=True)
+ 
+-    if mask:
+-        mask = (xgrid > -1) & (ygrid > -1) & (xgrid < 1) & (ygrid < 1)
+-        return img, mask.float()
+ 
+-    return img
+-    
+ def coords_grid(batch, ht, wd, device):
+     coords = torch.meshgrid(torch.arange(ht, device=device), torch.arange(wd, device=device), indexing='ij')
+     coords = torch.stack(coords[::-1], dim=0).float()

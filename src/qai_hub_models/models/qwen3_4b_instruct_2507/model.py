@@ -1,0 +1,195 @@
+# ---------------------------------------------------------------------
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+# ---------------------------------------------------------------------
+from __future__ import annotations
+
+import logging
+
+from qai_hub_models import Precision
+
+# LLMIOType is re-exported from this module so the CLI input-spec parser can
+# resolve the inherited get_input_spec's "llm_io_type" annotation, which it
+# looks up in the concrete model's module.
+from qai_hub_models.models._shared.llm.common import LLMIOType  # noqa: F401
+from qai_hub_models.models._shared.llm.model import (
+    DEFAULT_EXPORT_CONTEXT_LENGTHS as GLOBAL_DEFAULT_EXPORT_CONTEXT_LENGTHS,
+)
+from qai_hub_models.models._shared.llm.model import (
+    DEFAULT_EXPORT_SEQUENCE_LENGTHS as GLOBAL_DEFAULT_EXPORT_SEQUENCE_LENGTHS,
+)
+from qai_hub_models.models._shared.llm.model import SplitForwardMixin
+from qai_hub_models.models._shared.lm_driver.generator import HubCompatibleGenerator
+from qai_hub_models.models._shared.qwen3.model import (
+    Qwen3PartBase,
+    Qwen3PreSplitBase,
+    Qwen3PreSplitCollectionBase,
+    Qwen3QuantizablePreSplitBase,
+)
+
+logger = logging.getLogger(__name__)
+
+DEFAULT_EXPORT_CONTEXT_LENGTHS = GLOBAL_DEFAULT_EXPORT_CONTEXT_LENGTHS
+DEFAULT_EXPORT_SEQUENCE_LENGTHS = GLOBAL_DEFAULT_EXPORT_SEQUENCE_LENGTHS
+
+# Model identification
+MODEL_ID = __name__.split(".")[-2]
+# v1 was the static (pre-dynamo) model; v2 was the first dynamic-shape (dynamo)
+# version. v3 re-exports with embedding/lm_head untied (#3685) so the lm_head
+# weight no longer carries a per-channel encoding onto the embedding Gather
+# output, which the HTP linker rejected at the split boundary. v4 re-migrates
+# the encodings with the #3561 Cast-see-through fix so every residual-add split
+# boundary (36/36) carries an encoding — without it the cut tensors were dropped
+# and the two adjacent shards diverged at HTP link.
+MODEL_ASSET_VERSION = 4
+
+# Model architecture constants (from Qwen3-4B-Instruct-2507)
+NUM_LAYERS = 36
+NUM_SPLITS = 4
+NUM_LAYERS_PER_SPLIT = 12
+HIDDEN_SIZE = 2560
+NUM_KEY_VALUE_HEADS = 8
+NUM_ATTN_HEADS = 32
+# Qwen3 uses an explicit head_dim that differs from hidden_size // num_attn_heads.
+HEAD_DIM = 128
+
+# Hugging Face repo
+HF_REPO_NAME = "Qwen/Qwen3-4B-Instruct-2507"
+
+# Memory requirements
+MIN_MEMORY_RECOMMENDED = 40
+
+# Precision settings
+DEFAULT_PRECISION = Precision.w4a16
+SUPPORTED_PRECISIONS = [Precision.w4a16]
+DEFAULT_CHECKPOINT = {
+    Precision.w4a16: "qwen3_4b_instruct_2507_w4a16",
+}
+
+# Name used for split ONNX file basenames (e.g. Qwen3_4B_Instruct_2507_1_of_4.onnx)
+SPLIT_MODEL_NAME = "Qwen3_4B_Instruct_2507"
+
+
+class Qwen3_4B_Instruct_2507_PreSplit(Qwen3PreSplitBase):
+    """FP PreSplit for Qwen3-4B-Instruct-2507."""
+
+    GeneratorClass = HubCompatibleGenerator
+    num_layers = NUM_LAYERS
+    hidden_size = HIDDEN_SIZE
+    num_attention_heads = NUM_ATTN_HEADS
+    num_key_value_heads = NUM_KEY_VALUE_HEADS
+    head_dim = HEAD_DIM
+    hf_repo_name = HF_REPO_NAME
+
+    split_model_name = SPLIT_MODEL_NAME
+    num_splits = NUM_SPLITS
+    num_layers_per_split = NUM_LAYERS_PER_SPLIT
+
+    min_memory_recommended = MIN_MEMORY_RECOMMENDED
+    model_id = MODEL_ID
+    model_asset_version = MODEL_ASSET_VERSION
+    default_checkpoint = DEFAULT_CHECKPOINT
+    default_precision = DEFAULT_PRECISION
+
+
+class Qwen3_4B_Instruct_2507_QuantizablePreSplit(
+    Qwen3QuantizablePreSplitBase[Qwen3_4B_Instruct_2507_PreSplit]
+):
+    """Quantizable PreSplit for Qwen3-4B-Instruct-2507."""
+
+    FPModel = Qwen3_4B_Instruct_2507_PreSplit
+    GeneratorClass = HubCompatibleGenerator
+
+    num_layers = NUM_LAYERS
+    model_id = MODEL_ID
+    model_asset_version = MODEL_ASSET_VERSION
+    default_checkpoint = DEFAULT_CHECKPOINT
+    supported_precisions = SUPPORTED_PRECISIONS
+    default_precision = DEFAULT_PRECISION
+
+    split_model_name = SPLIT_MODEL_NAME
+    num_splits = NUM_SPLITS
+    num_layers_per_split = NUM_LAYERS_PER_SPLIT
+
+    # AdaScale config (32 attn heads + 8 KV heads + 1).
+    ada_scale_num_rmsnorm_per_blk = NUM_ATTN_HEADS + NUM_KEY_VALUE_HEADS + 1
+    # Instruct-2507 is a non-thinking variant.
+    supports_thinking = False
+
+
+class Qwen3_4B_Instruct_2507_PartBase(Qwen3PartBase):
+    """Unified Part base for Qwen3-4B-Instruct-2507."""
+
+    num_splits = NUM_SPLITS
+    hidden_size = HIDDEN_SIZE
+    num_attention_heads = NUM_ATTN_HEADS
+    num_key_value_heads = NUM_KEY_VALUE_HEADS
+    # Qwen3-4B's explicit head_dim (128) differs from 2560 // 32 = 80.
+    head_dim = HEAD_DIM
+    default_precision = DEFAULT_PRECISION
+    fp_presplit_cls = Qwen3_4B_Instruct_2507_PreSplit
+    quant_presplit_cls = Qwen3_4B_Instruct_2507_QuantizablePreSplit
+
+
+class Qwen3_4B_Instruct_2507_Part1_Of_4(Qwen3_4B_Instruct_2507_PartBase):
+    """Part 1: Embedding + first layers."""
+
+    part_id = 1
+
+
+class Qwen3_4B_Instruct_2507_Part2_Of_4(Qwen3_4B_Instruct_2507_PartBase):
+    """Part 2: Middle layers."""
+
+    part_id = 2
+
+
+class Qwen3_4B_Instruct_2507_Part3_Of_4(Qwen3_4B_Instruct_2507_PartBase):
+    """Part 3: Middle layers."""
+
+    part_id = 3
+
+
+class Qwen3_4B_Instruct_2507_Part4_Of_4(Qwen3_4B_Instruct_2507_PartBase):
+    """Part 4: Final layers + LM head."""
+
+    part_id = 4
+
+
+_SPLIT_PART_CLASSES: list[type] = [
+    Qwen3_4B_Instruct_2507_Part1_Of_4,
+    Qwen3_4B_Instruct_2507_Part2_Of_4,
+    Qwen3_4B_Instruct_2507_Part3_Of_4,
+    Qwen3_4B_Instruct_2507_Part4_Of_4,
+]
+
+
+class QuantizedSplitModelWrapper(  # type: ignore[misc]
+    SplitForwardMixin, Qwen3_4B_Instruct_2507_QuantizablePreSplit
+):
+    """Quantized eval via split Parts instead of monolithic QuantSim."""
+
+    def get_split_part_classes(self) -> list[type]:
+        return _SPLIT_PART_CLASSES
+
+
+class FPSplitModelWrapper(SplitForwardMixin, Qwen3_4B_Instruct_2507_PreSplit):
+    """FP eval via split Parts instead of monolithic torch model."""
+
+    def get_split_part_classes(self) -> list[type]:
+        return _SPLIT_PART_CLASSES
+
+
+class Qwen3_4B_Instruct_2507_Collection(Qwen3PreSplitCollectionBase):
+    """Unified Collection with 4 Parts for Qwen3-4B-Instruct-2507."""
+
+    hf_repo_name = HF_REPO_NAME
+    fp_presplit_cls = Qwen3_4B_Instruct_2507_PreSplit
+    part_base_cls = Qwen3_4B_Instruct_2507_PartBase
+    # Instruct-2507 is a non-thinking variant.
+    supports_thinking = False
+    parts = {
+        "part1_of_4": Qwen3_4B_Instruct_2507_Part1_Of_4,
+        "part2_of_4": Qwen3_4B_Instruct_2507_Part2_Of_4,
+        "part3_of_4": Qwen3_4B_Instruct_2507_Part3_Of_4,
+        "part4_of_4": Qwen3_4B_Instruct_2507_Part4_Of_4,
+    }

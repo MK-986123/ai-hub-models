@@ -1,6 +1,7 @@
 exclude: |
     (?x)(
-        /build/
+        /build/|
+        src/qai_hub_models/models/_shared/lm_driver/
     )
 
 repos:
@@ -11,8 +12,8 @@ repos:
         files: \.py|\.sh$
         exclude: >
             (?x)^(
-            qai_hub_models/extern/basicsr/|
-            qai_hub_models/extern/xtcocotools/
+            src/qai_hub_models/extern/basicsr/|
+            src/qai_hub_models/extern/xtcocotools/
             )
         args:
             - --license-filepath
@@ -55,26 +56,55 @@ repos:
     rev: v0.13.0
     hooks:
     -   id: ruff-check
-        name: Ruff check
+        name: Ruff check (src)
+        args: [--fix, --config=src/ruff.toml]
+        files: ^src/
+    -   id: ruff-check
+        name: Ruff check (cli)
+        args: [--fix, --config=cli/ruff.toml]
+        files: ^cli/
+    -   id: ruff-check
+        name: Ruff check (scripts)
         args: [--fix]
+        files: ^scripts/
     -   id: ruff-format
-        name: Ruff format
+        name: Ruff format (src)
+        args: [--config=src/ruff.toml]
+        files: ^src/
+    -   id: ruff-format
+        name: Ruff format (cli)
+        args: [--config=cli/ruff.toml]
+        files: ^cli/
+    -   id: ruff-format
+        name: Ruff format (scripts)
+        files: ^scripts/
 -   repo: https://github.com/jsh9/pydoclint
     rev: 0.7.3
     hooks:
     -   id: pydoclint
-        args: [--quiet]
+        name: pydoclint (src)
+        args: [--quiet, --config=src/pyproject.toml]
+        files: ^src/
+    -   id: pydoclint
+        name: pydoclint (cli)
+        args: [--quiet, --config=cli/pyproject.toml]
+        files: ^cli/
 -   repo: local
     hooks:
-    -   id: mypy
-        name: mypy
-        files: qai_hub_models/.*(py|pyi|ipynb)$
-        exclude: qai_hub_models/models/_internal/.*
-        entry: scripts/util/run_mypy.sh
+    -   id: mypy-src
+        name: mypy (src)
+        files: ^src/qai_hub_models/.*(py|pyi|ipynb)$
+        entry: scripts/util/run_mypy.sh src
         language: system
         # By default, precommit will split the files into groups and run
         # mypy on each group in parallel. This causes mypy to miss issues
         # and/or dump the failure several times.
         #
         # This flag makes precommit run mypy once on all files.
+        require_serial: true
+    -   id: mypy-cli
+        name: mypy (cli)
+        files: ^cli/qai_hub_models_cli/.*(py|pyi|ipynb)$
+        entry: scripts/util/run_mypy.sh cli
+        language: system
         require_serial: true

@@ -12,12 +12,20 @@ import sys
 import textwrap
 from collections.abc import Callable
 
-from tasks.aws import REPO_ROOT, ValidateAwsCredentialsTask
+from tasks.aws import ValidateAwsCredentialsTask
 from tasks.changes import (
     PrintCITestModelsTask,
     get_all_models,
 )
-from tasks.constants import BUILD_ROOT, DEFAULT_PYTHON, PY_PACKAGE_SRC_ROOT, VENV_PATH
+from tasks.constants import (
+    BUILD_ROOT,
+    DEFAULT_PYTHON,
+    PY_CLI_INSTALL_ROOT,
+    PY_CLI_SRC_ROOT,
+    PY_PACKAGE_SRC_ROOT,
+    REPO_ROOT,
+    VENV_PATH,
+)
 from tasks.plan import (
     ALL_TASKS,
     PUBLIC_TASKS,
@@ -30,14 +38,11 @@ from tasks.plan import (
     task,
 )
 from tasks.release import (
-    BuildPublicRepositoryTask,
+    BuildCLIWheelTask,
     BuildWheelTask,
     CreateReleaseVenv,
-    PublishWheelTask,
-    PushRepositoryTask,
 )
 from tasks.task import (
-    CompositeTask,
     ConditionalTask,
     ListTasksTask,
     NoOpTask,
@@ -46,10 +51,13 @@ from tasks.task import (
     Task,
 )
 from tasks.test import (
+    CollectLLMAccuracyCSVTask,
+    CollectLLMPerfTask,
     GenerateTestSummaryTask,
+    GenieXBenchTask,
     GPUPyTestModelsTask,
+    GradeLLMResponsesTask,
     InstallGlobalRequirementsTask,
-    LlamaCppBenchmarkTask,
     PyTestModelsTask,
     PyTestQAIHMTask,
 )
@@ -57,8 +65,11 @@ from tasks.util import echo, get_env_bool, on_ci, run
 from tasks.venv import (
     AggregateScorecardResultsTask,
     CreateVenvTask,
+    DownloadQAIRTAutoSDKTask,
     DownloadQDCWheelTask,
     GenerateGlobalRequirementsTask,
+    InstallCLITask,
+    InstallLLMGraderRequirementsTask,
     SyncLocalQAIHMVenvTask,
 )
 
@@ -130,11 +141,12 @@ def parse_arguments() -> argparse.Namespace:
     return args
 
 
-DEFAULT_RELEASE_DIRECTORY = os.path.join(BUILD_ROOT, "release")
+DEFAULT_RELEASE_DIRECTORY = os.path.join(REPO_ROOT, "src", "build", "release")
 RELEASE_VENV = os.path.join(BUILD_ROOT, "release_venv")
 RELEASE_WHEEL_DIR = os.path.join(DEFAULT_RELEASE_DIRECTORY, "wheel")
 RELEASE_REPO_DIR = os.path.join(DEFAULT_RELEASE_DIRECTORY, "repository")
-PRIVATE_WHEEL_DIR = os.path.join(BUILD_ROOT, "wheel")
+PRIVATE_WHEEL_DIR = os.path.join(REPO_ROOT, "src", "build", "wheel")
+CLI_WHEEL_DIR = os.path.join(PY_CLI_INSTALL_ROOT, "build", "wheel")
 
 
 def get_test_venv_wheel_dir() -> str | None:
@@ -148,6 +160,18 @@ def get_test_venv_wheel_dir() -> str | None:
         return RELEASE_WHEEL_DIR
     if on_ci() and not get_env_bool("QAIHM_CI_USE_EDITABLE_INSTALL"):
         return PRIVATE_WHEEL_DIR
+    return None  # editable install
+
+
+def get_cli_wheel_dir() -> str | None:
+    """
+    Get the directory with built cli wheels for testing.
+    Returns None if an editable install should be used instead.
+    """
+    if get_env_bool("QAIHM_TEST_USE_PUBLIC_WHEEL"):
+        return CLI_WHEEL_DIR
+    if on_ci() and not get_env_bool("QAIHM_CI_USE_EDITABLE_INSTALL"):
+        return CLI_WHEEL_DIR
     return None  # editable install
 
 
@@ -192,43 +216,6 @@ class TaskLibrary:
     def list_public(self, plan: Plan) -> str:
         return plan.add_step("list_public", ListTasksTask(PUBLIC_TASKS))
 
-    @public_task("precheckin")
-    @depends(
-        [
-            "test_qaihm",
-            "test_changed_models",
-        ]
-    )
-    def precheckin(self, plan: Plan) -> str:
-        # Excludes export tests, and uses the same environment for each model.
-        return plan.add_step("precheckin", NoOpTask())
-
-    @public_task("precheckin_long")
-    @depends(
-        [
-            "test_qaihm",
-            "test_changed_models_long",
-        ]
-    )
-    def precheckin_long(self, plan: Plan) -> str:
-        # Includes export tests, and creates a fresh environment for each model.
-        return plan.add_step("precheckin_long", NoOpTask())
-
-    @public_task("all_tests")
-    @depends(
-        [
-            "test_qaihm",
-            "test_all_models",
-        ]
-    )
-    def all_tests(self, plan: Plan) -> str:
-        return plan.add_step("all_tests", NoOpTask())
-
-    @public_task("all_tests_long")
-    @depends(["test_qaihm"])
-    def all_tests_long(self, plan: Plan) -> str:
-        return plan.add_step("all_tests_long", NoOpTask())
-
     @task
     @depends(["install_deps"])
     def validate_aws_credentials(
@@ -257,8 +244,14 @@ class TaskLibrary:
     @depends_if(
         get_test_venv_wheel_dir(),
         eq=[
-            (RELEASE_WHEEL_DIR, ["build_public_wheel", "create_venv"]),
-            (PRIVATE_WHEEL_DIR, ["build_internal_wheel", "create_venv"]),
+            (
+                RELEASE_WHEEL_DIR,
+                ["build_release_wheel", "build_cli_wheel", "create_venv"],
+            ),
+            (
+                PRIVATE_WHEEL_DIR,
+                ["build_dev_wheel", "build_cli_wheel", "create_venv"],
+            ),
             # no dependencies (editable install) otherwise
         ],
         default=["create_venv"],
@@ -267,7 +260,10 @@ class TaskLibrary:
         return plan.add_step(
             step_id,
             SyncLocalQAIHMVenvTask(
-                self.venv_path, ["dev"], qaihm_wheel_dir=get_test_venv_wheel_dir()
+                self.venv_path,
+                ["dev"],
+                qaihm_wheel_dir=get_test_venv_wheel_dir(),
+                cli_wheel_dir=get_cli_wheel_dir(),
             ),
         )
 
@@ -293,6 +289,72 @@ class TaskLibrary:
             ),
         )
 
+    @public_task("Install Compiler Nightly Requirements")
+    @depends(["create_venv"])
+    def install_compiler_nightly(
+        self, plan: Plan, step_id: str = "install_compiler_nightly"
+    ) -> str:
+        return plan.add_step(
+            step_id,
+            RunCommandsWithVenvTask(
+                group_name="Install Compiler Nightly Requirements",
+                venv=self.venv_path,
+                commands=["pip install -r scripts/compiler_nightly/requirements.txt"],
+                retries=2,
+            ),
+        )
+
+    @public_task("Install LLM Grader Requirements")
+    @depends(["create_venv"])
+    def install_llm_grader_requirements(
+        self, plan: Plan, step_id: str = "install_llm_grader_requirements"
+    ) -> str:
+        return plan.add_step(
+            step_id,
+            InstallLLMGraderRequirementsTask(self.venv_path),
+        )
+
+    @public_task("Grade on-device LLM eval responses (*_eval.json -> *_grade.json)")
+    @depends(["install_llm_grader_requirements"])
+    def grade_llm_responses(
+        self, plan: Plan, step_id: str = "grade_llm_responses"
+    ) -> str:
+        """
+        Grade all *_eval.json files in the search directory.
+
+        The search directory defaults to the current working directory and can
+        be overridden via the QAIHM_GRADE_RESPONSES_DIR environment variable.
+        """
+        return plan.add_step(
+            step_id,
+            GradeLLMResponsesTask(
+                venv=self.venv_path,
+                search_dir=os.environ.get("QAIHM_GRADE_RESPONSES_DIR"),
+            ),
+        )
+
+    @public_task(
+        "Build accuracy.csv from on-device LLM grading output (*_eval_grade.json)"
+    )
+    @depends(["install_deps"])
+    def collect_llm_accuracy_csv(
+        self, plan: Plan, step_id: str = "collect_llm_accuracy_csv"
+    ) -> str:
+        """
+        Build a scorecard-format accuracy.csv from *_eval_grade.json files.
+
+        The search directory defaults to the current working directory and can
+        be overridden via the QAIHM_GRADE_RESPONSES_DIR environment variable.
+        accuracy.csv is written under QAIHM_TEST_ARTIFACTS_DIR.
+        """
+        return plan.add_step(
+            step_id,
+            CollectLLMAccuracyCSVTask(
+                venv=self.venv_path,
+                search_dir=os.environ.get("QAIHM_GRADE_RESPONSES_DIR"),
+            ),
+        )
+
     @public_task("Aggregate Scorecard Results")
     @depends(["install_deps"])
     def aggregate_scorecard_results(
@@ -306,7 +368,7 @@ class TaskLibrary:
         )
 
     @public_task("Download QDC wheel")
-    @depends(["install_deps", "validate_aws_credentials"])
+    @depends(["install_deps"])
     def download_qdc_wheel(
         self, plan: Plan, step_id: str = "download_qdc_wheel"
     ) -> str:
@@ -317,23 +379,55 @@ class TaskLibrary:
             ),
         )
 
-    @public_task("Run Llama.CPP benchmarks on QDC devices")
-    @depends(["install_deps"])
-    def run_llama_cpp_benchmark(
-        self, plan: Plan, step_id: str = "run_llama_cpp_benchmark"
+    @public_task("Download QAIRT Auto SDK")
+    @depends(["install_deps", "validate_aws_credentials"])
+    def download_qairt_auto_sdk(
+        self, plan: Plan, step_id: str = "download_qairt_auto_sdk"
     ) -> str:
-        """
-        Run Llama.CPP benchmarks. Uses environment variables:
-        - LLAMA_CPP_PATH: Path to Llama.CPP binaries
-        - QAIHM_TEST_MODELS: Comma-separated model names, or "all" (default: "all")
-        - QAIHM_TEST_DEVICES: Comma-separated list of QDC device names
-        - QDC_API_KEY: QDC API token
+        output_path = os.environ.get("QAIRT_SDK_PATH") or None
+        return plan.add_step(
+            step_id,
+            DownloadQAIRTAutoSDKTask(
+                venv=self.venv_path,
+                output_path=output_path,
+            ),
+        )
 
-        Model configs are defined in qai_hub_models/scripts/run_llama_cpp_benchmarks.py
+    @public_task("Collect LLM performance numbers (TPS/TTFT) via pytest")
+    def collect_llm_perf(self, plan: Plan, step_id: str = "collect_llm_perf") -> str:
+        """
+        Collect LLM performance numbers (TPS/TTFT) using pytest -m llm_perf.
+
+        Configuration is passed via environment variables:
+        - QAIHM_LLM_MODELS: Comma-separated model IDs, or "all"
+        - QAIHM_TEST_DEVICES: Comma-separated device names
+        - QAIRT_SDK_PATH: Path to QAIRT SDK zip
+        - QDC_API_TOKEN: QDC API token (used for all devices except cs_8_elite_qrd)
+        - QDC_PRIVATE_API_KEY: QDC API token for cs_8_elite_qrd (private pool)
+
+        Pre-compiled genie bundles are fetched from each model's
+        release-assets.yaml.
         """
         return plan.add_step(
             step_id,
-            LlamaCppBenchmarkTask(venv=self.venv_path),
+            CollectLLMPerfTask(venv=self.venv_path),
+        )
+
+    @public_task("Run geniex-bench (llama_cpp GGUF + qairt) benchmarks on QDC devices")
+    @depends(["install_deps"])
+    def run_geniex_bench(self, plan: Plan, step_id: str = "run_geniex_bench") -> str:
+        """
+        Run geniex-bench benchmarks on QDC devices.
+
+        Configuration is passed via environment variables:
+        - QAIHM_MODELS: Comma-separated model names, or "all"
+        - QAIHM_TEST_DEVICES: Comma-separated cs_* names
+        - GENIEX_BENCH_PLUGIN: qairt | llama_cpp | all
+        - QDC_API_TOKEN: QDC API token
+        """
+        return plan.add_step(
+            step_id,
+            GenieXBenchTask(venv=self.venv_path),
         )
 
     @public_task("Model Test Setup")
@@ -378,44 +472,38 @@ class TaskLibrary:
     def test_gpu_models_weekly(
         self, plan: Plan, step_id: str = "test_gpu_models_weekly"
     ) -> str:
+        model_names = os.environ.get("QAIHM_TEST_MODELS", "all")
         return plan.add_step(
             step_id,
-            GPUPyTestModelsTask(venv=self.venv_path),
+            GPUPyTestModelsTask(venv=self.venv_path, model_names=model_names),
         )
 
     @public_task("Run GPU nightly tests (only tests marked with @pytest.mark.nightly).")
     def test_gpu_models_nightly(
         self, plan: Plan, step_id: str = "test_gpu_models_nightly"
     ) -> str:
+        model_names = os.environ.get("QAIHM_TEST_MODELS", "all")
         return plan.add_step(
             step_id,
-            GPUPyTestModelsTask(venv=self.venv_path, nightly_only=True),
-        )
-
-    @public_task("Generate perf.yamls.")
-    @depends(["install_deps"])
-    def create_perfs(self, plan: Plan, step_id: str = "generate_perfs") -> str:
-        return plan.add_step(
-            step_id,
-            RunCommandsWithVenvTask(
-                group_name=None,
+            GPUPyTestModelsTask(
                 venv=self.venv_path,
-                commands=[
-                    "python qai_hub_models/scripts/collect_scorecard_results.py --gen-csv --gen-perf-summary --sync-code-gen"
-                ],
+                model_names=model_names,
+                nightly_only=True,
             ),
         )
 
-    @public_task("Generate numerics.yamls.")
+    @public_task("Generate perf.yamls and numerics.yamls.")
     @depends(["install_deps"])
-    def create_numerics(self, plan: Plan, step_id: str = "generate_numerics") -> str:
+    def create_perfs_and_numerics(
+        self, plan: Plan, step_id: str = "generate_perfs_and_numerics"
+    ) -> str:
         return plan.add_step(
             step_id,
             RunCommandsWithVenvTask(
                 group_name=None,
                 venv=self.venv_path,
                 commands=[
-                    "python qai_hub_models/scripts/collect_scorecard_numerics_results.py --sync-code-gen"
+                    "python -m qai_hub_models.scripts.collect_scorecard_results --gen-csv --gen-perf-summary --sync-code-gen"
                 ],
             ),
         )
@@ -431,7 +519,7 @@ class TaskLibrary:
                 group_name=None,
                 venv=self.venv_path,
                 commands=[
-                    "python qai_hub_models/scripts/collect_scorecard_assets_results.py"
+                    "python -m qai_hub_models.scripts.collect_scorecard_assets_results"
                 ],
             ),
         )
@@ -453,6 +541,7 @@ class TaskLibrary:
             exit_after_single_model_failure=False,
             test_trace=False,
             qaihm_wheel_dir=get_test_venv_wheel_dir(),
+            cli_wheel_dir=get_cli_wheel_dir(),
             run_mypy=True,
         )
 
@@ -473,12 +562,14 @@ class TaskLibrary:
     def _make_hub_scorecard_task(
         self,
         pre_quantize_compile: bool = False,
+        enable_link: bool = False,
         quantize: bool = False,
         enable_compile: bool = False,
         enable_profile: bool = False,
         enable_inference: bool = False,
         enable_compute_device_accuracy: bool = False,
         enable_export_end2end: bool = False,
+        enable_llm_export: bool = False,
     ) -> PyTestModelsTask:
         models = get_all_models()
         return PyTestModelsTask(
@@ -490,16 +581,19 @@ class TaskLibrary:
             use_shared_cache=True,
             run_general=False,
             run_export_pre_quantize_compile=pre_quantize_compile,
+            run_export_link=enable_link,
             run_export_quantize=quantize,
             run_export_compile=enable_compile,
             run_export_profile=enable_profile,
             run_export_inference=enable_inference,
             run_compute_device_accuracy=enable_compute_device_accuracy,
             run_full_export=enable_export_end2end,
+            run_llm_export=enable_llm_export,
             # If one model fails, we should still try the others.
             exit_after_single_model_failure=False,
             test_trace=False,
             qaihm_wheel_dir=get_test_venv_wheel_dir(),
+            cli_wheel_dir=get_cli_wheel_dir(),
         )
 
     @public_task("Run pre-quantize ONNX compile jobs for all models.")
@@ -510,6 +604,13 @@ class TaskLibrary:
         return plan.add_step(
             step_id, self._make_hub_scorecard_task(pre_quantize_compile=True)
         )
+
+    @public_task("Run link jobs for all models.")
+    @depends(["model_test_setup"])
+    def test_link_all_models(
+        self, plan: Plan, step_id: str = "test_link_all_models"
+    ) -> str:
+        return plan.add_step(step_id, self._make_hub_scorecard_task(enable_link=True))
 
     @public_task("Run quantize jobs for all models.")
     @depends(["model_test_setup"])
@@ -575,19 +676,30 @@ class TaskLibrary:
             step_id, self._make_hub_scorecard_task(enable_export_end2end=True)
         )
 
-    @public_task("Verify all async compile jobs completed successfully.")
+    @public_task(
+        "Verify LLM export scripts work end-to-end (only @pytest.mark.llm_export)."
+    )
+    @depends(["model_test_setup"])
+    def test_llm_export_scripts(
+        self, plan: Plan, step_id: str = "test_llm_export_scripts"
+    ) -> str:
+        return plan.add_step(
+            step_id, self._make_hub_scorecard_task(enable_llm_export=True)
+        )
+
+    @public_task("Verify all async workbench jobs completed successfully.")
     @depends(["install_deps"])
-    def verify_compile_jobs(
-        self, plan: Plan, step_id: str = "verify_compile_jobs"
+    def verify_workbench_jobs(
+        self, plan: Plan, step_id: str = "verify_workbench_jobs"
     ) -> str:
         junit_xml_path = os.environ.get("QAIHM_JUNIT_XML_PATH")
         return plan.add_step(
             step_id,
             PyTestTask(
-                group_name="Verify Compile Jobs Success",
+                group_name="Verify Workbench Jobs Success",
                 venv=self.venv_path,
                 files_or_dirs=os.path.join(
-                    PY_PACKAGE_SRC_ROOT, "test", "test_async_compile_jobs.py"
+                    PY_PACKAGE_SRC_ROOT, "test", "test_assert_workbench_job_success.py"
                 ),
                 parallel=False,
                 extra_args="-s",
@@ -602,68 +714,103 @@ class TaskLibrary:
         release_venv_task = CreateReleaseVenv(RELEASE_VENV, self.python_executable)
         return plan.add_step(step_id, release_venv_task)
 
-    @public_task(
-        "Build Public Copy of the Repository (with internal information removed)"
-    )
-    def build_public_repository(
-        self, plan: Plan, step_id: str = "build_public_repository"
-    ) -> str:
-        return plan.add_step(
-            step_id,
-            CompositeTask(
-                group_name=None,
-                tasks=[
-                    # "install_deps" will call this task if the user wants to use the public package for testing.
-                    # To avoid a circular dependency, we use an editable install to first build the public package.
-                    SyncLocalQAIHMVenvTask(
-                        self.venv_path, ["dev"], qaihm_wheel_dir=None
-                    ),
-                    BuildPublicRepositoryTask(
-                        self.venv_path,
-                        RELEASE_REPO_DIR,
-                    ),
-                ],
-            ),
-        )
-
-    @public_task(description="Build Public Python Wheel")
-    @depends(["install_release_deps", "build_public_repository"])
-    def build_public_wheel(
-        self, plan: Plan, step_id: str = "build_public_wheel"
+    @public_task(description="Build Release Python Wheel")
+    @depends(["install_release_deps", "build_cli_wheel"])
+    def build_release_wheel(
+        self, plan: Plan, step_id: str = "build_release_wheel"
     ) -> str:
         return plan.add_step(
             step_id,
             BuildWheelTask(
-                RELEASE_VENV,
-                RELEASE_REPO_DIR,
-                wheel_dir=RELEASE_WHEEL_DIR,
+                RELEASE_VENV, wheel_dir=RELEASE_WHEEL_DIR, release_wheel=True
             ),
         )
 
-    @public_task("Build Internal Python Wheel")
+    @public_task("Build Development Python Wheel")
+    @depends(["install_release_deps", "build_cli_wheel"])
+    def build_dev_wheel(self, plan: Plan, step_id: str = "build_dev_wheel") -> str:
+        return plan.add_step(
+            step_id,
+            BuildWheelTask(RELEASE_VENV, PRIVATE_WHEEL_DIR, release_wheel=False),
+        )
+
+    @public_task("Compile .proto files to Python for the CLI package.")
+    @depends(["install_deps"])
+    def build_proto(self, plan: Plan, step_id: str = "build_proto") -> str:
+        return plan.add_step(
+            step_id,
+            RunCommandsWithVenvTask(
+                group_name=None,
+                venv=self.venv_path,
+                commands=["python -m qai_hub_models.scripts.compile_proto"],
+            ),
+        )
+
+    @public_task("Build CLI Python Wheel")
     @depends(["install_release_deps"])
-    def build_internal_wheel(
-        self, plan: Plan, step_id: str = "build_internal_wheel"
+    def build_cli_wheel(self, plan: Plan, step_id: str = "build_cli_wheel") -> str:
+        return plan.add_step(
+            step_id,
+            BuildCLIWheelTask(RELEASE_VENV, CLI_WHEEL_DIR, PY_CLI_INSTALL_ROOT),
+        )
+
+    @public_task("Install dependencies for the CLI package.")
+    @depends_if(
+        get_cli_wheel_dir(),
+        eq=[
+            (CLI_WHEEL_DIR, ["build_cli_wheel", "create_venv"]),
+        ],
+        default=["create_venv"],
+    )
+    def install_cli_deps(self, plan: Plan, step_id: str = "install_cli_deps") -> str:
+        return plan.add_step(
+            step_id,
+            InstallCLITask(self.venv_path, get_cli_wheel_dir()),
+        )
+
+    @public_task("Run tests for the CLI package.")
+    @depends(["install_cli_deps"])
+    def test_cli(self, plan: Plan, step_id: str = "test_cli") -> str:
+        return plan.add_step(
+            step_id,
+            PyTestTask(
+                group_name="Test CLI",
+                venv=self.venv_path,
+                files_or_dirs=PY_CLI_SRC_ROOT,
+                parallel=True,
+                config_file=os.path.join(PY_CLI_INSTALL_ROOT, "pyproject.toml"),
+                junit_xml_path=os.environ.get("QAIHM_JUNIT_XML_PATH"),
+            ),
+        )
+
+    @public_task("Build Website YAMLs from proto serialization")
+    @depends(["install_deps"])
+    def build_website_yamls(
+        self, plan: Plan, step_id: str = "build_website_yamls"
     ) -> str:
         return plan.add_step(
             step_id,
-            BuildWheelTask(RELEASE_VENV, REPO_ROOT, PRIVATE_WHEEL_DIR),
+            RunCommandsWithVenvTask(
+                group_name=None,
+                venv=self.venv_path,
+                commands=[
+                    "python -m qai_hub_models.scripts.build_release_proto website -o src/qai_hub_models"
+                ],
+            ),
         )
 
-    @public_task("Release QAIHM Wheel to PyPi")
-    @depends(["build_public_wheel"])
-    def release_wheel(self, plan: Plan, step_id: str = "release_wheel") -> str:
+    @public_task("Publish Proto JSON to AWS S3")
+    @depends(["install_deps"])
+    def release_protos(self, plan: Plan, step_id: str = "release_protos") -> str:
         return plan.add_step(
             step_id,
-            PublishWheelTask(RELEASE_WHEEL_DIR, RELEASE_VENV),
-        )
-
-    @public_task("Push QAIHM Code to GitHub")
-    @depends(["build_public_repository"])
-    def release_code(self, plan: Plan, step_id: str = "release_code") -> str:
-        return plan.add_step(
-            step_id,
-            PushRepositoryTask(RELEASE_REPO_DIR),
+            RunCommandsWithVenvTask(
+                group_name=None,
+                venv=self.venv_path,
+                commands=[
+                    "python -m qai_hub_models.scripts.build_release_proto aws -o /tmp/release_protos -u"
+                ],
+            ),
         )
 
     @public_task("Push QAIHM Assets to AWS S3")
@@ -674,7 +821,7 @@ class TaskLibrary:
             RunCommandsWithVenvTask(
                 group_name=None,
                 venv=self.venv_path,
-                commands=["python qai_hub_models/scripts/publish_release_assets.py"],
+                commands=["python -m qai_hub_models.scripts.publish_release_assets"],
             ),
         )
 
@@ -689,7 +836,7 @@ class TaskLibrary:
                 group_name=None,
                 venv=self.venv_path,
                 commands=[
-                    "python qai_hub_models/scripts/generate_hf_model_readme.py --public --models ALL"
+                    "python -m qai_hub_models.scripts.release_huggingface_model_cards --deprecate-removed-models"
                 ],
             ),
         )
@@ -697,7 +844,7 @@ class TaskLibrary:
     @public_task(
         "Push QAIHM Code, Wheel, and Assets (build repo & wheel, push repo, push assets, push HF model cards)"
     )
-    @depends(["release_assets", "release_code", "release_wheel", "release_huggingface"])
+    @depends(["release_assets", "release_huggingface"])
     def release(self, plan: Plan, step_id: str = "release") -> str:
         return plan.add_step(
             step_id,
@@ -758,9 +905,10 @@ def plan_from_dependencies(
                     )
                     sys.exit(1)
         if len(unfulfilled_deps) == 0:
-            # add task_name to plan
-            task_adder: Callable[[Plan], str] = getattr(task_library, task_name)
-            task_adder(plan)
+            # add task_name to plan (if not already present)
+            if not plan.has_step(task_name):
+                task_adder: Callable[[Plan], str] = getattr(task_library, task_name)
+                task_adder(plan)
         else:
             # Look at task_name again later when its deps are satisfied
             work_list.append(task_name)

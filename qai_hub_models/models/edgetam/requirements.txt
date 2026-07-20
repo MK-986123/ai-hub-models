@@ -1,2 +1,0 @@
-matplotlib==3.10.7
-timm==1.0.15

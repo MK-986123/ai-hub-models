@@ -21,11 +21,15 @@ from typing import TYPE_CHECKING, Any
 
 import piqaro
 
+from qai_hub_models.configs.model_metadata import OutputSpec
+from qai_hub_models.configs.tensor_spec import TensorSpec
+
 if TYPE_CHECKING:
     import onnx
 import torch
 from transformers import PretrainedConfig
 
+from qai_hub_models import Precision
 from qai_hub_models.models._shared.llama3.model import Llama3Base
 from qai_hub_models.models._shared.llm.export import export_model
 from qai_hub_models.models._shared.llm.model import (
@@ -33,7 +37,6 @@ from qai_hub_models.models._shared.llm.model import (
     LLMInstantiationType,
     MainLLMInputType,
 )
-from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.models.llama_v3_2_3b_instruct import MODEL_ID
 from qai_hub_models.models.llama_v3_2_3b_instruct.model import (
     DEFAULT_CONTEXT_LENGTH,
@@ -160,15 +163,11 @@ if __name__ == "__main__":
                 main_input_name=main_input_name,
             )
 
-        def convert_to_hub_source_model(
+        def serialize(
             self,
-            target_runtime: TargetRuntime,
-            output_path: str | Path,
+            output_dir: str | os.PathLike,
             input_spec: InputSpec | None = None,
-            check_trace: bool = True,
-            external_onnx_weights: bool = False,
-            output_names: list[str] | None = None,
-        ) -> str | None:
+        ) -> Path:
             """Convert to a AI Hub Workbench source model appropriate for the export method."""
 
             def apply_piqaro_onnx(onnx_model: onnx.ModelProto) -> onnx.ModelProto:
@@ -180,28 +179,27 @@ if __name__ == "__main__":
             onnx_transforms = apply_piqaro_onnx if args.opt == "piqaro" else None
             dummy_input = tuple(make_torch_inputs(input_spec))
             # Need to export to {output_path}/model.onnx
-            output_dir = Path(output_path) / "llama_two_layer.onnx"
+            output_dir = Path(output_dir) / "llama_two_layer.onnx"
             output_dir.mkdir(parents=True, exist_ok=True)
             _ = export_torch_to_onnx_zip(
                 self,
                 output_dir,
                 dummy_input,
                 input_names=list(input_spec.keys()),
-                output_names=output_names,
+                output_names=list(self.get_output_spec()),
                 onnx_transforms=onnx_transforms,
                 skip_zip=True,
             )
 
-            return str(output_dir)
+            return output_dir
 
-        @staticmethod
-        def get_output_names() -> list[str]:
+        def get_output_spec(self) -> OutputSpec:
             num_hidden_layers = NUM_LAYERS_TRUNC if truncate_model else NUM_LAYERS
             output_names = ["logits"]
             for layer in range(num_hidden_layers):
                 output_names.append(f"past_key_{layer}_out")
                 output_names.append(f"past_value_{layer}_out")
-            return output_names
+            return {output_name: TensorSpec() for output_name in output_names}
 
         def get_qairt_context_graph_name(
             self, split_index: int, num_splits: int
@@ -244,7 +242,7 @@ if __name__ == "__main__":
         cache = CacheMode.DISABLE if i == 0 else CacheMode.ENABLE
         export_model(
             model_cls=model_cls,
-            model_name=model_name,
+            model_id=model_name,
             model_asset_version=MODEL_ASSET_VERSION,
             num_splits=num_splits,
             num_layers_per_split=num_layers_per_split,

@@ -5,7 +5,9 @@
 
 from __future__ import annotations
 
+import glob
 import os
+import subprocess
 import sys
 from collections.abc import Iterable
 from tempfile import TemporaryDirectory
@@ -13,21 +15,26 @@ from tempfile import TemporaryDirectory
 from .changes import get_all_models, get_changed_files_in_package
 from .constants import (
     BUILD_ROOT,
+    COMPILE_SINGLE_INSTANTIATION_ENV_VAR,
+    PY_PACKAGE_INSTALL_ROOT,
     PY_PACKAGE_MODELS_ROOT,
     PY_PACKAGE_SRC_ROOT,
     REPO_ROOT,
+    SCORECARD_PACKAGE_MODELS_ROOT,
     STORE_ROOT_ENV_VAR,
 )
 from .task import (
     CompositeTask,
     PyTestTask,
     RunCommandsTask,
+    Task,
 )
 from .util import (
     can_support_aimet,
-    check_code_gen_field,
+    check_scorecard_config_field,
     get_is_hub_quantized,
     get_model_python_version_requirements,
+    get_requires_aot_prepare,
     is_quantized_llm_model,
     model_needs_aimet,
     on_ci,
@@ -42,6 +49,31 @@ from .venv import (
 )
 
 
+def _model_has_nightly_tests(model_name: str) -> bool:
+    """Return True if pytest can collect any nightly-marked tests for this model."""
+    test_path = os.path.join(PY_PACKAGE_MODELS_ROOT, model_name, "test.py")
+    if not os.path.exists(test_path):
+        return False
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "--collect-only",
+            "-q",
+            "-m",
+            "nightly",
+            test_path,
+        ],
+        check=False,
+        capture_output=True,
+    )
+    # Exit code 5 = no tests collected → no nightly tests for this model.
+    # Exit code 0 = tests found; exit code 2 = collection error (import failure
+    # because deps aren't installed yet) — treat conservatively as "has tests".
+    return result.returncode != 5
+
+
 class PyTestQAIHMTask(PyTestTask):
     """Pytest utils."""
 
@@ -52,14 +84,18 @@ class PyTestQAIHMTask(PyTestTask):
             if x not in {"models", "__pycache__", "scorecard"}
         ]
 
-        # Internal scorecard tests are expensive (calls to Hub), so only run them if the internal scorecard changes.
+        # Static scorecard tests are expensive (calls to Hub), so only run them if the static scorecard changes.
+        # scorecard/models/ is excluded here — its per-model test_generated.py
+        # files are collected by the per-model PyTestTask instead, so including
+        # them would double-collect.
         scorecard_files = [
             os.path.join(PY_PACKAGE_SRC_ROOT, "scorecard", x)
             for x in os.listdir(os.path.join(PY_PACKAGE_SRC_ROOT, "scorecard"))
+            if x != "models"
         ]
 
-        if not get_changed_files_in_package("qai_hub_models/scorecard/internal"):
-            scorecard_files.remove(f"{PY_PACKAGE_SRC_ROOT}/scorecard/internal")
+        if not get_changed_files_in_package("src/qai_hub_models/scorecard/static"):
+            scorecard_files.remove(f"{PY_PACKAGE_SRC_ROOT}/scorecard/static")
         all_dirs_except_models.extend(scorecard_files)
 
         all_dirs_except_models = [x for x in all_dirs_except_models if os.path.isdir(x)]
@@ -90,24 +126,27 @@ class GPUPyTestModelsTask(CompositeTask):
         raise_on_failure: bool = True,
         nightly_only: bool = False,  # If True, only run tests marked with @pytest.mark.nightly
     ) -> None:
-        home_dir = "/local/mnt2/workspace2/qaihm_bot"
+        home_dir = os.path.expanduser("~")
         junit_xml_path = os.environ.get("QAIHM_JUNIT_XML_PATH")
-        tmp_dir = os.path.join(home_dir, "tmp")
+        tmp_dir = os.environ.get("TMPDIR") or os.path.join(home_dir, "tmp")
 
         models_to_test = []
         for model_name in get_all_models():
-            if os.path.exists(
-                os.path.join(PY_PACKAGE_MODELS_ROOT, model_name, "test.py")
-            ) and (is_quantized_llm_model(model_name)):
+            if (
+                os.path.exists(
+                    os.path.join(PY_PACKAGE_MODELS_ROOT, model_name, "test.py")
+                )
+                and (is_quantized_llm_model(model_name))
+                and not check_scorecard_config_field(
+                    model_name, "skip_hub_tests_and_scorecard"
+                )
+            ):
                 models_to_test.append(model_name)
-                # Only run llama_v2_7b_chat on weekly runs so nightly takes less time.
-                if not nightly_only and model_name == "llama_v2_7b_chat":
-                    models_to_test.append(model_name)
-        # Run llama_v2_7b_chat last to avoid resource contention or conflicts with other models.
-        if "llama_v2_7b_chat" in models_to_test:
-            models_to_test.sort(key=lambda x: x == "llama_v2_7b_chat")
+        if model_names != "all":
+            requested = {m.strip() for m in model_names.split(",") if m.strip()}
+            models_to_test = [m for m in models_to_test if m in requested]
         tasks = []
-        common_command = f"export HOME={home_dir} && mkdir -p {tmp_dir} && export TMPDIR={tmp_dir} && rm -rf {home_dir}/.cache/huggingface/hub/models--* {home_dir}/.qaihm/models/* {tmp_dir}/*"
+        common_command = f"mkdir -p {tmp_dir}"
         for model_name in models_to_test:
             base_dir = os.path.dirname(junit_xml_path)
             filename_parts = os.path.splitext(os.path.basename(junit_xml_path))
@@ -120,9 +159,58 @@ class GPUPyTestModelsTask(CompositeTask):
                 test_suites.append("qdc")
             if run_demo:
                 test_suites.append("demo")
-            # Special case: llama_v2_7b_chat only has compile_ram_intensive tests.
-            if model_name == "llama_v2_7b_chat":
-                test_suites = ["compile_ram_intensive"]
+
+            # When running nightly-only, skip models that have no nightly-marked tests.
+            if nightly_only and not _model_has_nightly_tests(model_name):
+                continue
+
+            # Create a per-model virtual environment to isolate dependencies
+            # (mirrors the scorecard approach to avoid cross-model dep conflicts).
+            model_venv = os.path.join(home_dir, "model_envs", model_name)
+            tasks.append(CreateVenvTask(model_venv))
+            tasks.append(
+                SyncModelVenvTask(
+                    model_name,
+                    model_venv,
+                    include_dev_deps=True,
+                )
+            )
+
+            # Install QDC wheel and optional GPU-specific requirements into the model venv.
+            qdc_wheel_glob = os.path.join(REPO_ROOT, "qualcomm_device_cloud_sdk-*.whl")
+            has_gpu_reqs = os.path.exists(
+                os.path.join(PY_PACKAGE_MODELS_ROOT, model_name, "requirements-gpu.txt")
+            )
+            gpu_req_rel_path = (
+                f"src/qai_hub_models/models/{model_name}/requirements-gpu.txt"
+            )
+            install_cmds = [f"pip install $(ls {qdc_wheel_glob})"]
+            if has_gpu_reqs:
+                # onnxruntime and onnxruntime-gpu share files in the onnxruntime/
+                # namespace, so uninstalling one deletes files the other still
+                # claims to own. On reused venvs this leaves onnxruntime-gpu
+                # half-broken (e.g. `GraphOptimizationLevel` missing). Clean
+                # both, install reqs, then uninstall the transitively re-pulled
+                # onnxruntime and force-reinstall onnxruntime-gpu to repair
+                # any shared files that got removed.
+                install_cmds.append("pip uninstall -y onnxruntime onnxruntime-gpu")
+                install_cmds.append(f"pip install -r {gpu_req_rel_path}")
+                # aimet_onnx transitively re-installs onnxruntime via onnxruntime-extensions
+                install_cmds.append("pip uninstall -y onnxruntime")
+                install_cmds.append(
+                    f"pip install --force-reinstall --no-deps "
+                    f"$(grep '^onnxruntime-gpu' {gpu_req_rel_path})"
+                )
+            tasks.append(
+                RunCommandsWithVenvTask(
+                    group_name=f"Install GPU Dependencies For Model {model_name}",
+                    venv=model_venv,
+                    commands=[" && ".join(install_cmds)],
+                    raise_on_failure=False,
+                    ignore_return_codes=[5],
+                    retries=2,
+                )
+            )
 
             for test_suite in test_suites:
                 model_filename = (
@@ -133,31 +221,37 @@ class GPUPyTestModelsTask(CompositeTask):
                     f"{test_suite} and nightly" if nightly_only else test_suite
                 )
                 options = f"-m '{marker_expr}' --junit-xml={model_junit_xml_path}"
-                if model_name == "llama_v2_7b_chat":
-                    tasks.append(
-                        RunCommandsWithVenvTask(
-                            group_name=f"Install Dependencies For Model {model_name}",
-                            venv=venv,
-                            commands=[
-                                f"{common_command} && pip install -r qai_hub_models/models/{model_name}/requirements.txt",
-                            ],
-                            raise_on_failure=False,
-                            # Ignore "no tests collected" return code
-                            ignore_return_codes=[5],
-                        )
-                    )
+                # Isolate each suite in a single spawned xdist worker to contain
+                # CUDA OOM/leaks/crashes (issue #19607). Spawned (not forked)
+                # workers avoid the CUDA re-init error; -n1 keeps module-scoped
+                # fixtures cached; --max-worker-restart replaces a crashed worker
+                # so remaining tests still run.
+                isolation = "-n1 --dist load --max-worker-restart=4"
+                # Reclaim the GPU from any orphaned worker left by a prior suite.
+                guard = f"python {os.path.join('scripts', 'gpu_guard.py')}"
                 tasks.append(
                     RunCommandsWithVenvTask(
                         group_name=f"Run {test_suite} Tests For Model {model_name}",
-                        venv=venv,
+                        venv=model_venv,
                         commands=[
-                            f"{common_command} && pytest -v -s --capture=no qai_hub_models/models/{model_name}/test.py {options}",
+                            f"{common_command} && {guard} && pytest -v -s --capture=no {isolation} src/qai_hub_models/models/{model_name}/test.py {options}",
                         ],
                         raise_on_failure=False,
                         # Ignore "no tests collected" return code
                         ignore_return_codes=[5],
                     )
                 )
+
+            # Free disk between models: venv + HF cache + QAIHM store + TMPDIR.
+            tasks.append(
+                RunCommandsTask(
+                    f"Cleanup After Model {model_name}",
+                    f"rm -rf {model_venv}"
+                    f" {home_dir}/.cache/huggingface/hub/models--*"
+                    f" {home_dir}/.qaihm/models/*"
+                    f" {tmp_dir}/*",
+                )
+            )
 
         super().__init__(
             # If a group name is used here, you get two groups per model
@@ -183,16 +277,19 @@ class PyTestModelTask(CompositeTask):
         run_mypy: bool = False,
         run_general: bool = True,
         run_pre_quantize_compile: bool = False,
+        run_link: bool = False,
         run_quantize: bool = False,
         run_compile: bool = True,
         run_profile: bool = False,
         run_inference: bool = False,
         run_compute_device_accuracy: bool = False,
         run_export: bool = False,
+        run_llm_export: bool = False,
         run_trace: bool = True,
         install_deps: bool = True,
         raise_on_failure: bool = False,
         qaihm_wheel_dir: str | os.PathLike | None = None,
+        cli_wheel_dir: str | os.PathLike | None = None,
         junit_xml_path: str | None = None,
     ) -> None:
         tasks = []
@@ -224,18 +321,20 @@ class PyTestModelTask(CompositeTask):
         else:
             # Create test environment
             needs_model_venv = venv is None
+            setup_task: Task | None = None
             if needs_model_venv:
                 model_venv = os.path.join(BUILD_ROOT, "test", "model_envs", model_name)
                 tasks.append(CreateVenvTask(model_venv, python_executable))
                 # Creates a new environment from scratch
-                tasks.append(
-                    SyncModelVenvTask(
-                        model_name,
-                        model_venv,
-                        include_dev_deps=True,
-                        qaihm_wheel_dir=qaihm_wheel_dir,
-                    )
+                setup_task = SyncModelVenvTask(
+                    model_name,
+                    model_venv,
+                    include_dev_deps=True,
+                    qaihm_wheel_dir=qaihm_wheel_dir,
+                    cli_wheel_dir=cli_wheel_dir,
+                    junit_xml_path=junit_xml_path,
                 )
+                tasks.append(setup_task)
             else:
                 model_venv = venv
                 if install_deps:
@@ -246,20 +345,21 @@ class PyTestModelTask(CompositeTask):
                         )
                     )
 
-            if check_code_gen_field(model_name, "skip_hub_tests_and_scorecard"):
+            if check_scorecard_config_field(model_name, "skip_hub_tests_and_scorecard"):
                 tasks.append(  # greater than this python version
                     RunCommandsTask(
                         f"Skip Model {model_name} Hub Tests",
-                        f'echo "Skipping Tests For Model {model_name} -- skip_hub_tests_and_scorecard is set in code gen"',
+                        f'echo "Skipping Tests For Model {model_name} -- skip_hub_tests_and_scorecard is set in scorecard config"',
                     )
                 )
             elif (
-                check_code_gen_field(model_name, "skip_scorecard") and not run_general
+                check_scorecard_config_field(model_name, "skip_scorecard")
+                and not run_general
             ):  # For scorecard runs, run_general is set to False because it is a test_compile_all_models task rather than a precheckin task with hub tests.
                 tasks.append(  # greater than this python version
                     RunCommandsTask(
                         f"Skip Model {model_name} Scorecard",
-                        f'echo "Skipping Scorecard For Model {model_name} -- skip_scorecard is set in code gen"',
+                        f'echo "Skipping Scorecard For Model {model_name} -- skip_scorecard is set in scorecard config"',
                     )
                 )
             else:
@@ -272,6 +372,8 @@ class PyTestModelTask(CompositeTask):
                     test_flags.append("unmarked")
                 if run_pre_quantize_compile:
                     test_flags.append("pre_quantize_compile")
+                if run_link:
+                    test_flags.append("link")
                 if run_compile:
                     test_flags.append("compile")
                 if run_profile:
@@ -286,6 +388,8 @@ class PyTestModelTask(CompositeTask):
                     test_flags.append("compute_device_accuracy")
                 if run_export:
                     test_flags.append("export")
+                if run_llm_export:
+                    test_flags.append("llm_export")
                 if test_flags:
                     extras_args += ["-m", f'"{" or ".join(test_flags)}"']
 
@@ -294,22 +398,33 @@ class PyTestModelTask(CompositeTask):
                         env = os.environ.copy()
                         if not use_shared_cache:
                             env[STORE_ROOT_ENV_VAR] = tmpdir
+                        # Cut down compile time for LLMs for PR runs
+                        if run_general and (run_compile or run_link):
+                            env[COMPILE_SINGLE_INSTANTIATION_ENV_VAR] = "1"
 
-                        # Standard Test Suite
+                        # Standard Test Suite. Hand-written test.py lives at
+                        # models/<id>/; generated test_generated.py lives at
+                        # scorecard/models/<id>/. Collect both in a single
+                        # pytest invocation to avoid duplicated import cost
+                        # and JUnit report collisions.
                         model_dir = os.path.join(PY_PACKAGE_MODELS_ROOT, model_name)
-                        model_test = os.path.join(model_dir, "test.py")
-                        generated_model_test = os.path.join(
-                            model_dir, "test_generated.py"
+                        scorecard_model_dir = os.path.join(
+                            SCORECARD_PACKAGE_MODELS_ROOT, model_name
                         )
-
-                        if os.path.exists(model_test) or os.path.exists(
-                            generated_model_test
+                        test_dirs = []
+                        if os.path.exists(os.path.join(model_dir, "test.py")):
+                            test_dirs.append(model_dir)
+                        if os.path.exists(
+                            os.path.join(scorecard_model_dir, "test_generated.py")
                         ):
+                            test_dirs.append(scorecard_model_dir)
+
+                        if test_dirs:
                             tasks.append(
                                 PyTestTask(
                                     group_name=f"Model Tests: {model_name}",
                                     venv=model_venv,
-                                    files_or_dirs=model_dir,
+                                    files_or_dirs=" ".join(test_dirs),
                                     parallel=False,
                                     extra_args=" ".join([*extras_args, "--no-header"]),
                                     env=env,
@@ -317,6 +432,7 @@ class PyTestModelTask(CompositeTask):
                                     ignore_no_tests_return_code=True,
                                     include_pytest_cmd_in_status_message=False,
                                     junit_xml_path=junit_xml_path,
+                                    prereqs=[setup_task] if setup_task else None,
                                 )
                             )
 
@@ -328,9 +444,14 @@ class PyTestModelTask(CompositeTask):
                             # MyPy errors on "unused #type: ignore" from unrelated model code, if run in a non-global environment.
                             # Therefore we run mypy only on the specific model folder for specific model environments.
                             [
-                                f'mypy --warn-unused-configs --config-file="{REPO_ROOT}/pyproject.toml" --package qai_hub_models.models.{model_name}'
+                                f'cd "{PY_PACKAGE_INSTALL_ROOT}" && mypy --warn-unused-configs --config-file="{PY_PACKAGE_INSTALL_ROOT}/pyproject.toml" --package qai_hub_models.models.{model_name}'
                             ],
+                            junit_xml_path=junit_xml_path,
+                            junit_testsuite="pytest",
+                            junit_name="mypy",
+                            junit_classname=f"qai_hub_models.models.{model_name}",
                             raise_on_failure=False,
+                            prereqs=[setup_task] if setup_task else None,
                         )
                     )
 
@@ -368,34 +489,28 @@ class PyTestModelsTask(CompositeTask):
         run_mypy: bool = False,  # Only run mypy for model folders that don't use global requirements. Global reqs are covered by the precommit.
         run_general: bool = True,
         run_export_pre_quantize_compile: bool = False,
+        run_export_link: bool = False,
         run_export_quantize: bool = False,
         run_export_compile: bool = True,
         run_export_profile: bool = False,
         run_export_inference: bool = False,
         run_compute_device_accuracy: bool = False,
         run_full_export: bool = False,
+        run_llm_export: bool = False,
         exit_after_single_model_failure: bool = False,
         raise_on_failure: bool = True,
         qaihm_wheel_dir: str | os.PathLike | None = None,
-        junit_xml_path: str | None = None,
+        cli_wheel_dir: str | os.PathLike | None = None,
+        junit_xml_path: str | None = os.environ.get("QAIHM_JUNIT_XML_PATH"),
     ) -> None:
         self.exit_after_single_model_failure = exit_after_single_model_failure
-
-        # Get base JUnit XML path from environment variable if not provided
-        base_junit_xml_path = None
-        if junit_xml_path is None:
-            base_junit_xml_path = os.environ.get("QAIHM_MODELS_JUNIT_XML_PATH")
 
         if len(models_for_testing) == 0 and len(models_to_test_export) == 0:
             super().__init__("All Per-Model Tests (Skipped)", [])
             return
         tasks = []
 
-        # Whether or not export tests will be run asynchronously
-        # (submit all jobs for all models at once, rather than one model at a time).
-        test_hub_async: bool = bool(os.environ.get("QAIHM_TEST_HUB_ASYNC", "0"))
-
-        if test_hub_async and not on_ci():
+        if not on_ci():
             for run_test, job_type in [
                 (run_export_quantize, "quantize"),
                 (run_export_compile, "compile"),
@@ -418,13 +533,16 @@ class PyTestModelsTask(CompositeTask):
                     )
 
         has_venv = base_test_venv is not None
-        if not has_venv and (not venv_for_each_model or test_hub_async):
+        if not has_venv:
             # Create Venv
             base_test_venv = os.path.join(BUILD_ROOT, "test", "base_venv")
             tasks.append(CreateVenvTask(base_test_venv, python_executable))
             tasks.append(
                 SyncLocalQAIHMVenvTask(
-                    base_test_venv, ["dev"], qaihm_wheel_dir=qaihm_wheel_dir
+                    base_test_venv,
+                    ["dev"],
+                    qaihm_wheel_dir=qaihm_wheel_dir,
+                    cli_wheel_dir=cli_wheel_dir,
                 )
             )
 
@@ -432,7 +550,7 @@ class PyTestModelsTask(CompositeTask):
         global_models = set()
         if not venv_for_each_model:
             for model_name in models_for_testing:
-                if not check_code_gen_field(
+                if not check_scorecard_config_field(
                     model_name, "global_requirements_incompatible"
                 ):
                     global_models.add(model_name)
@@ -445,13 +563,19 @@ class PyTestModelsTask(CompositeTask):
         export_models = models_to_test_export
         hub_quantized_models = []
         nonhub_quantized_models = []
+        aot_models = []
         for model in models_for_testing:
             if get_is_hub_quantized(model) and model in export_models:
                 hub_quantized_models.append(model)
             else:
                 nonhub_quantized_models.append(model)
+            if get_requires_aot_prepare(model) and model in export_models:
+                aot_models.append(model)
 
-        if run_export_quantize:
+        if run_export_link:
+            # Only run AOT models when running link tests
+            models_to_run = aot_models
+        elif run_export_quantize:
             models_to_run = hub_quantized_models
         else:
             # Run hub quantized models last to give quantize job time to complete
@@ -461,11 +585,10 @@ class PyTestModelsTask(CompositeTask):
             is_global_model = model_name in global_models
 
             # Create a model-specific JUnit XML path if base path is provided
-            model_junit_xml_path = junit_xml_path
-            if base_junit_xml_path and not model_junit_xml_path:
-                base_dir = os.path.dirname(base_junit_xml_path)
-                base_filename = os.path.basename(base_junit_xml_path)
-
+            model_junit_xml_path = None
+            if junit_xml_path:
+                base_dir = os.path.dirname(junit_xml_path)
+                base_filename = os.path.basename(junit_xml_path)
                 filename_parts = os.path.splitext(base_filename)
                 model_filename = f"{filename_parts[0]}-{model_name}{filename_parts[1]}"
                 model_junit_xml_path = os.path.join(base_dir, model_filename)
@@ -482,6 +605,7 @@ class PyTestModelsTask(CompositeTask):
                     run_general=run_general,
                     run_pre_quantize_compile=run_export_pre_quantize_compile
                     and model_name in export_models,
+                    run_link=run_export_link and model_name in aot_models,
                     run_quantize=run_export_quantize and model_name in export_models,
                     run_compile=run_export_compile and model_name in export_models,
                     run_profile=run_export_profile and model_name in export_models,
@@ -489,14 +613,16 @@ class PyTestModelsTask(CompositeTask):
                     run_compute_device_accuracy=run_compute_device_accuracy
                     and model_name in export_models,
                     run_export=run_full_export and model_name in export_models,
+                    run_llm_export=run_llm_export and model_name in export_models,
                     # Do not raise on failure; let PyTestModelsTask::run_tasks handle this
                     raise_on_failure=False,
                     qaihm_wheel_dir=qaihm_wheel_dir,
+                    cli_wheel_dir=cli_wheel_dir,
                     junit_xml_path=model_junit_xml_path,
                 )
             )
 
-        if test_hub_async and run_export_compile and not has_venv:
+        if run_export_compile and not has_venv:
             # Cleanup venv
             tasks.append(RunCommandsTask(base_test_venv, f"rm -rf {base_test_venv}"))
 
@@ -534,6 +660,8 @@ class GenerateTestSummaryTask(RunCommandsTask):
         self,
         input_dir: str,
         output_dir: str,
+        title: str = "Test",
+        name: str = "Combined",
     ) -> None:
         """
         Initialize the task.
@@ -543,26 +671,216 @@ class GenerateTestSummaryTask(RunCommandsTask):
         input_dir
             Directory containing JUnit XML files (searched recursively).
         output_dir
-            Output directory for combined.xml and summary.md.
+            Output directory for combined-junit.xml and summary.md.
+        title
+            Title for the summary.
+        name
+            Name for the test section.
         """
+        combined_xml = f"{output_dir}/combined-junit.xml"
+        summary_md = f"{output_dir}/summary.md"
         super().__init__(
             group_name="Generate Test Failure Summary",
             commands=[
-                f'python3 scripts/generate_test_summary.py --input="{input_dir}" --output="{output_dir}"'
+                f'python scripts/combine_junit_xml.py --junit-xml="{input_dir}" --output="{combined_xml}"',
+                f'python -m qai_hub_models.scripts.generate_test_summary --title="{title}" --name="{name}" --junit-xml="{combined_xml}" --output="{summary_md}"',
             ],
         )
 
 
-class LlamaCppBenchmarkTask(RunCommandsWithVenvTask):
-    """Task to run Llama.CPP benchmarks on QDC devices.
+class CollectLLMPerfTask(CompositeTask):
+    """Task to collect LLM performance numbers (TPS/TTFT) via pytest.
 
-    This task runs the benchmark script in a venv with QAIHM installed.
+    Runs a single pytest invocation against the shared
+    src/qai_hub_models/scorecard/test/test_llm_perf.py, which parametrizes
+    over every LLM in the repo. All models share the caller-provided venv
+    (no per-model venv churn) — the shared test file only imports shared
+    infrastructure, not any model's source-repo pins, so the qaihm-build
+    venv is enough.
+
+    Configuration is passed via environment variables:
+    - QAIHM_LLM_MODELS: Comma-separated model IDs, or "all"
+    - QAIHM_TEST_DEVICES: Comma-separated device names
+    - QAIRT_SDK_PATH: Path to QAIRT SDK zip
+    - QDC_API_TOKEN: QDC API token (used for all devices except cs_8_elite_qrd)
+    - QDC_PRIVATE_API_KEY: QDC API token for cs_8_elite_qrd (private pool)
+    Pre-compiled genie bundles are fetched from each model's
+    release-assets.yaml.
+    """
+
+    def __init__(
+        self,
+        venv: str | None,
+        raise_on_failure: bool = False,
+    ) -> None:
+        home_dir = os.path.expanduser("~")
+        tmp_dir = os.environ.get("TMPDIR") or os.path.join(home_dir, "tmp")
+
+        junit_xml_path = os.environ.get("QAIHM_JUNIT_XML_PATH")
+        if junit_xml_path:
+            base_dir = os.path.dirname(junit_xml_path)
+            filename_parts = os.path.splitext(os.path.basename(junit_xml_path))
+            junit_xml_path = os.path.join(
+                base_dir, f"{filename_parts[0]}-llm_perf{filename_parts[1]}"
+            )
+
+        qdc_wheel_glob = os.path.join(REPO_ROOT, "qualcomm_device_cloud_sdk-*.whl")
+        shared_test_path = os.path.join(
+            PY_PACKAGE_SRC_ROOT,
+            "scorecard",
+            "test",
+            "test_llm_perf.py",
+        )
+
+        # Re-assume the workflow's OIDC role so a stale 12h AWS session doesn't
+        # take down the run mid-pytest (#3647). No-op when AWS_ROLE_ARN is unset
+        # (local dev). Each matrix leg fans out into one pytest invocation that
+        # finishes well inside the 12h cap, so one refresh up front is enough.
+        refresh_aws_creds_script = os.path.join(
+            REPO_ROOT, "scripts", "ci", "refresh_aws_creds.sh"
+        )
+        tasks: list[Task] = []
+        if os.environ.get("AWS_ROLE_ARN"):
+            tasks.append(
+                RunCommandsTask(
+                    "Refresh AWS Credentials",
+                    f"bash '{refresh_aws_creds_script}'",
+                    raise_on_failure=True,
+                    retries=2,
+                )
+            )
+        tasks.extend(
+            [
+                RunCommandsWithVenvTask(
+                    group_name="Install QDC SDK",
+                    venv=venv,
+                    commands=[f"pip install $(ls {qdc_wheel_glob})"],
+                    raise_on_failure=False,
+                    ignore_return_codes=[5],
+                    retries=2,
+                ),
+                RunCommandsWithVenvTask(
+                    group_name="Clear LLM caches",
+                    venv=venv,
+                    commands=[
+                        f"mkdir -p {tmp_dir}"
+                        f" && rm -rf {home_dir}/.cache/huggingface/hub/models--*"
+                        f" {home_dir}/.qaihm/models/* {tmp_dir}/*"
+                    ],
+                    raise_on_failure=False,
+                ),
+                PyTestTask(
+                    group_name="Run LLM Perf Tests (all models)",
+                    venv=venv,
+                    files_or_dirs=shared_test_path,
+                    extra_args="-s -m 'llm_perf'",
+                    junit_xml_path=junit_xml_path,
+                    raise_on_failure=False,
+                    ignore_no_tests_return_code=True,
+                ),
+            ]
+        )
+
+        super().__init__(
+            "Collect LLM Performance Numbers",
+            tasks,
+            continue_after_single_task_failure=True,
+            raise_on_failure=raise_on_failure,
+        )
+
+
+class GradeLLMResponsesTask(CompositeTask):
+    """Grade on-device LLM eval responses with a HuggingFace grader model.
+
+    Discovers ``*_eval.json`` files (written by the llm_perf eval tests) under
+    ``search_dir`` and grades each one into a sibling ``*_grade.json`` via
+    ``qai_hub_models.scripts.llm.grade_responses``. The grader needs
+    ``transformers>=5.2``, which conflicts with the LLM source-repo pins in the
+    main qaihm-build venv, so callers should pass a dedicated grader ``--venv``.
+    """
+
+    def __init__(
+        self,
+        venv: str | None,
+        search_dir: str | None = None,
+        raise_on_failure: bool = False,
+    ) -> None:
+        search_dir = search_dir or os.getcwd()
+        eval_jsons = sorted(glob.glob(os.path.join(search_dir, "*_eval.json")))
+
+        tasks: list[Task] = []
+        if not eval_jsons:
+            tasks.append(
+                RunCommandsTask(
+                    "Grade LLM Responses",
+                    f'echo "No *_eval.json files found in {search_dir}; nothing to grade."',
+                )
+            )
+        for eval_json in eval_jsons:
+            base = os.path.splitext(os.path.basename(eval_json))[0]
+            out_json = os.path.join(search_dir, f"{base}_grade.json")
+            tasks.append(
+                RunCommandsWithVenvTask(
+                    group_name=f"Grade {os.path.basename(eval_json)}",
+                    venv=venv,
+                    commands=[
+                        f'python -m qai_hub_models.scripts.llm.grade_responses "{eval_json}" --output-json "{out_json}"',
+                    ],
+                    raise_on_failure=False,
+                )
+            )
+
+        super().__init__(
+            "Grade LLM Responses",
+            tasks,
+            continue_after_single_task_failure=True,
+            raise_on_failure=raise_on_failure,
+        )
+
+
+class CollectLLMAccuracyCSVTask(CompositeTask):
+    """Build a scorecard-format ``accuracy.csv`` from on-device LLM grading output.
+
+    Reads ``*_eval_grade.json`` files (written by GradeLLMResponsesTask) and
+    their ``*_eval.meta.json`` identity sidecars under ``search_dir`` and emits
+    one accuracy row per run via
+    ``qai_hub_models.scripts.llm.collect_llm_accuracy_csv``. Runs in the main
+    qaihm venv (it needs the scorecard package, not the grader venv).
+    """
+
+    def __init__(
+        self,
+        venv: str | None,
+        search_dir: str | None = None,
+        raise_on_failure: bool = False,
+    ) -> None:
+        search_dir = search_dir or os.getcwd()
+        super().__init__(
+            "Collect LLM Accuracy CSV",
+            [
+                RunCommandsWithVenvTask(
+                    group_name="Collect LLM Accuracy CSV",
+                    venv=venv,
+                    commands=[
+                        "python -m qai_hub_models.scripts.llm.collect_llm_accuracy_csv "
+                        f'"{search_dir}"',
+                    ],
+                    raise_on_failure=False,
+                )
+            ],
+            continue_after_single_task_failure=True,
+            raise_on_failure=raise_on_failure,
+        )
+
+
+class GenieXBenchTask(RunCommandsWithVenvTask):
+    """Run geniex-bench benchmarks on QDC devices.
+
     Configuration is passed via environment variables:
     - QAIHM_MODELS: Comma-separated list of models or 'all'
-    - QAIHM_TEST_DEVICES: Comma-separated list of devices
-    - QDC_API_KEY: API token for QDC authentication
-    - LLAMA_CPP_PATH: Path to Llama.CPP build directory
-    - LLAMA_CPP_RESULTS_DIR: Directory to save perf.yaml files
+    - QAIHM_TEST_DEVICES: Comma-separated cs_* names or hub device names
+    - GENIEX_BENCH_PLUGIN: qairt | llama_cpp | all (default)
+    - QDC_API_TOKEN: API token for QDC authentication
     """
 
     def __init__(
@@ -573,20 +891,18 @@ class LlamaCppBenchmarkTask(RunCommandsWithVenvTask):
         ignore_return_codes: list[int] | None = None,
     ) -> None:
         models = os.environ.get("QAIHM_MODELS", "all")
-        devices = os.environ.get("QAIHM_TEST_DEVICES", "Snapdragon 8 Elite Gen 5 QRD")
-        llama_cpp_path = os.environ.get("LLAMA_CPP_PATH", "llama.cpp")
-        results_dir = os.environ.get("LLAMA_CPP_RESULTS_DIR", "llama_cpp_results")
+        devices = os.environ.get("QAIHM_TEST_DEVICES", "cs_x2_elite,cs_x_elite")
+        plugin = os.environ.get("GENIEX_BENCH_PLUGIN", "all")
 
         command = (
-            f"python -m qai_hub_models.scripts.run_llama_cpp_benchmarks"
+            f"python -m qai_hub_models.scripts.run_geniex_bench_benchmarks"
             f' --models "{models}"'
             f' --devices "{devices}"'
-            f' --llama-cpp-path "{llama_cpp_path}"'
-            f' --results-dir "{results_dir}"'
+            f' --plugin "{plugin}"'
         )
 
         super().__init__(
-            "Llama.CPP Benchmarks",
+            "geniex-bench Benchmarks",
             venv,
             [command],
             env,

@@ -1,0 +1,373 @@
+name: Test Models
+
+on:
+  workflow_call:
+    inputs:
+      deployment:
+        default: prod
+        type: string
+
+      test_devices:
+        default: all
+        type: string
+
+      test_runtimes:
+        default: default
+        type: string
+
+      test_precisions:
+        default: default
+        type: string
+
+      qairt_version:
+        type: string
+        default: qaihm_default
+
+      models:
+        type: string
+        default: all
+
+      test_scope:
+        # Options: unit, unit_and_compile, compile_only, perf, accuracy, perf_and_accuracy
+        description: Test Scope
+        type: string
+        default: perf
+
+      ignore_job_cache:
+        default: true
+        type: boolean
+
+      ignore_known_failures:
+        description: Ignore known failures (do not fail tests for models with known issues)
+        default: true
+        type: boolean
+
+      split_name:
+        description: Scorecard may be split into sub-actions, so multiple models can run in parallel. This is the name of the split.
+        required: false
+        type: string
+        default: ''
+
+      sync_assets_branch:
+        description: Branch containing synced static asset configs
+        type: string
+        default: ''
+
+      python_version:
+        description: Python version for artifact naming
+        type: string
+        default: '3.10'
+
+      disable_override_workbench_job_timeout:
+        description: Disable shorter workbench job timeout used for QAIHM PRs.
+        default: false
+        type: boolean
+
+      runs_on:
+        description: JSON array of runner tags (e.g. '["tetra-ubuntu-2204", "self-hosted"]')
+        type: string
+
+      is_gpu_node:
+        description: Whether the job is targeting a -gpulv self-hosted GPU node (vs. a kube ephemeral pod or tetra CPU runner).
+        type: boolean
+        default: false
+
+
+env:
+  # Versions MUST be quoted, otherwise they will be interpreted as a floats
+  # (and version like 3.10 can be interpreted as 3.1).
+  PYTHON_VERSION: ${{ inputs.python_version }}
+  PYTHONUNBUFFERED: 1
+  QAIHM_CI: 1
+  VENV_PATH: build/ci-envs/qaihm-build
+  CMAKE_ARGS: -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  exec_scorecard:
+    runs-on: ${{ inputs.runs_on && inputs.runs_on != 'null' && fromJson(inputs.runs_on) || fromJson('["tetra-ubuntu-2204", "self-hosted"]') }}
+    # On -gpulv nodes, containerize to match run_gpu_tests so writes don't
+    # leave host-side files the next job can't unlink.
+    container: ${{ inputs.is_gpu_node && fromJson('{"image":"docker-registry.qualcomm.com/library/nvidia/cuda:12.6.3-cudnn-devel-ubuntu22.04","options":"--gpus all -v /local:/local"}') || null }}
+    timeout-minutes: 960 # 16 hours - job submission and CPU accuracy
+    env:
+      QAIHM_TEST_IGNORE_KNOWN_FAILURES: ${{ inputs.ignore_known_failures && '1' || '0' }}
+      QAIHM_TEST_DEPLOYMENT: ${{ inputs.deployment }}
+      QAIHM_TEST_ARTIFACTS_DIR: build/scorecard-yamls/${{ github.run_id }}
+      QAIHM_TEST_DISABLE_WORKBENCH_JOB_TIMEOUT: ${{ inputs.disable_override_workbench_job_timeout && '1' || '0' }}
+      QAIHM_TEST_DEVICES: ${{ inputs.test_devices }}
+      QAIHM_TEST_PATHS: ${{ inputs.test_runtimes }}
+      QAIHM_TEST_MODELS: ${{ inputs.models }}
+      QAIHM_TEST_PRECISIONS: ${{ inputs.test_precisions }}
+      QAIHM_TEST_QAIRT_VERSION: ${{ inputs.qairt_version }}
+      QAIHM_TEST_IGNORE_DEVICE_JOB_CACHE: ${{ inputs.ignore_job_cache }}
+      HUGGING_FACE_HUB_TOKEN: ${{ secrets.HUGGINGFACE_TOKEN }}
+      COMPILE_JOBS_URL: NONE
+
+    name: Submit Scorecard Jobs${{ inputs.split_name != '' && format(' ({0})', inputs.split_name) || '' }}
+    permissions:
+      contents: read
+      id-token: write
+      packages: read
+
+    steps:
+      - name: Setup container environment (Kube/GPU node only)
+        if: ${{ !contains(runner.name, 'tetra') }}
+        run: |
+          # GPU node container: create qaihm_bot user, pin to GPU 7, and
+          # persist HOME/TMPDIR on /local to match run_gpu_tests on the
+          # same -gpulv node.
+          # Kube pod: hide any GPUs we might accidentally see (we requested 0 GPUs).
+          if [ "${{ inputs.is_gpu_node }}" = "true" ]; then
+            groupadd -g 200 qaihm_bot_group || true
+            useradd -m -u 4552456 -g 200 -d /home/qaihm_bot -s /bin/bash qaihm_bot || true
+            echo "CUDA_VISIBLE_DEVICES=7" >> $GITHUB_ENV
+            echo "HOME=/local/mnt2/workspace2/qaihm_bot" >> $GITHUB_ENV
+            echo "TMPDIR=/local/mnt2/workspace2/qaihm_bot/tmp" >> $GITHUB_ENV
+            mkdir -p /local/mnt2/workspace2/qaihm_bot/tmp
+            chown 4552456:200 /local/mnt2/workspace2/qaihm_bot/tmp
+          else
+            echo "CUDA_VISIBLE_DEVICES=" >> $GITHUB_ENV
+          fi
+
+      - name: Install git (Kube/container only)
+        if: ${{ !contains(runner.name, 'tetra') }}
+        run: |
+          if ! command -v git &>/dev/null; then
+            if [ "$(id -u)" -eq 0 ]; then
+              apt-get update -qq
+              apt-get install -y -qq git
+            else
+              sudo apt-get update -qq
+              sudo apt-get install -y -qq git
+            fi
+          fi
+
+      - uses: actions/checkout@v7
+
+      - name: Mark workspace as a safe git directory
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Install system dependencies (Kube/container only)
+        if: ${{ !contains(runner.name, 'tetra') }}
+        run: bash src/qai_hub_models/scripts/kube/setup_pod.sh
+
+      - name: Check Out Updated Static Asset Configs
+        if: ${{ inputs.sync_assets_branch != '' }}
+        run: |
+          git fetch origin ${{ inputs.sync_assets_branch }}
+          git checkout origin/${{ inputs.sync_assets_branch }} -- src/qai_hub_models/scorecard/static/models
+
+      - name: CI Setup
+        id: ci_setup
+        uses: ./.github/actions/ci-setup
+        with:
+          sudo-password: ${{ contains(inputs.runs_on, 'self-hosted') && secrets.TETRASERVICE_PASSWORD || '' }}
+          python-version: ${{ contains(inputs.runs_on, 'self-hosted') && env.PYTHON_VERSION || 'USE_EXISTING_INSTALL' }}
+          venv-path: ${{ env.VENV_PATH }}
+          aws-role-arn: ${{ secrets.QAIHM_CI_AWS_ROLE_ARN }}
+          hub-deployments: ${{ env.QAIHM_TEST_DEPLOYMENT }},prod
+          hub-user-token-prod: ${{ secrets.HUB_USER_TOKEN_PROD }}
+          hub-user-token-staging: ${{ secrets.HUB_USER_TOKEN_STAGING }}
+          hub-user-token-dev: ${{ secrets.HUB_USER_TOKEN_DEV }}
+          hub-user-token-sandbox: ${{ secrets.HUB_USER_TOKEN_SANDBOX }}
+          hub-private-user-token-prod: ${{ secrets.HUB_PRIVATE_USER_TOKEN_PROD }}
+          hub-private-user-token-staging: ${{ secrets.HUB_PRIVATE_USER_TOKEN_STAGING }}
+          hub-private-user-token-dev: ${{ secrets.HUB_PRIVATE_USER_TOKEN_DEV }}
+
+      - name: Dump Environment Variables to File
+        id: dump_env
+        run: |
+          source "${{env.VENV_PATH}}/bin/activate"
+          # Dumping Envrionment Variables Needed by Scorecard Collection Job
+          ENVIRONMENT_FILE=${{ env.QAIHM_TEST_ARTIFACTS_DIR }}/environment.env
+          mkdir -p "${{ env.QAIHM_TEST_ARTIFACTS_DIR }}"
+          echo "QAIHM_TEST_DEPLOYMENT=${{ env.QAIHM_TEST_DEPLOYMENT }}" >> $ENVIRONMENT_FILE
+          echo "QAIHM_TEST_MODELS=${{ env.QAIHM_TEST_MODELS }}" >> $ENVIRONMENT_FILE
+          echo "QAIHM_TEST_DEVICES=${{ env.QAIHM_TEST_DEVICES }}" >> $ENVIRONMENT_FILE
+          echo "QAIHM_TEST_PATHS=${{ env.QAIHM_TEST_PATHS }}" >> $ENVIRONMENT_FILE
+          echo "QAIHM_TEST_PRECISIONS=${{ env.QAIHM_TEST_PRECISIONS }}" >> $ENVIRONMENT_FILE
+          echo "QAIHM_TEST_QAIRT_VERSION=${{ env.QAIHM_TEST_QAIRT_VERSION }}" >> $ENVIRONMENT_FILE
+          echo "QAIHM_TEST_IGNORE_KNOWN_FAILURES=${{ env.QAIHM_TEST_IGNORE_KNOWN_FAILURES }}" >> $ENVIRONMENT_FILE
+          echo "QAIHM_TEST_IGNORE_DEVICE_JOB_CACHE=${{ inputs.ignore_job_cache }}" >> $ENVIRONMENT_FILE
+          echo "QAIHM_TEST_SCOPE=${{ inputs.test_scope }}" >> $ENVIRONMENT_FILE
+          echo "QAIHM_TEST_DISABLE_WORKBENCH_JOB_TIMEOUT=${{ env.QAIHM_TEST_DISABLE_WORKBENCH_JOB_TIMEOUT }}" >> $ENVIRONMENT_FILE
+
+      - name: Create Test Results Directory
+        run: |
+          mkdir -p ${{ github.workspace }}/build/test-results
+
+      - name: Set JUnit XML Environment Variables
+        run: |
+          echo "QAIHM_JUNIT_XML_PATH=${{ github.workspace }}/build/test-results/qaihm-junit.xml" >> "$GITHUB_ENV"
+
+      - name: Verify Job Count
+        if: ${{ inputs.test_scope != 'compile_only' && inputs.test_scope != 'unit' && inputs.test_scope != 'unit_and_compile' }}
+        run: |
+          source "${{env.VENV_PATH}}/bin/activate"
+          if [[ "${{ github.event_name }}" != "schedule" ]]; then
+            python -m qai_hub_models.scripts.count_device_jobs --assert-valid-daytime-scorecard
+          else
+            python -m qai_hub_models.scripts.count_device_jobs
+          fi
+
+      - name: Dump QAIRT Versions to Disk
+        id: dump_qairt
+        run: |
+          source "${{env.VENV_PATH}}/bin/activate"
+          python -m qai_hub_models.scripts.dump_scorecard_tool_versions
+
+      - name: Run Unit Tests (Pytorch Recipes)
+        id: run-unit-tests
+        if: ${{ !cancelled() && inputs.test_scope == 'unit' }}
+        env:
+          QAIHM_JUNIT_XML_PATH: ${{ github.workspace }}/build/test-results/models-junit.xml
+        run: |
+          python3 scripts/build_and_test.py \
+            --venv="${{ env.VENV_PATH }}" \
+            --python="${{ steps.ci_setup.outputs.python-path }}" \
+            test_unit_all_models
+
+      - name: Run Compile Jobs (Static Models)
+        id: run-compile-jobs-static
+        if: ${{ !cancelled() && inputs.test_scope != 'unit' && inputs.test_scope != 'unit_and_compile' }}
+        run: |
+          source "${{env.VENV_PATH}}/bin/activate"
+          python -m qai_hub_models.scorecard.static.scripts.exec_models --skip-profile --skip-inference
+
+      - name: Run Pre-Quantize ONNX Compile Jobs (Pytorch Recipes)
+        id: run-pre-quantize-compile-jobs
+        if: ${{ !cancelled() && env.QAIHM_TEST_PRECISIONS != 'float' && inputs.test_scope != 'unit' }}
+        env:
+          QAIHM_JUNIT_XML_PATH: ${{ github.workspace }}/build/test-results/pre-quantize-compile-junit.xml
+        run: |
+          python3 scripts/build_and_test.py \
+            --venv="${{ env.VENV_PATH }}" \
+            --python="${{ steps.ci_setup.outputs.python-path }}" \
+            test_pre_quantize_compile_all_models
+
+      - name: Run Quantize Jobs (Pytorch Recipes)
+        id: run-quantize-jobs
+        if: ${{ !cancelled() && env.COMPILE_JOBS_URL == 'NONE' && env.QAIHM_TEST_PRECISIONS != 'float' && inputs.test_scope != 'unit' }}
+        env:
+          QAIHM_JUNIT_XML_PATH: ${{ github.workspace }}/build/test-results/quantize-junit.xml
+        run: |
+          python3 scripts/build_and_test.py \
+            --venv="${{ env.VENV_PATH }}" \
+            --python="${{ steps.ci_setup.outputs.python-path }}" \
+            test_quantize_all_models
+
+      - name: Run Compile Jobs (Pytorch Recipes)
+        id: run-compile-jobs
+        if: ${{ !cancelled() && env.COMPILE_JOBS_URL == 'NONE' && inputs.test_scope != 'unit' }}
+        env:
+          QAIHM_JUNIT_XML_PATH: ${{ github.workspace }}/build/test-results/compile-junit.xml
+        run: |
+          if [[ "${{ inputs.test_scope }}" == "unit_and_compile" ]]; then
+            COMPILE_TASK="test_unit_and_compile_all_models"
+          else
+            COMPILE_TASK="test_compile_all_models"
+          fi
+          python3 scripts/build_and_test.py \
+            --venv="${{ env.VENV_PATH }}" \
+            --python="${{ steps.ci_setup.outputs.python-path }}" \
+            "$COMPILE_TASK"
+
+      - name: Run Link Jobs (Pytorch Recipes)
+        id: run-link-jobs
+        if: ${{ !cancelled() && steps.run-compile-jobs.conclusion != 'skipped' }}
+        env:
+          QAIHM_JUNIT_XML_PATH: ${{ github.workspace }}/build/test-results/link-junit.xml
+        run: |
+          python3 scripts/build_and_test.py \
+            --venv="${{ env.VENV_PATH }}" \
+            --python="${{ steps.ci_setup.outputs.python-path }}" \
+            test_link_all_models
+
+      - name: Run Profile & Inference Jobs (Static Models)
+        id: run-profile-jobs-static
+        if: ${{ !cancelled() && inputs.test_scope != 'unit' && inputs.test_scope != 'unit_and_compile' && inputs.test_scope != 'compile_only' && steps.run-compile-jobs-static.conclusion != 'skipped' }}
+        run: |
+          source "${{env.VENV_PATH}}/bin/activate"
+          if [[ "${{ inputs.test_scope }}" == "perf" ]]; then
+            python -m qai_hub_models.scorecard.static.scripts.exec_models --skip-compile --skip-inference
+          elif [[ "${{ inputs.test_scope }}" == "accuracy" ]]; then
+            python -m qai_hub_models.scorecard.static.scripts.exec_models --skip-compile --skip-profile
+          elif [[ "${{ inputs.test_scope }}" == "perf_and_accuracy" ]]; then
+            python -m qai_hub_models.scorecard.static.scripts.exec_models --skip-compile
+          fi
+
+      - name: Run Profile & Inference Jobs (Pytorch Recipes)
+        id: run-profile-jobs-e2e
+        if: ${{ !cancelled() && inputs.test_scope != 'unit' && inputs.test_scope != 'unit_and_compile' && inputs.test_scope != 'compile_only' && steps.run-compile-jobs.conclusion != 'skipped' && steps.run-link-jobs.conclusion != 'skipped' }}
+        env:
+          QAIHM_JUNIT_XML_PATH: ${{ github.workspace }}/build/test-results/profile-inference-junit.xml
+        run: |
+          source "${{env.VENV_PATH}}/bin/activate"
+          if [[ "${{ inputs.test_scope }}" == "perf" ]]; then
+            QAIHM_TEST_DEVICE_TASK="test_profile_all_models"
+          elif [[ "${{ inputs.test_scope }}" == "accuracy" ]]; then
+            QAIHM_TEST_DEVICE_TASK="test_inference_all_models"
+          elif [[ "${{ inputs.test_scope }}" == "perf_and_accuracy" ]]; then
+            QAIHM_TEST_DEVICE_TASK="test_profile_inference_all_models"
+          fi
+          python3 scripts/build_and_test.py \
+            --venv="${{ env.VENV_PATH }}" \
+            --python="${{ steps.ci_setup.outputs.python-path }}" \
+            "$QAIHM_TEST_DEVICE_TASK"
+
+      - name: Test Model Zip File Creation (Pytorch Recipes)
+        id: run-export-tests
+        if: ${{ !cancelled() && inputs.test_scope == 'unit_and_compile' && steps.run-compile-jobs.conclusion != 'skipped' && steps.run-link-jobs.conclusion != 'skipped' }}
+        env:
+          QAIHM_JUNIT_XML_PATH: ${{ github.workspace }}/build/test-results/export-junit.xml
+        run: |
+          python3 scripts/build_and_test.py \
+            --venv="${{ env.VENV_PATH }}" \
+            --python="${{ steps.ci_setup.outputs.python-path }}" \
+            test_export_scripts
+
+      - name: Combine JUnit XML Files
+        if: ${{ always() }}
+        run: |
+          source "${{ env.VENV_PATH }}/bin/activate"
+          python scripts/combine_junit_xml.py \
+            --junit-xml build/test-results \
+            --output build/combined-test-results/qaihm-model-tests${{ inputs.split_name != '' && format('-{0}', inputs.split_name) || '' }}-junit.xml
+
+      - name: Upload Test Results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ (inputs.test_scope == 'unit' || inputs.test_scope == 'unit_and_compile') && format('test-results-models-py{0}{1}', inputs.python_version, inputs.split_name != '' && format('-{0}', inputs.split_name) || '') || format('test-results-scorecard-models{0}', inputs.split_name != '' && format('-{0}', inputs.split_name) || '') }}
+          path: build/combined-test-results
+          if-no-files-found: ignore
+
+      - name: Clean Up Artifacts
+        if: ${{ always() && steps.dump_env.outcome == 'success' }}
+        id: intermediate-cleanup
+        # These folders contain the actual datasets used in evaluation
+        # so we don't want to upload them since they are multiple GBs.
+        run: |
+          rm -rf ${{ env.QAIHM_TEST_ARTIFACTS_DIR }}/hub_datasets
+          rm -rf ${{ env.QAIHM_TEST_ARTIFACTS_DIR }}/hub_datasets_nt
+
+      - name: Upload Scorecard Cached Artifacts
+        # Always run this step, even if the job is cancelled.
+        # That way we can kill scorecards early and still get access to intermediate artifacts.
+        if: ${{ always() && steps.dump_env.outcome == 'success' && inputs.test_scope != 'unit' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.test_scope == 'unit_and_compile' && format('Test Cached Artifact (Flaky-Job-IDs, {0}, py{1}{2})', github.run_id, inputs.python_version, inputs.split_name != '' && format(', {0}', inputs.split_name) || '') || format('Scorecard Cached Artifact (Flaky-Job-IDs, {0}{1})', github.run_id, inputs.split_name != '' && format(', {0}', inputs.split_name) || '') }}
+          path: ${{ env.QAIHM_TEST_ARTIFACTS_DIR }}
+
+      - name: Restore workspace ownership (GPU node only)
+        # The container ran as root; hand the workspace back to the
+        # unprivileged runner user so the next host-side job can unlink files.
+        if: ${{ always() && inputs.is_gpu_node }}
+        run: |
+          chown -R 4552456:200 "$GITHUB_WORKSPACE" || true

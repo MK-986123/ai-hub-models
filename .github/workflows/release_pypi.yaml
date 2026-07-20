@@ -1,0 +1,93 @@
+name: Release - PyPI
+run-name: Release - ${{ inputs.target == 'prod' && 'PyPI' || 'test PyPI' }} (${{ inputs.packages || 'all' }})
+
+on:
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+      inputs:
+          target:
+              required: true
+              type: choice
+              default: staging
+              description: Release Target
+              options:
+              - staging
+              - prod
+          packages:
+              required: false
+              type: choice
+              default: all
+              description: Which packages to publish
+              options:
+              - all
+              - cli
+              - models
+  workflow_call:
+      inputs:
+          target:
+              required: true
+              type: string
+          packages:
+              required: false
+              type: string
+              default: all
+          skip_approval:
+            required: false
+            type: boolean
+            default: false
+
+env:
+  QAIHM_CI: 1
+
+jobs:
+  approve:
+    if: ${{ !inputs.skip_approval && inputs.target == 'prod' }}
+    name: Approve Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: release
+    steps:
+      - run: echo "Release approved"
+
+  release_pypi:
+      name: Release to ${{ inputs.target == 'prod' && 'PyPI' || 'test PyPI' }}
+      needs: [approve]
+      if: ${{ !cancelled() && (needs.approve.result == 'success' || needs.approve.result == 'skipped') }}
+      runs-on: [tetra-ubuntu-2204, self-hosted]
+
+      steps:
+      - name: Verify running on a tag
+        run: |
+          if [[ "${{ github.ref }}" != refs/tags/* ]]; then
+            echo "Error: This workflow must be run from a tag, got ${{ github.ref }}"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
+
+      - name: CI Setup
+        uses: ./.github/actions/ci-setup
+        with:
+          sudo-password: ${{ secrets.TETRASERVICE_PASSWORD }}
+
+      - name: Build wheels
+        run: |
+          python3 scripts/build_and_test.py build_release_wheel
+
+      - name: Upload to PyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ inputs.target == 'prod' && secrets.PYPI_TOKEN || secrets.TEST_PYPI_TOKEN }}
+          TWINE_REPOSITORY_URL: ${{ inputs.target == 'prod' && 'https://upload.pypi.org/legacy/' || 'https://test.pypi.org/legacy/' }}
+          PACKAGES: ${{ inputs.packages || 'all' }}
+        run: |
+          source build/release_venv/bin/activate
+          pip install twine
+          WHEELS=""
+          if [[ "$PACKAGES" == "all" || "$PACKAGES" == "models" ]]; then
+            WHEELS="$WHEELS src/build/release/wheel/*.whl"
+          fi
+          if [[ "$PACKAGES" == "all" || "$PACKAGES" == "cli" ]]; then
+            WHEELS="$WHEELS cli/build/wheel/*.whl"
+          fi
+          twine upload --verbose $WHEELS

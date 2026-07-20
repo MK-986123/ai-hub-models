@@ -14,18 +14,34 @@ set_strict_mode
 
 cd "$(dirname "$0")/../.."
 
-# Uncomment "echo"s below to debug
-
-venv="${VENV_PATH:-qaihm-dev}"
-# echo "Activating venv in ${venv}"
+venv="${VENV_PATH:-${VIRTUAL_ENV:-qaihm-dev}}"
 source "${venv}/bin/activate"
 
-if [[ "$#" -eq 0 || "$#" -gt 100 ]]; then
-  # If the changed file list is empty or especially large, just check the whole package.
-  mypy_files=("-p" "qai_hub_models")
+# First argument is the package directory (src or cli).
+pkg_dir="$1"
+shift
+
+if [[ "$pkg_dir" == "src" ]]; then
+  package="qai_hub_models"
+elif [[ "$pkg_dir" == "cli" ]]; then
+  package="qai_hub_models_cli"
 else
-  mypy_files=("$@")
+  echo "Usage: run_mypy.sh <src|cli> [files...]" >&2
+  exit 1
 fi
 
-# echo "Checking ${mypy_files[*]}"
-mypy --warn-unused-configs --config-file="${REPO_ROOT}/pyproject.toml" "${mypy_files[@]}"
+cd "${REPO_ROOT}/${pkg_dir}"
+
+if [[ "$#" -eq 0 || "$#" -gt 100 ]]; then
+  mypy --warn-unused-configs --config-file="${REPO_ROOT}/${pkg_dir}/pyproject.toml" -p "${package}"
+else
+  # Strip the package prefix (src/ or cli/) since we cd into that directory.
+  # Also filter out generated protobuf files (which enforces use of .pyi type stubs)
+  files=()
+  for f in "$@"; do
+    f="${f#${pkg_dir}/}"
+    [[ "$f" == *_pb2.py ]] && continue
+    files+=("$f")
+  done
+  mypy --warn-unused-configs --config-file="${REPO_ROOT}/${pkg_dir}/pyproject.toml" "${files[@]}"
+fi
